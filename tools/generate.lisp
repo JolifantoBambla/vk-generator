@@ -310,7 +310,7 @@
         (setf (second enum-type)
               (nreverse (second enum-type))))
       (when type
-        (setf (getf (cddr enum-type) :type) type))
+        (setf (getf (cddr enum-type) :type) (make-keyword type)))
       (when expand
         (setf (getf (cddr enum-type) :expand) expand))
       (when namespace
@@ -385,7 +385,7 @@
           for fixed-name = (string (fix-type-name name))
           do (format out "(defbitfield (~(~a ~a~))" fixed-name
                      (fix-type-name base-type))
-             ;; possibly should strip prefix from things like
+             ;; possibly shouldn't strip prefix from things like
              ;; VK_QUERY_RESULT_64_BIT or VK_SAMPLE_COUNT_1_BIT where
              ;; only :64 or :1 is left?
              (let ((p (search "-FLAG" fixed-name)))
@@ -403,7 +403,54 @@
                    when comment
                      do (format out " ;; ~a" comment))
              (format out "~:[)~;~]~%~%" (second bits)))
+    (setf *foo* types)
     ;; todo: enums
+
+    (loop for (name . attribs) in (sort (remove-if-not
+                                         (lambda (x)
+                                           (and (consp (cdr x))
+                                                (eql (second x) :enum)))
+                                         (alexandria:hash-table-alist types))
+                                        'string< :key 'car)
+          for type = (getf (cddr attribs) :type)
+          for expand = (getf (cddr attribs) :expand)
+          for bits =  (second attribs)
+          for prefix = "VK_"
+          for fixed-name = (string (fix-type-name name))
+          unless (or (eq type :bitmask)
+                     (and (not bits)
+                          (alexandria:ends-with-subseq "Bits" name)))
+          do
+             (format out "(defcenum (~(~a~))" fixed-name)
+             (when bits
+               ;; find longest prefix out of VK_, name - vendor, and expand
+               (when expand
+                 (let ((l (loop for (k) in bits
+                                minimize (or (mismatch expand k) 0))))
+                   (when (> l (length prefix))
+                     (setf prefix expand)))
+                 (let* ((p (loop for v in *vendor-ids*
+                                   thereis (search v fixed-name)))
+                        (n (format nil "VK_~a"
+                                        (substitute #\_ #\-
+                                                    (if p
+                                                        (subseq fixed-name 0 p)
+                                                        fixed-name))))
+                        (l (loop for (k) in bits
+                                 minimize (or (mismatch n k) 0))))
+                   (when (> l (length prefix))
+                     (setf prefix expand)))))
+             (loop for ((k . v) . more) on bits
+                   for comment = (getf (cdr v) :comment)
+                   do (format out "~%  (:~(~a~) ~:[#x~x~;~d~])"
+                              (string-trim '(#\-) (fix-bit-name k :prefix prefix))
+                              (minusp (first v)) (first v))
+                   unless more
+                     do (format out ")")
+                   when comment
+                     do (format out " ;; ~a" comment))
+             (format out "~:[)~;~]~%~%" bits))
+
     ;; todo: structs
     )
 
