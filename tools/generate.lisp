@@ -50,17 +50,25 @@
 (defparameter *foo* nil)
 
 (defparameter *vk-platform*
-  (alexandria:plist-hash-table '("void" ":void"
-                                 "char" ":char"
-                                 "float" ":float"
-                                 "uint8_t" ":uint8"
-                                 "uint32_t" ":uint32"
-                                 "uint64_t" ":uint64"
-                                 "int32_t" ":int32"
-                                 "size_t" "size-t")
+  (alexandria:plist-hash-table '("void" :void
+                                 "char" :char
+                                 "float" :float
+                                 "uint8_t" :uint8
+                                 "uint32_t" :uint32
+                                 "uint64_t" :uint64
+                                 "int32_t" :int32
+                                 "size_t" size-t)
                                :test 'equal))
 
 (defparameter *vendor-ids* '("KHR" "EXT")) ;; todo: read from file
+(defparameter *special-words* '("Bool32" "Win32"
+                                "16" "32" "64"
+                                "3d" "2d" "1d"
+                                "3D" "2D" "1D"
+                                "ID" "UUID"))
+;; not sure if we should remove the type prefixes in struct members or
+;; not?
+;;(defparameter *type-prefixes* '("s-" "p-" "pfn-" "pp-"))
 
 (defun xps (node)
   (let ((s (string-trim '(#\space #\tab) (xpath:string-value node))))
@@ -86,10 +94,28 @@
     (t
      (error "~s" str))))
 
+(defun fix-type-name (name)
+  (let* ((start (if (alexandria:starts-with-subseq "Vk" name) 2 0))
+         #++(vend (loop for v in *vendor-ids*
+                     when (alexandria:ends-with-subseq v name)
+                       return v))
+         #++(end (if vend (length vend) 0)))
+    (when (zerop start)
+      (setf name (ppcre:regex-replace-all "PFN_vk" name "Pfn")))
+    (cffi:translate-camelcase-name (subseq name start)
+                                   :special-words (append *special-words*
+                                                         *vendor-ids*))))
+
+
 (defun parse-arg-type (node)
   (let* ((type-node (xpath:evaluate "type" node))
-         (type (xps type-node))
-         (name (xps (xpath:evaluate "name" node)))
+         (.type (xps type-node))
+         (len (xps (xpath:evaluate "@len" node)))
+         (optional (xps (xpath:evaluate "@optional" node)))
+         (name (cffi:translate-camelcase-name
+                (xps (xpath:evaluate "name" node))
+                :special-words *special-words*))
+         (type (or (gethash .type *vk-platform*) (fix-type-name .type)))
          (prefix (xps (xpath:evaluate "type/preceding-sibling::text()" node)))
          (suffix (xps (xpath:evaluate "type/following-sibling::text()" node)))
          (desc))
@@ -120,7 +146,17 @@
        (setf desc `(,name (:pointer (:pointer ,type)))))
       (t
        (error "failed to translate type ~s ~s ~s?" prefix type suffix)
-       (setf desc (list :??? name type prefix suffix))))
+       #++(setf desc (list :??? name type prefix suffix))))
+    (cond
+      ((and (equalp (second desc) '(:pointer :char))
+            (string= len "null-terminated"))
+       (setf (second desc) :string))
+      ((string= len "null-terminated")
+       (error "unhandled len=~s" len)))
+    (when optional
+      (setf (getf (cddr desc) :optional)
+            (mapcar 'make-keyword
+                    (split-sequence:split-sequence #\, optional))))
     desc))
 
 (defun attrib-names (node)
@@ -140,17 +176,6 @@
               (ppcre:regex-replace-all (format nil "(^~a|_BIT(~{_~a~^|~})?$)"
                                                prefix *vendor-ids*)
                                        name "")))
-
-
-(defun fix-type-name (name)
-  (let* ((start (if (alexandria:starts-with-subseq "Vk" name) 2 0))
-         (vend (loop for v in *vendor-ids*
-                     when (alexandria:ends-with-subseq v name)
-                       return v))
-         (end (if vend (length vend) 0)))
-    #++(cffi:translate-camelcase-name (subseq (substitute #\- #\_ name) start (- (length name) end)))
-    (cffi:translate-camelcase-name (subseq name start)
-                                   :special-words *vendor-ids*)))
 
 ;; read from data files
 (let* ((this-dir *base-dir*)
@@ -232,7 +257,8 @@
            ;; type alias
            (assert (and name type))
            (format t "new base type ~s -> ~s~%" name type)
-           (set-type type))
+           (set-type (list :alias (or (gethash type *vk-platform*)
+                                      (fix-type-name type)))))
           ((string= category "bitmask")
            (format t "new bitmask ~s -> ~s~%  ~s~%" name type
                    (mapcar 'xps (xpath:all-nodes (xpath:evaluate "@*" node))))
@@ -253,9 +279,30 @@
            (format t "new enum type ~s~%" @name)
            (set-type (list :enum type)))
           ((string= category "funcpointer")
-           ;; todo: should this store any type info?
            (format t "new function pointer type ~s ~s~%" name type*)
-           (set-type '(:pointer :function)))
+           (let* ((types (mapcar 'xps (xpath:all-nodes (xpath:evaluate "type" node))))
+                  (before-name (xps (xpath:evaluate "name/preceding-sibling::text()" node)))
+                  (rt (ppcre:regex-replace-all "(^typedef | \\(VKAPI_PTR \\*$)"
+                                               before-name ""))
+                  (before (xpath:all-nodes (xpath:evaluate "type/preceding-sibling::text()" node)))
+                  (after (xpath:all-nodes (xpath:evaluate "type/following-sibling::text()" node)))
+                  (args (loop for at in types
+                              for a in after
+                              for b in before
+                              for star = (count #\* (xps a))
+                              for const = (search "const" (xps b))
+                              for an = (ppcre:regex-replace-all "(\\*|\\W|,|const|\\)|;)" (xps a) "")
+                              when (plusp star) do (assert (= star 1))
+                              collect (list (format nil "~a~@[/const~]"
+                                                    an const)
+                                            (if (plusp star)
+                                                `(:pointer ,(fix-type-name at))
+                                                (fix-type-name at))))))
+             (let ((c (count #\* rt)))
+               (setf rt (fix-type-name (string-right-trim '(#\*) rt)))
+               (loop repeat c do (setf rt (list :pointer rt))))
+             (set-type (list :func :type (list rt args)
+                            ))))
           ((or (string= category "struct")
                (string= category "union"))
            (let ((members nil))
@@ -375,6 +422,15 @@
     (format out ";;; this file is automatically generated, do not edit~%")
     (format out "#||~%~a~%||#~%~%" copyright)
     (format out "(in-package #:cl-vulkan-bindings)~%~%")
+    ;; type aliases
+    (loop for (name . attribs) in (sort (remove-if-not
+                                         (lambda (x)
+                                           (and (consp (cdr x))
+                                                (eql (second x) :alias)))
+                                         (alexandria:hash-table-alist *foo*))
+                                        'string< :key 'car)
+          do (format out "~((defctype ~a ~a)~)~%~%"
+                     (fix-type-name name) (second attribs)))
     ;; bitfields
     (loop for (name . attribs) in (sort (alexandria:hash-table-alist bitfields)
                                         'string< :key 'car)
@@ -403,9 +459,8 @@
                    when comment
                      do (format out " ;; ~a" comment))
              (format out "~:[)~;~]~%~%" (second bits)))
-    (setf *foo* types)
-    ;; todo: enums
 
+    ;; enums
     (loop for (name . attribs) in (sort (remove-if-not
                                          (lambda (x)
                                            (and (consp (cdr x))
@@ -451,7 +506,50 @@
                      do (format out " ;; ~a" comment))
              (format out "~:[)~;~]~%~%" bits))
 
-    ;; todo: structs
+    ;; function pointer types
+    (loop ; with *print-right-margin* = 10000
+          for (name . attribs) in (sort (remove-if-not
+                                         (lambda (x)
+                                           (and (consp (cdr x))
+                                                (eql (second x) :func)))
+                                         (alexandria:hash-table-alist *foo*))
+                                        'string< :key 'car)
+          do (format out "~( ~<;; ~@;~a~;~:>~%(defctype ~a :pointer)~)~%~%"
+                     (list (cons "defcallback x" (getf (cdr attribs) :type)))
+                     (fix-type-name name)))
+
+    (format nil "~@<;; ~@;~a~;~:>"
+        '((:POINTER VOID)
+          (("pUserData" (:POINTER VOID)) ("size" SIZE_T) ("alignment" SIZE_T)
+           ("allocationScope" SYSTEM-ALLOCATION-SCOPE)))
+        )
+
+    ;; structs/unions
+    (setf *foo* types)
+    (loop for (name . attribs) in (sort (remove-if-not
+                                         (lambda (x)
+                                           (and (consp (cdr x))
+                                                (member (second x)
+                                                        '(:struct :union))))
+                                         (alexandria:hash-table-alist types))
+                                        'string< :key 'car)
+          for members = (getf (cddr attribs) :members)
+          do
+             (format out "(defc~(~a~) ~(~a~)" (first attribs)
+                     (fix-type-name name))
+             (format out "~{~%  ~1{(:~(~a ~s)~^#||~@{~a~^ ~}||#~)~}~}"
+                     members)
+             #++(loop for ((mn . mt) . more) on members
+                   for comment = (getf (cdr v) :comment)
+                   do (format out ""
+                              (string-trim '(#\-) (fix-bit-name k :prefix prefix))
+                              (minusp (first v)) (first v))
+                   unless more
+                     do (format out ")")
+                   when comment
+                     do (format out " ;; ~a" comment))
+                (format out "~:[)~;~]~%~%" nil))
+
     )
 
   ;; todo: write functions file

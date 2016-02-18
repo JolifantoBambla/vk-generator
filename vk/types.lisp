@@ -26,6 +26,14 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 
 (in-package #:cl-vulkan-bindings)
 
+(defctype bool32 uint32)
+
+(defctype device-size uint64)
+
+(defctype flags uint32)
+
+(defctype sample-mask uint32)
+
 (defbitfield (access-flags flags)
   (:indirect-command-read #x1) ;; Controls coherency of indirect command reads
   (:index-read #x2) ;; Controls coherency of index reads
@@ -330,7 +338,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 
 (defbitfield (wayland-surface-create-flags-khr flags))
 
-(defbitfield (win-3-2-surface-create-flags-khr flags))
+(defbitfield (win32-surface-create-flags-khr flags))
 
 (defbitfield (xcb-surface-create-flags-khr flags))
 
@@ -867,4 +875,1163 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcenum (vertex-input-rate)
   (:vertex #x0)
   (:instance #x1))
+
+ ;; (defcallback x (pointer void)
+ ;;  ((puserdata (pointer void)) (size size_t) (alignment size_t)
+ ;;   (allocationscope system-allocation-scope)))
+(defctype pfn-allocation-function :pointer)
+
+ ;; (defcallback x bool32
+ ;;  ((flags debug-report-flags-ext) (objecttype debug-report-object-type-ext)
+ ;;   (object uint-6-4_t) (location size_t) (messagecode int-3-2_t)
+ ;;   (playerprefix (pointer char)) (pmessage/const (pointer char))
+ ;;   (puserdata/const (pointer void))))
+(defctype pfn-debug-report-callback-ext :pointer)
+
+ ;; (defcallback x void ((puserdata (pointer void)) (pmemory (pointer void))))
+(defctype pfn-free-function :pointer)
+
+ ;; (defcallback x void
+ ;;  ((puserdata (pointer void)) (size size_t)
+ ;;   (allocationtype internal-allocation-type)
+ ;;   (allocationscope system-allocation-scope)))
+(defctype pfn-internal-allocation-notification :pointer)
+
+ ;; (defcallback x void
+ ;;  ((puserdata (pointer void)) (size size_t)
+ ;;   (allocationtype internal-allocation-type)
+ ;;   (allocationscope system-allocation-scope)))
+(defctype pfn-internal-free-notification :pointer)
+
+ ;; (defcallback x (pointer void)
+ ;;  ((puserdata (pointer void)) (poriginal (pointer void)) (size size_t)
+ ;;   (alignment size_t) (allocationscope system-allocation-scope)))
+(defctype pfn-reallocation-function :pointer)
+
+ ;; (defcallback x void nil)
+(defctype pfn-void-function :pointer)
+
+(defcstruct allocation-callbacks
+  (:p-user-data (:pointer :void))#||optional (true)||#
+  (:pfn-allocation pfn-allocation-function)
+  (:pfn-reallocation pfn-reallocation-function)
+  (:pfn-free pfn-free-function)
+  (:pfn-internal-allocation pfn-internal-allocation-notification)#||optional (true)||#
+  (:pfn-internal-free pfn-internal-free-notification)#||optional (true)||#)
+
+(defcstruct android-surface-create-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags android-surface-create-flags-khr)#||optional (true)||#
+  (:window (:pointer a-native-window)))
+
+(defcstruct application-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:p-application-name :string)#||optional (true)||#
+  (:application-version :uint32)
+  (:p-engine-name :string)#||optional (true)||#
+  (:engine-version :uint32)
+  (:api-version :uint32))
+
+(defcstruct attachment-description
+  (:flags attachment-description-flags)#||optional (true)||#
+  (:format format)
+  (:samples sample-count-flag-bits)
+  (:load-op attachment-load-op)
+  (:store-op attachment-store-op)
+  (:stencil-load-op attachment-load-op)
+  (:stencil-store-op attachment-store-op)
+  (:initial-layout image-layout)
+  (:final-layout image-layout))
+
+(defcstruct attachment-reference
+  (:attachment :uint32)
+  (:layout image-layout))
+
+(defcstruct bind-sparse-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:wait-semaphore-count :uint32)#||optional (true)||#
+  (:p-wait-semaphores (:pointer semaphore))
+  (:buffer-bind-count :uint32)#||optional (true)||#
+  (:p-buffer-binds (:pointer sparse-buffer-memory-bind-info))
+  (:image-opaque-bind-count :uint32)#||optional (true)||#
+  (:p-image-opaque-binds (:pointer sparse-image-opaque-memory-bind-info))
+  (:image-bind-count :uint32)#||optional (true)||#
+  (:p-image-binds (:pointer sparse-image-memory-bind-info))
+  (:signal-semaphore-count :uint32)#||optional (true)||#
+  (:p-signal-semaphores (:pointer semaphore)))
+
+(defcstruct buffer-copy
+  (:src-offset device-size)
+  (:dst-offset device-size)
+  (:size device-size))
+
+(defcstruct buffer-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags buffer-create-flags)#||optional (true)||#
+  (:size device-size)
+  (:usage buffer-usage-flags)
+  (:sharing-mode sharing-mode)
+  (:queue-family-index-count :uint32)#||optional (true)||#
+  (:p-queue-family-indices (:pointer :uint32)))
+
+(defcstruct buffer-image-copy
+  (:buffer-offset device-size)
+  (:buffer-row-length :uint32)
+  (:buffer-image-height :uint32)
+  (:image-subresource image-subresource-layers)
+  (:image-offset offset-3d)
+  (:image-extent extent-3d))
+
+(defcstruct buffer-memory-barrier
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:src-access-mask access-flags)#||optional (true)||#
+  (:dst-access-mask access-flags)#||optional (true)||#
+  (:src-queue-family-index :uint32)
+  (:dst-queue-family-index :uint32)
+  (:buffer buffer)
+  (:offset device-size)
+  (:size device-size))
+
+(defcstruct buffer-view-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags buffer-view-create-flags)#||optional (true)||#
+  (:buffer buffer)
+  (:format format)
+  (:offset device-size)
+  (:range device-size))
+
+(defcstruct clear-attachment
+  (:aspect-mask image-aspect-flags)
+  (:color-attachment :uint32)
+  (:clear-value clear-value))
+
+(defcunion clear-color-value
+  (:float-32 :float)
+  (:int-32 :int32)
+  (:uint-32 :uint32))
+
+(defcstruct clear-depth-stencil-value
+  (:depth :float)
+  (:stencil :uint32))
+
+(defcstruct clear-rect
+  (:rect rect-2d)
+  (:base-array-layer :uint32)
+  (:layer-count :uint32))
+
+(defcunion clear-value
+  (:color clear-color-value)
+  (:depth-stencil clear-depth-stencil-value))
+
+(defcstruct command-buffer-allocate-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:command-pool command-pool)
+  (:level command-buffer-level)
+  (:command-buffer-count :uint32))
+
+(defcstruct command-buffer-begin-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags command-buffer-usage-flags)#||optional (true)||#
+  (:p-inheritance-info (:pointer command-buffer-inheritance-info))#||optional (true)||#)
+
+(defcstruct command-buffer-inheritance-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:render-pass render-pass)#||optional (true)||#
+  (:subpass :uint32)
+  (:framebuffer framebuffer)#||optional (true)||#
+  (:occlusion-query-enable bool32)
+  (:query-flags query-control-flags)#||optional (true)||#
+  (:pipeline-statistics query-pipeline-statistic-flags)#||optional (true)||#)
+
+(defcstruct command-pool-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags command-pool-create-flags)#||optional (true)||#
+  (:queue-family-index :uint32))
+
+(defcstruct component-mapping
+  (:r component-swizzle)
+  (:g component-swizzle)
+  (:b component-swizzle)
+  (:a component-swizzle))
+
+(defcstruct compute-pipeline-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-create-flags)#||optional (true)||#
+  (:stage pipeline-shader-stage-create-info)
+  (:layout pipeline-layout)
+  (:base-pipeline-handle pipeline)#||optional (true)||#
+  (:base-pipeline-index :int32))
+
+(defcstruct copy-descriptor-set
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:src-set descriptor-set)
+  (:src-binding :uint32)
+  (:src-array-element :uint32)
+  (:dst-set descriptor-set)
+  (:dst-binding :uint32)
+  (:dst-array-element :uint32)
+  (:descriptor-count :uint32))
+
+(defcstruct debug-report-callback-create-info-ext
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags debug-report-flags-ext)
+  (:pfn-callback pfn-debug-report-callback-ext)
+  (:p-user-data (:pointer :void))#||optional (true)||#)
+
+(defcstruct descriptor-buffer-info
+  (:buffer buffer)
+  (:offset device-size)
+  (:range device-size))
+
+(defcstruct descriptor-image-info
+  (:sampler sampler)
+  (:image-view image-view)
+  (:image-layout image-layout))
+
+(defcstruct descriptor-pool-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags descriptor-pool-create-flags)#||optional (true)||#
+  (:max-sets :uint32)
+  (:pool-size-count :uint32)
+  (:p-pool-sizes (:pointer descriptor-pool-size)))
+
+(defcstruct descriptor-pool-size
+  (:type descriptor-type)
+  (:descriptor-count :uint32))
+
+(defcstruct descriptor-set-allocate-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:descriptor-pool descriptor-pool)
+  (:descriptor-set-count :uint32)
+  (:p-set-layouts (:pointer descriptor-set-layout)))
+
+(defcstruct descriptor-set-layout-binding
+  (:binding :uint32)
+  (:descriptor-type descriptor-type)
+  (:descriptor-count :uint32)#||optional (true)||#
+  (:stage-flags shader-stage-flags)
+  (:p-immutable-samplers (:pointer sampler))#||optional (true)||#)
+
+(defcstruct descriptor-set-layout-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags descriptor-set-layout-create-flags)#||optional (true)||#
+  (:binding-count :uint32)#||optional (true)||#
+  (:p-bindings (:pointer descriptor-set-layout-binding)))
+
+(defcstruct device-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags device-create-flags)#||optional (true)||#
+  (:queue-create-info-count :uint32)
+  (:p-queue-create-infos (:pointer device-queue-create-info))
+  (:enabled-layer-count :uint32)#||optional (true)||#
+  (:pp-enabled-layer-names (:pointer (:pointer :char)))#||optional (true)||#
+  (:enabled-extension-count :uint32)#||optional (true)||#
+  (:pp-enabled-extension-names (:pointer (:pointer :char)))#||optional (true)||#
+  (:p-enabled-features (:pointer physical-device-features)))
+
+(defcstruct device-queue-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags device-queue-create-flags)#||optional (true)||#
+  (:queue-family-index :uint32)
+  (:queue-count :uint32)
+  (:p-queue-priorities (:pointer :float)))
+
+(defcstruct dispatch-indirect-command
+  (:x :uint32)
+  (:y :uint32)
+  (:z :uint32))
+
+(defcstruct display-mode-create-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags display-mode-create-flags-khr)#||optional (true)||#
+  (:parameters display-mode-parameters-khr))
+
+(defcstruct display-mode-parameters-khr
+  (:visible-region extent-2d)
+  (:refresh-rate :uint32))
+
+(defcstruct display-mode-properties-khr
+  (:display-mode display-mode-khr)
+  (:parameters display-mode-parameters-khr))
+
+(defcstruct display-plane-capabilities-khr
+  (:supported-alpha display-plane-alpha-flags-khr)#||optional (true)||#
+  (:min-src-position offset-2d)
+  (:max-src-position offset-2d)
+  (:min-src-extent extent-2d)
+  (:max-src-extent extent-2d)
+  (:min-dst-position offset-2d)
+  (:max-dst-position offset-2d)
+  (:min-dst-extent extent-2d)
+  (:max-dst-extent extent-2d))
+
+(defcstruct display-plane-properties-khr
+  (:current-display display-khr)
+  (:current-stack-index :uint32))
+
+(defcstruct display-present-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:src-rect rect-2d)
+  (:dst-rect rect-2d)
+  (:persistent bool32))
+
+(defcstruct display-properties-khr
+  (:display display-khr)
+  (:display-name :string)
+  (:physical-dimensions extent-2d)
+  (:physical-resolution extent-2d)
+  (:supported-transforms surface-transform-flags-khr)#||optional (true)||#
+  (:plane-reorder-possible bool32)
+  (:persistent-content bool32))
+
+(defcstruct display-surface-create-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags display-surface-create-flags-khr)#||optional (true)||#
+  (:display-mode display-mode-khr)
+  (:plane-index :uint32)
+  (:plane-stack-index :uint32)
+  (:transform surface-transform-flag-bits-khr)
+  (:global-alpha :float)
+  (:alpha-mode display-plane-alpha-flag-bits-khr)
+  (:image-extent extent-2d))
+
+(defcstruct draw-indexed-indirect-command
+  (:index-count :uint32)
+  (:instance-count :uint32)
+  (:first-index :uint32)
+  (:vertex-offset :int32)
+  (:first-instance :uint32))
+
+(defcstruct draw-indirect-command
+  (:vertex-count :uint32)
+  (:instance-count :uint32)
+  (:first-vertex :uint32)
+  (:first-instance :uint32))
+
+(defcstruct event-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags event-create-flags)#||optional (true)||#)
+
+(defcstruct extension-properties
+  (:extension-name :char)
+  (:spec-version :uint32))
+
+(defcstruct extent-2d
+  (:width :uint32)
+  (:height :uint32))
+
+(defcstruct extent-3d
+  (:width :uint32)
+  (:height :uint32)
+  (:depth :uint32))
+
+(defcstruct fence-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags fence-create-flags)#||optional (true)||#)
+
+(defcstruct format-properties
+  (:linear-tiling-features format-feature-flags)#||optional (true)||#
+  (:optimal-tiling-features format-feature-flags)#||optional (true)||#
+  (:buffer-features format-feature-flags)#||optional (true)||#)
+
+(defcstruct framebuffer-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags framebuffer-create-flags)#||optional (true)||#
+  (:render-pass render-pass)
+  (:attachment-count :uint32)#||optional (true)||#
+  (:p-attachments (:pointer image-view))
+  (:width :uint32)
+  (:height :uint32)
+  (:layers :uint32))
+
+(defcstruct graphics-pipeline-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-create-flags)#||optional (true)||#
+  (:stage-count :uint32)
+  (:p-stages (:pointer pipeline-shader-stage-create-info))
+  (:p-vertex-input-state (:pointer pipeline-vertex-input-state-create-info))
+  (:p-input-assembly-state (:pointer pipeline-input-assembly-state-create-info))
+  (:p-tessellation-state (:pointer pipeline-tessellation-state-create-info))#||optional (true)||#
+  (:p-viewport-state (:pointer pipeline-viewport-state-create-info))#||optional (true)||#
+  (:p-rasterization-state (:pointer pipeline-rasterization-state-create-info))
+  (:p-multisample-state (:pointer pipeline-multisample-state-create-info))#||optional (true)||#
+  (:p-depth-stencil-state (:pointer pipeline-depth-stencil-state-create-info))#||optional (true)||#
+  (:p-color-blend-state (:pointer pipeline-color-blend-state-create-info))#||optional (true)||#
+  (:p-dynamic-state (:pointer pipeline-dynamic-state-create-info))#||optional (true)||#
+  (:layout pipeline-layout)
+  (:render-pass render-pass)
+  (:subpass :uint32)
+  (:base-pipeline-handle pipeline)#||optional (true)||#
+  (:base-pipeline-index :int32))
+
+(defcstruct image-blit
+  (:src-subresource image-subresource-layers)
+  (:src-offsets[-2] offset-3d)
+  (:dst-subresource image-subresource-layers)
+  (:dst-offsets[-2] offset-3d))
+
+(defcstruct image-copy
+  (:src-subresource image-subresource-layers)
+  (:src-offset offset-3d)
+  (:dst-subresource image-subresource-layers)
+  (:dst-offset offset-3d)
+  (:extent extent-3d))
+
+(defcstruct image-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags image-create-flags)#||optional (true)||#
+  (:image-type image-type)
+  (:format format)
+  (:extent extent-3d)
+  (:mip-levels :uint32)
+  (:array-layers :uint32)
+  (:samples sample-count-flag-bits)
+  (:tiling image-tiling)
+  (:usage image-usage-flags)
+  (:sharing-mode sharing-mode)
+  (:queue-family-index-count :uint32)#||optional (true)||#
+  (:p-queue-family-indices (:pointer :uint32))
+  (:initial-layout image-layout))
+
+(defcstruct image-format-properties
+  (:max-extent extent-3d)
+  (:max-mip-levels :uint32)
+  (:max-array-layers :uint32)
+  (:sample-counts sample-count-flags)#||optional (true)||#
+  (:max-resource-size device-size))
+
+(defcstruct image-memory-barrier
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:src-access-mask access-flags)#||optional (true)||#
+  (:dst-access-mask access-flags)#||optional (true)||#
+  (:old-layout image-layout)
+  (:new-layout image-layout)
+  (:src-queue-family-index :uint32)
+  (:dst-queue-family-index :uint32)
+  (:image image)
+  (:subresource-range image-subresource-range))
+
+(defcstruct image-resolve
+  (:src-subresource image-subresource-layers)
+  (:src-offset offset-3d)
+  (:dst-subresource image-subresource-layers)
+  (:dst-offset offset-3d)
+  (:extent extent-3d))
+
+(defcstruct image-subresource
+  (:aspect-mask image-aspect-flags)
+  (:mip-level :uint32)
+  (:array-layer :uint32))
+
+(defcstruct image-subresource-layers
+  (:aspect-mask image-aspect-flags)
+  (:mip-level :uint32)
+  (:base-array-layer :uint32)
+  (:layer-count :uint32))
+
+(defcstruct image-subresource-range
+  (:aspect-mask image-aspect-flags)
+  (:base-mip-level :uint32)
+  (:level-count :uint32)
+  (:base-array-layer :uint32)
+  (:layer-count :uint32))
+
+(defcstruct image-view-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags image-view-create-flags)#||optional (true)||#
+  (:image image)
+  (:view-type image-view-type)
+  (:format format)
+  (:components component-mapping)
+  (:subresource-range image-subresource-range))
+
+(defcstruct instance-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags instance-create-flags)#||optional (true)||#
+  (:p-application-info (:pointer application-info))#||optional (true)||#
+  (:enabled-layer-count :uint32)#||optional (true)||#
+  (:pp-enabled-layer-names (:pointer (:pointer :char)))
+  (:enabled-extension-count :uint32)#||optional (true)||#
+  (:pp-enabled-extension-names (:pointer (:pointer :char))))
+
+(defcstruct layer-properties
+  (:layer-name :char)
+  (:spec-version :uint32)
+  (:implementation-version :uint32)
+  (:description :char))
+
+(defcstruct mapped-memory-range
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:memory device-memory)
+  (:offset device-size)
+  (:size device-size))
+
+(defcstruct memory-allocate-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:allocation-size device-size)
+  (:memory-type-index :uint32))
+
+(defcstruct memory-barrier
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:src-access-mask access-flags)#||optional (true)||#
+  (:dst-access-mask access-flags)#||optional (true)||#)
+
+(defcstruct memory-heap
+  (:size device-size)
+  (:flags memory-heap-flags)#||optional (true)||#)
+
+(defcstruct memory-requirements
+  (:size device-size)
+  (:alignment device-size)
+  (:memory-type-bits :uint32))
+
+(defcstruct memory-type
+  (:property-flags memory-property-flags)#||optional (true)||#
+  (:heap-index :uint32))
+
+(defcstruct mir-surface-create-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags mir-surface-create-flags-khr)#||optional (true)||#
+  (:connection (:pointer mir-connection))
+  (:mir-surface (:pointer mir-surface)))
+
+(defcstruct offset-2d
+  (:x :int32)
+  (:y :int32))
+
+(defcstruct offset-3d
+  (:x :int32)
+  (:y :int32)
+  (:z :int32))
+
+(defcstruct physical-device-features
+  (:robust-buffer-access bool32)
+  (:full-draw-index-uint-32 bool32)
+  (:image-cube-array bool32)
+  (:independent-blend bool32)
+  (:geometry-shader bool32)
+  (:tessellation-shader bool32)
+  (:sample-rate-shading bool32)
+  (:dual-src-blend bool32)
+  (:logic-op bool32)
+  (:multi-draw-indirect bool32)
+  (:draw-indirect-first-instance bool32)
+  (:depth-clamp bool32)
+  (:depth-bias-clamp bool32)
+  (:fill-mode-non-solid bool32)
+  (:depth-bounds bool32)
+  (:wide-lines bool32)
+  (:large-points bool32)
+  (:alpha-to-one bool32)
+  (:multi-viewport bool32)
+  (:sampler-anisotropy bool32)
+  (:texture-compression-e-t-c-2 bool32)
+  (:texture-compression-a-s-t-c_-l-d-r bool32)
+  (:texture-compression-b-c bool32)
+  (:occlusion-query-precise bool32)
+  (:pipeline-statistics-query bool32)
+  (:vertex-pipeline-stores-and-atomics bool32)
+  (:fragment-stores-and-atomics bool32)
+  (:shader-tessellation-and-geometry-point-size bool32)
+  (:shader-image-gather-extended bool32)
+  (:shader-storage-image-extended-formats bool32)
+  (:shader-storage-image-multisample bool32)
+  (:shader-storage-image-read-without-format bool32)
+  (:shader-storage-image-write-without-format bool32)
+  (:shader-uniform-buffer-array-dynamic-indexing bool32)
+  (:shader-sampled-image-array-dynamic-indexing bool32)
+  (:shader-storage-buffer-array-dynamic-indexing bool32)
+  (:shader-storage-image-array-dynamic-indexing bool32)
+  (:shader-clip-distance bool32)
+  (:shader-cull-distance bool32)
+  (:shader-float-64 bool32)
+  (:shader-int-64 bool32)
+  (:shader-int-16 bool32)
+  (:shader-resource-residency bool32)
+  (:shader-resource-min-lod bool32)
+  (:sparse-binding bool32)
+  (:sparse-residency-buffer bool32)
+  (:sparse-residency-image-2d bool32)
+  (:sparse-residency-image-3d bool32)
+  (:sparse-residency-2-samples bool32)
+  (:sparse-residency-4-samples bool32)
+  (:sparse-residency-8-samples bool32)
+  (:sparse-residency-16-samples bool32)
+  (:sparse-residency-aliased bool32)
+  (:variable-multisample-rate bool32)
+  (:inherited-queries bool32))
+
+(defcstruct physical-device-limits
+  (:max-image-dimension-1d :uint32)
+  (:max-image-dimension-2d :uint32)
+  (:max-image-dimension-3d :uint32)
+  (:max-image-dimension-cube :uint32)
+  (:max-image-array-layers :uint32)
+  (:max-texel-buffer-elements :uint32)
+  (:max-uniform-buffer-range :uint32)
+  (:max-storage-buffer-range :uint32)
+  (:max-push-constants-size :uint32)
+  (:max-memory-allocation-count :uint32)
+  (:max-sampler-allocation-count :uint32)
+  (:buffer-image-granularity device-size)
+  (:sparse-address-space-size device-size)
+  (:max-bound-descriptor-sets :uint32)
+  (:max-per-stage-descriptor-samplers :uint32)
+  (:max-per-stage-descriptor-uniform-buffers :uint32)
+  (:max-per-stage-descriptor-storage-buffers :uint32)
+  (:max-per-stage-descriptor-sampled-images :uint32)
+  (:max-per-stage-descriptor-storage-images :uint32)
+  (:max-per-stage-descriptor-input-attachments :uint32)
+  (:max-per-stage-resources :uint32)
+  (:max-descriptor-set-samplers :uint32)
+  (:max-descriptor-set-uniform-buffers :uint32)
+  (:max-descriptor-set-uniform-buffers-dynamic :uint32)
+  (:max-descriptor-set-storage-buffers :uint32)
+  (:max-descriptor-set-storage-buffers-dynamic :uint32)
+  (:max-descriptor-set-sampled-images :uint32)
+  (:max-descriptor-set-storage-images :uint32)
+  (:max-descriptor-set-input-attachments :uint32)
+  (:max-vertex-input-attributes :uint32)
+  (:max-vertex-input-bindings :uint32)
+  (:max-vertex-input-attribute-offset :uint32)
+  (:max-vertex-input-binding-stride :uint32)
+  (:max-vertex-output-components :uint32)
+  (:max-tessellation-generation-level :uint32)
+  (:max-tessellation-patch-size :uint32)
+  (:max-tessellation-control-per-vertex-input-components :uint32)
+  (:max-tessellation-control-per-vertex-output-components :uint32)
+  (:max-tessellation-control-per-patch-output-components :uint32)
+  (:max-tessellation-control-total-output-components :uint32)
+  (:max-tessellation-evaluation-input-components :uint32)
+  (:max-tessellation-evaluation-output-components :uint32)
+  (:max-geometry-shader-invocations :uint32)
+  (:max-geometry-input-components :uint32)
+  (:max-geometry-output-components :uint32)
+  (:max-geometry-output-vertices :uint32)
+  (:max-geometry-total-output-components :uint32)
+  (:max-fragment-input-components :uint32)
+  (:max-fragment-output-attachments :uint32)
+  (:max-fragment-dual-src-attachments :uint32)
+  (:max-fragment-combined-output-resources :uint32)
+  (:max-compute-shared-memory-size :uint32)
+  (:max-compute-work-group-count :uint32)
+  (:max-compute-work-group-invocations :uint32)
+  (:max-compute-work-group-size :uint32)
+  (:sub-pixel-precision-bits :uint32)
+  (:sub-texel-precision-bits :uint32)
+  (:mipmap-precision-bits :uint32)
+  (:max-draw-indexed-index-value :uint32)
+  (:max-draw-indirect-count :uint32)
+  (:max-sampler-lod-bias :float)
+  (:max-sampler-anisotropy :float)
+  (:max-viewports :uint32)
+  (:max-viewport-dimensions :uint32)
+  (:viewport-bounds-range :float)
+  (:viewport-sub-pixel-bits :uint32)
+  (:min-memory-map-alignment size-t)
+  (:min-texel-buffer-offset-alignment device-size)
+  (:min-uniform-buffer-offset-alignment device-size)
+  (:min-storage-buffer-offset-alignment device-size)
+  (:min-texel-offset :int32)
+  (:max-texel-offset :uint32)
+  (:min-texel-gather-offset :int32)
+  (:max-texel-gather-offset :uint32)
+  (:min-interpolation-offset :float)
+  (:max-interpolation-offset :float)
+  (:sub-pixel-interpolation-offset-bits :uint32)
+  (:max-framebuffer-width :uint32)
+  (:max-framebuffer-height :uint32)
+  (:max-framebuffer-layers :uint32)
+  (:framebuffer-color-sample-counts sample-count-flags)#||optional (true)||#
+  (:framebuffer-depth-sample-counts sample-count-flags)#||optional (true)||#
+  (:framebuffer-stencil-sample-counts sample-count-flags)#||optional (true)||#
+  (:framebuffer-no-attachments-sample-counts sample-count-flags)#||optional (true)||#
+  (:max-color-attachments :uint32)
+  (:sampled-image-color-sample-counts sample-count-flags)#||optional (true)||#
+  (:sampled-image-integer-sample-counts sample-count-flags)#||optional (true)||#
+  (:sampled-image-depth-sample-counts sample-count-flags)#||optional (true)||#
+  (:sampled-image-stencil-sample-counts sample-count-flags)#||optional (true)||#
+  (:storage-image-sample-counts sample-count-flags)#||optional (true)||#
+  (:max-sample-mask-words :uint32)
+  (:timestamp-compute-and-graphics bool32)
+  (:timestamp-period :float)
+  (:max-clip-distances :uint32)
+  (:max-cull-distances :uint32)
+  (:max-combined-clip-and-cull-distances :uint32)
+  (:discrete-queue-priorities :uint32)
+  (:point-size-range :float)
+  (:line-width-range :float)
+  (:point-size-granularity :float)
+  (:line-width-granularity :float)
+  (:strict-lines bool32)
+  (:standard-sample-locations bool32)
+  (:optimal-buffer-copy-offset-alignment device-size)
+  (:optimal-buffer-copy-row-pitch-alignment device-size)
+  (:non-coherent-atom-size device-size))
+
+(defcstruct physical-device-memory-properties
+  (:memory-type-count :uint32)
+  (:memory-types memory-type)
+  (:memory-heap-count :uint32)
+  (:memory-heaps memory-heap))
+
+(defcstruct physical-device-properties
+  (:api-version :uint32)
+  (:driver-version :uint32)
+  (:vendor-id :uint32)
+  (:device-id :uint32)
+  (:device-type physical-device-type)
+  (:device-name :char)
+  (:pipeline-cache-uuid :uint8)
+  (:limits physical-device-limits)
+  (:sparse-properties physical-device-sparse-properties))
+
+(defcstruct physical-device-sparse-properties
+  (:residency-standard-2d-block-shape bool32)
+  (:residency-standard-2d-multisample-block-shape bool32)
+  (:residency-standard-3d-block-shape bool32)
+  (:residency-aligned-mip-size bool32)
+  (:residency-non-resident-strict bool32))
+
+(defcstruct pipeline-cache-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-cache-create-flags)#||optional (true)||#
+  (:initial-data-size size-t)#||optional (true)||#
+  (:p-initial-data (:pointer :void)))
+
+(defcstruct pipeline-color-blend-attachment-state
+  (:blend-enable bool32)
+  (:src-color-blend-factor blend-factor)
+  (:dst-color-blend-factor blend-factor)
+  (:color-blend-op blend-op)
+  (:src-alpha-blend-factor blend-factor)
+  (:dst-alpha-blend-factor blend-factor)
+  (:alpha-blend-op blend-op)
+  (:color-write-mask color-component-flags)#||optional (true)||#)
+
+(defcstruct pipeline-color-blend-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-color-blend-state-create-flags)#||optional (true)||#
+  (:logic-op-enable bool32)
+  (:logic-op logic-op)
+  (:attachment-count :uint32)#||optional (true)||#
+  (:p-attachments (:pointer pipeline-color-blend-attachment-state))
+  (:blend-constants :float))
+
+(defcstruct pipeline-depth-stencil-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-depth-stencil-state-create-flags)#||optional (true)||#
+  (:depth-test-enable bool32)
+  (:depth-write-enable bool32)
+  (:depth-compare-op compare-op)
+  (:depth-bounds-test-enable bool32)
+  (:stencil-test-enable bool32)
+  (:front stencil-op-state)
+  (:back stencil-op-state)
+  (:min-depth-bounds :float)
+  (:max-depth-bounds :float))
+
+(defcstruct pipeline-dynamic-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-dynamic-state-create-flags)#||optional (true)||#
+  (:dynamic-state-count :uint32)
+  (:p-dynamic-states (:pointer dynamic-state)))
+
+(defcstruct pipeline-input-assembly-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-input-assembly-state-create-flags)#||optional (true)||#
+  (:topology primitive-topology)
+  (:primitive-restart-enable bool32))
+
+(defcstruct pipeline-layout-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-layout-create-flags)#||optional (true)||#
+  (:set-layout-count :uint32)#||optional (true)||#
+  (:p-set-layouts (:pointer descriptor-set-layout))
+  (:push-constant-range-count :uint32)#||optional (true)||#
+  (:p-push-constant-ranges (:pointer push-constant-range)))
+
+(defcstruct pipeline-multisample-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-multisample-state-create-flags)#||optional (true)||#
+  (:rasterization-samples sample-count-flag-bits)
+  (:sample-shading-enable bool32)
+  (:min-sample-shading :float)
+  (:p-sample-mask (:pointer sample-mask))#||optional (true)||#
+  (:alpha-to-coverage-enable bool32)
+  (:alpha-to-one-enable bool32))
+
+(defcstruct pipeline-rasterization-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-rasterization-state-create-flags)#||optional (true)||#
+  (:depth-clamp-enable bool32)
+  (:rasterizer-discard-enable bool32)
+  (:polygon-mode polygon-mode)
+  (:cull-mode cull-mode-flags)#||optional (true)||#
+  (:front-face front-face)
+  (:depth-bias-enable bool32)
+  (:depth-bias-constant-factor :float)
+  (:depth-bias-clamp :float)
+  (:depth-bias-slope-factor :float)
+  (:line-width :float))
+
+(defcstruct pipeline-shader-stage-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-shader-stage-create-flags)#||optional (true)||#
+  (:stage shader-stage-flag-bits)
+  (:module shader-module)
+  (:p-name :string)
+  (:p-specialization-info (:pointer specialization-info))#||optional (true)||#)
+
+(defcstruct pipeline-tessellation-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-tessellation-state-create-flags)#||optional (true)||#
+  (:patch-control-points :uint32))
+
+(defcstruct pipeline-vertex-input-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-vertex-input-state-create-flags)#||optional (true)||#
+  (:vertex-binding-description-count :uint32)#||optional (true)||#
+  (:p-vertex-binding-descriptions (:pointer vertex-input-binding-description))
+  (:vertex-attribute-description-count :uint32)#||optional (true)||#
+  (:p-vertex-attribute-descriptions (:pointer
+                                     vertex-input-attribute-description)))
+
+(defcstruct pipeline-viewport-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-viewport-state-create-flags)#||optional (true)||#
+  (:viewport-count :uint32)
+  (:p-viewports (:pointer viewport))#||optional (true)||#
+  (:scissor-count :uint32)
+  (:p-scissors (:pointer rect-2d))#||optional (true)||#)
+
+(defcstruct present-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:wait-semaphore-count :uint32)
+  (:p-wait-semaphores (:pointer semaphore))#||optional (true)||#
+  (:swapchain-count :uint32)
+  (:p-swapchains (:pointer swapchain-khr))
+  (:p-image-indices (:pointer :uint32))
+  (:p-results (:pointer result))#||optional (true)||#)
+
+(defcstruct push-constant-range
+  (:stage-flags shader-stage-flags)
+  (:offset :uint32)
+  (:size :uint32))
+
+(defcstruct query-pool-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags query-pool-create-flags)#||optional (true)||#
+  (:query-type query-type)
+  (:query-count :uint32)
+  (:pipeline-statistics query-pipeline-statistic-flags)#||optional (true)||#)
+
+(defcstruct queue-family-properties
+  (:queue-flags queue-flags)#||optional (true)||#
+  (:queue-count :uint32)
+  (:timestamp-valid-bits :uint32)
+  (:min-image-transfer-granularity extent-3d))
+
+(defcstruct rect-2d
+  (:offset offset-2d)
+  (:extent extent-2d))
+
+(defcstruct rect-3d
+  (:offset offset-3d)
+  (:extent extent-3d))
+
+(defcstruct render-pass-begin-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:render-pass render-pass)
+  (:framebuffer framebuffer)
+  (:render-area rect-2d)
+  (:clear-value-count :uint32)#||optional (true)||#
+  (:p-clear-values (:pointer clear-value)))
+
+(defcstruct render-pass-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags render-pass-create-flags)#||optional (true)||#
+  (:attachment-count :uint32)#||optional (true)||#
+  (:p-attachments (:pointer attachment-description))
+  (:subpass-count :uint32)
+  (:p-subpasses (:pointer subpass-description))
+  (:dependency-count :uint32)#||optional (true)||#
+  (:p-dependencies (:pointer subpass-dependency)))
+
+(defcstruct sampler-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags sampler-create-flags)#||optional (true)||#
+  (:mag-filter filter)
+  (:min-filter filter)
+  (:mipmap-mode sampler-mipmap-mode)
+  (:address-mode-u sampler-address-mode)
+  (:address-mode-v sampler-address-mode)
+  (:address-mode-w sampler-address-mode)
+  (:mip-lod-bias :float)
+  (:anisotropy-enable bool32)
+  (:max-anisotropy :float)
+  (:compare-enable bool32)
+  (:compare-op compare-op)
+  (:min-lod :float)
+  (:max-lod :float)
+  (:border-color border-color)
+  (:unnormalized-coordinates bool32))
+
+(defcstruct semaphore-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags semaphore-create-flags)#||optional (true)||#)
+
+(defcstruct shader-module-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags shader-module-create-flags)#||optional (true)||#
+  (:code-size size-t)
+  (:p-code (:pointer :uint32)))
+
+(defcstruct sparse-buffer-memory-bind-info
+  (:buffer buffer)
+  (:bind-count :uint32)
+  (:p-binds (:pointer sparse-memory-bind)))
+
+(defcstruct sparse-image-format-properties
+  (:aspect-mask image-aspect-flags)#||optional (true)||#
+  (:image-granularity extent-3d)
+  (:flags sparse-image-format-flags)#||optional (true)||#)
+
+(defcstruct sparse-image-memory-bind
+  (:subresource image-subresource)
+  (:offset offset-3d)
+  (:extent extent-3d)
+  (:memory device-memory)#||optional (true)||#
+  (:memory-offset device-size)
+  (:flags sparse-memory-bind-flags)#||optional (true)||#)
+
+(defcstruct sparse-image-memory-bind-info
+  (:image image)
+  (:bind-count :uint32)
+  (:p-binds (:pointer sparse-image-memory-bind)))
+
+(defcstruct sparse-image-memory-requirements
+  (:format-properties sparse-image-format-properties)
+  (:image-mip-tail-first-lod :uint32)
+  (:image-mip-tail-size device-size)
+  (:image-mip-tail-offset device-size)
+  (:image-mip-tail-stride device-size))
+
+(defcstruct sparse-image-opaque-memory-bind-info
+  (:image image)
+  (:bind-count :uint32)
+  (:p-binds (:pointer sparse-memory-bind)))
+
+(defcstruct sparse-memory-bind
+  (:resource-offset device-size)
+  (:size device-size)
+  (:memory device-memory)#||optional (true)||#
+  (:memory-offset device-size)
+  (:flags sparse-memory-bind-flags)#||optional (true)||#)
+
+(defcstruct specialization-info
+  (:map-entry-count :uint32)#||optional (true)||#
+  (:p-map-entries (:pointer specialization-map-entry))
+  (:data-size size-t)#||optional (true)||#
+  (:p-data (:pointer :void)))
+
+(defcstruct specialization-map-entry
+  (:constant-id :uint32)
+  (:offset :uint32)
+  (:size size-t))
+
+(defcstruct stencil-op-state
+  (:fail-op stencil-op)
+  (:pass-op stencil-op)
+  (:depth-fail-op stencil-op)
+  (:compare-op compare-op)
+  (:compare-mask :uint32)
+  (:write-mask :uint32)
+  (:reference :uint32))
+
+(defcstruct submit-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:wait-semaphore-count :uint32)#||optional (true)||#
+  (:p-wait-semaphores (:pointer semaphore))
+  (:p-wait-dst-stage-mask (:pointer pipeline-stage-flags))
+  (:command-buffer-count :uint32)#||optional (true)||#
+  (:p-command-buffers (:pointer command-buffer))
+  (:signal-semaphore-count :uint32)#||optional (true)||#
+  (:p-signal-semaphores (:pointer semaphore)))
+
+(defcstruct subpass-dependency
+  (:src-subpass :uint32)
+  (:dst-subpass :uint32)
+  (:src-stage-mask pipeline-stage-flags)
+  (:dst-stage-mask pipeline-stage-flags)
+  (:src-access-mask access-flags)#||optional (true)||#
+  (:dst-access-mask access-flags)#||optional (true)||#
+  (:dependency-flags dependency-flags)#||optional (true)||#)
+
+(defcstruct subpass-description
+  (:flags subpass-description-flags)#||optional (true)||#
+  (:pipeline-bind-point pipeline-bind-point)
+  (:input-attachment-count :uint32)#||optional (true)||#
+  (:p-input-attachments (:pointer attachment-reference))
+  (:color-attachment-count :uint32)#||optional (true)||#
+  (:p-color-attachments (:pointer attachment-reference))
+  (:p-resolve-attachments (:pointer attachment-reference))#||optional (true)||#
+  (:p-depth-stencil-attachment (:pointer attachment-reference))#||optional (true)||#
+  (:preserve-attachment-count :uint32)#||optional (true)||#
+  (:p-preserve-attachments (:pointer :uint32)))
+
+(defcstruct subresource-layout
+  (:offset device-size)
+  (:size device-size)
+  (:row-pitch device-size)
+  (:array-pitch device-size)
+  (:depth-pitch device-size))
+
+(defcstruct surface-capabilities-khr
+  (:min-image-count :uint32)
+  (:max-image-count :uint32)
+  (:current-extent extent-2d)
+  (:min-image-extent extent-2d)
+  (:max-image-extent extent-2d)
+  (:max-image-array-layers :uint32)
+  (:supported-transforms surface-transform-flags-khr)#||optional (true)||#
+  (:current-transform surface-transform-flag-bits-khr)
+  (:supported-composite-alpha composite-alpha-flags-khr)#||optional (true)||#
+  (:supported-usage-flags image-usage-flags)#||optional (true)||#)
+
+(defcstruct surface-format-khr
+  (:format format)
+  (:color-space color-space-khr))
+
+(defcstruct swapchain-create-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags swapchain-create-flags-khr)#||optional (true)||#
+  (:surface surface-khr)
+  (:min-image-count :uint32)
+  (:image-format format)
+  (:image-color-space color-space-khr)
+  (:image-extent extent-2d)
+  (:image-array-layers :uint32)
+  (:image-usage image-usage-flags)
+  (:image-sharing-mode sharing-mode)
+  (:queue-family-index-count :uint32)#||optional (true)||#
+  (:p-queue-family-indices (:pointer :uint32))
+  (:pre-transform surface-transform-flag-bits-khr)
+  (:composite-alpha composite-alpha-flag-bits-khr)
+  (:present-mode present-mode-khr)
+  (:clipped bool32)
+  (:old-swapchain swapchain-khr)#||optional (true)||#)
+
+(defcstruct vertex-input-attribute-description
+  (:location :uint32)
+  (:binding :uint32)
+  (:format format)
+  (:offset :uint32))
+
+(defcstruct vertex-input-binding-description
+  (:binding :uint32)
+  (:stride :uint32)
+  (:input-rate vertex-input-rate))
+
+(defcstruct viewport
+  (:x :float)
+  (:y :float)
+  (:width :float)
+  (:height :float)
+  (:min-depth :float)
+  (:max-depth :float))
+
+(defcstruct wayland-surface-create-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags wayland-surface-create-flags-khr)#||optional (true)||#
+  (:display (:pointer (:struct wl_display)))
+  (:surface (:pointer (:struct wl_surface))))
+
+(defcstruct win32-surface-create-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags win32-surface-create-flags-khr)#||optional (true)||#
+  (:hinstance h-i-n-s-t-a-n-c-e)
+  (:hwnd h-w-n-d))
+
+(defcstruct write-descriptor-set
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:dst-set descriptor-set)
+  (:dst-binding :uint32)
+  (:dst-array-element :uint32)
+  (:descriptor-count :uint32)
+  (:descriptor-type descriptor-type)
+  (:p-image-info (:pointer descriptor-image-info))
+  (:p-buffer-info (:pointer descriptor-buffer-info))
+  (:p-texel-buffer-view (:pointer buffer-view)))
+
+(defcstruct xcb-surface-create-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags xcb-surface-create-flags-khr)#||optional (true)||#
+  (:connection (:pointer xcb_connection_t))
+  (:window xcb_window_t))
+
+(defcstruct xlib-surface-create-info-khr
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags xlib-surface-create-flags-khr)#||optional (true)||#
+  (:dpy (:pointer display))
+  (:window window))
 
