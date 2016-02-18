@@ -26,15 +26,108 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 
 (in-package #:cl-vulkan-bindings)
 
-(defctype bool32 uint32)
+(defctype sample-mask :uint32)
 
-(defctype device-size uint64)
+(defctype bool32 :uint32)
 
-(defctype flags uint32)
+(defctype flags :uint32)
 
-(defctype sample-mask uint32)
+(defctype device-size :uint64)
 
-(defbitfield (access-flags flags)
+(defctype handle :pointer)
+#.(if (= 8 (foreign-type-size :pointer))
+  '(defctype non-dispatch-handle :pointer)
+  '(defctype non-dispatch-handle :uint64))
+
+(defctype semaphore :void)
+
+(defctype a-native-window :void)
+
+(defctype mir-connection :void)
+
+(defctype mir-surface :void)
+
+(defctype xcb_connection_t :void)
+
+(defctype display :void)
+
+(defctype hinstance (:pointer :void))
+
+(defctype hwnd (:pointer :void))
+
+(defctype xcb_window_t :uint32)
+
+(defctype xcb_visualid_t :uint32)
+
+(defctype window :ulong)
+
+(defctype visual-id :ulong)
+
+(defcstruct wl_display)
+
+(defcstruct wl_surface)
+
+(defctype instance handle)
+
+(defctype physical-device handle)
+
+(defctype device handle)
+
+(defctype queue handle)
+
+(defctype command-buffer handle)
+
+(defctype device-memory non-dispatch-handle)
+
+(defctype command-pool non-dispatch-handle)
+
+(defctype buffer non-dispatch-handle)
+
+(defctype buffer-view non-dispatch-handle)
+
+(defctype image non-dispatch-handle)
+
+(defctype image-view non-dispatch-handle)
+
+(defctype shader-module non-dispatch-handle)
+
+(defctype pipeline non-dispatch-handle)
+
+(defctype pipeline-layout non-dispatch-handle)
+
+(defctype sampler non-dispatch-handle)
+
+(defctype descriptor-set non-dispatch-handle)
+
+(defctype descriptor-set-layout non-dispatch-handle)
+
+(defctype descriptor-pool non-dispatch-handle)
+
+(defctype fence non-dispatch-handle)
+
+(defctype semaphore non-dispatch-handle)
+
+(defctype event non-dispatch-handle)
+
+(defctype query-pool non-dispatch-handle)
+
+(defctype framebuffer non-dispatch-handle)
+
+(defctype render-pass non-dispatch-handle)
+
+(defctype pipeline-cache non-dispatch-handle)
+
+(defctype display-khr non-dispatch-handle)
+
+(defctype display-mode-khr non-dispatch-handle)
+
+(defctype surface-khr non-dispatch-handle)
+
+(defctype swapchain-khr non-dispatch-handle)
+
+(defctype debug-report-callback-ext non-dispatch-handle)
+
+(defbitfield (access-flag-bits)
   (:indirect-command-read #x1) ;; Controls coherency of indirect command reads
   (:index-read #x2) ;; Controls coherency of index reads
   (:vertex-attribute-read #x4) ;; Controls coherency of vertex attribute reads
@@ -53,17 +146,44 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:memory-read #x8000) ;; Controls coherency of memory reads
   (:memory-write #x10000)) ;; Controls coherency of memory writes
 
-(defbitfield (android-surface-create-flags-khr flags))
+(defbitfield (access-flags)
+  (:indirect-command-read #x1) ;; Controls coherency of indirect command reads
+  (:index-read #x2) ;; Controls coherency of index reads
+  (:vertex-attribute-read #x4) ;; Controls coherency of vertex attribute reads
+  (:uniform-read #x8) ;; Controls coherency of uniform buffer reads
+  (:input-attachment-read #x10) ;; Controls coherency of input attachment reads
+  (:shader-read #x20) ;; Controls coherency of shader reads
+  (:shader-write #x40) ;; Controls coherency of shader writes
+  (:color-attachment-read #x80) ;; Controls coherency of color attachment reads
+  (:color-attachment-write #x100) ;; Controls coherency of color attachment writes
+  (:depth-stencil-attachment-read #x200) ;; Controls coherency of depth/stencil attachment reads
+  (:depth-stencil-attachment-write #x400) ;; Controls coherency of depth/stencil attachment writes
+  (:transfer-read #x800) ;; Controls coherency of transfer reads
+  (:transfer-write #x1000) ;; Controls coherency of transfer writes
+  (:host-read #x2000) ;; Controls coherency of host reads
+  (:host-write #x4000) ;; Controls coherency of host writes
+  (:memory-read #x8000) ;; Controls coherency of memory reads
+  (:memory-write #x10000)) ;; Controls coherency of memory writes
 
-(defbitfield (attachment-description-flags flags)
+(defbitfield (android-surface-create-flags-khr))
+
+(defbitfield (attachment-description-flag-bits)
   (:may-alias #x1)) ;; The attachment may alias physical memory of another attachment in the same render pass
 
-(defbitfield (buffer-create-flags flags)
+(defbitfield (attachment-description-flags)
+  (:may-alias #x1)) ;; The attachment may alias physical memory of another attachment in the same render pass
+
+(defbitfield (buffer-create-flag-bits)
   (:sparse-binding #x1) ;; Buffer should support sparse backing
   (:sparse-residency #x2) ;; Buffer should support sparse backing with partial residency
   (:sparse-aliased #x4)) ;; Buffer should support constent data access to physical memory blocks mapped into multiple locations of sparse buffers
 
-(defbitfield (buffer-usage-flags flags)
+(defbitfield (buffer-create-flags)
+  (:sparse-binding #x1) ;; Buffer should support sparse backing
+  (:sparse-residency #x2) ;; Buffer should support sparse backing with partial residency
+  (:sparse-aliased #x4)) ;; Buffer should support constent data access to physical memory blocks mapped into multiple locations of sparse buffers
+
+(defbitfield (buffer-usage-flag-bits)
   (:transfer-src #x1) ;; Can be used as a source of transfer operations
   (:transfer-dst #x2) ;; Can be used as a destination of transfer operations
   (:uniform-texel-buffer #x4) ;; Can be used as TBO
@@ -74,78 +194,144 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:vertex-buffer #x80) ;; Can be used as source of fixed-function vertex fetch (VBO)
   (:indirect-buffer #x100)) ;; Can be the source of indirect parameters (e.g. indirect buffer, parameter buffer)
 
-(defbitfield (buffer-view-create-flags flags))
+(defbitfield (buffer-usage-flags)
+  (:transfer-src #x1) ;; Can be used as a source of transfer operations
+  (:transfer-dst #x2) ;; Can be used as a destination of transfer operations
+  (:uniform-texel-buffer #x4) ;; Can be used as TBO
+  (:storage-texel-buffer #x8) ;; Can be used as IBO
+  (:uniform-buffer #x10) ;; Can be used as UBO
+  (:storage-buffer #x20) ;; Can be used as SSBO
+  (:index-buffer #x40) ;; Can be used as source of fixed-function index fetch (index buffer)
+  (:vertex-buffer #x80) ;; Can be used as source of fixed-function vertex fetch (VBO)
+  (:indirect-buffer #x100)) ;; Can be the source of indirect parameters (e.g. indirect buffer, parameter buffer)
 
-(defbitfield (color-component-flags flags)
+(defbitfield (buffer-view-create-flags))
+
+(defbitfield (color-component-flag-bits)
   (:r #x1)
   (:g #x2)
   (:b #x4)
   (:a #x8))
 
-(defbitfield (command-buffer-reset-flags flags)
+(defbitfield (color-component-flags)
+  (:r #x1)
+  (:g #x2)
+  (:b #x4)
+  (:a #x8))
+
+(defbitfield (command-buffer-reset-flag-bits)
   (:release-resources #x1)) ;; Release resources owned by the buffer
 
-(defbitfield (command-buffer-usage-flags flags)
+(defbitfield (command-buffer-reset-flags)
+  (:release-resources #x1)) ;; Release resources owned by the buffer
+
+(defbitfield (command-buffer-usage-flag-bits)
   (:one-time-submit #x1)
   (:render-pass-continue #x2)
   (:simultaneous-use #x4)) ;; Command buffer may be submitted/executed more than once simultaneously
 
-(defbitfield (command-pool-create-flags flags)
+(defbitfield (command-buffer-usage-flags)
+  (:one-time-submit #x1)
+  (:render-pass-continue #x2)
+  (:simultaneous-use #x4)) ;; Command buffer may be submitted/executed more than once simultaneously
+
+(defbitfield (command-pool-create-flag-bits)
   (:transient #x1) ;; Command buffers have a short lifetime
   (:reset-command-buffer #x2)) ;; Command buffers may release their memory individually
 
-(defbitfield (command-pool-reset-flags flags)
+(defbitfield (command-pool-create-flags)
+  (:transient #x1) ;; Command buffers have a short lifetime
+  (:reset-command-buffer #x2)) ;; Command buffers may release their memory individually
+
+(defbitfield (command-pool-reset-flag-bits)
   (:release-resources #x1)) ;; Release resources owned by the pool
 
-(defbitfield (composite-alpha-flags-khr flags)
+(defbitfield (command-pool-reset-flags)
+  (:release-resources #x1)) ;; Release resources owned by the pool
+
+(defbitfield (composite-alpha-flag-bits-khr)
   (:opaque #x1)
   (:pre-multiplied #x2)
   (:post-multiplied #x4)
   (:inherit #x8))
 
-(defbitfield (cull-mode-flags flags)
+(defbitfield (composite-alpha-flags-khr)
+  (:opaque #x1)
+  (:pre-multiplied #x2)
+  (:post-multiplied #x4)
+  (:inherit #x8))
+
+(defbitfield (cull-mode-flag-bits)
   (:none #x0)
   (:front #x1)
   (:back #x2)
   (:front-and-back #x3))
 
-(defbitfield (debug-report-flags-ext flags)
+(defbitfield (cull-mode-flags)
+  (:none #x0)
+  (:front #x1)
+  (:back #x2)
+  (:front-and-back #x3))
+
+(defbitfield (debug-report-flag-bits-ext)
   (:information #x1)
   (:warning #x2)
   (:performance-warning #x4)
   (:error #x8)
   (:debug #x10))
 
-(defbitfield (dependency-flags flags)
+(defbitfield (debug-report-flags-ext)
+  (:information #x1)
+  (:warning #x2)
+  (:performance-warning #x4)
+  (:error #x8)
+  (:debug #x10))
+
+(defbitfield (dependency-flag-bits)
   (:by-region #x1)) ;; Dependency is per pixel region
 
-(defbitfield (descriptor-pool-create-flags flags)
+(defbitfield (dependency-flags)
+  (:by-region #x1)) ;; Dependency is per pixel region
+
+(defbitfield (descriptor-pool-create-flag-bits)
   (:free-descriptor-set #x1)) ;; Descriptor sets may be freed individually
 
-(defbitfield (descriptor-pool-reset-flags flags))
+(defbitfield (descriptor-pool-create-flags)
+  (:free-descriptor-set #x1)) ;; Descriptor sets may be freed individually
 
-(defbitfield (descriptor-set-layout-create-flags flags))
+(defbitfield (descriptor-pool-reset-flags))
 
-(defbitfield (device-create-flags flags))
+(defbitfield (descriptor-set-layout-create-flags))
 
-(defbitfield (device-queue-create-flags flags))
+(defbitfield (device-create-flags))
 
-(defbitfield (display-mode-create-flags-khr flags))
+(defbitfield (device-queue-create-flags))
 
-(defbitfield (display-plane-alpha-flags-khr flags)
+(defbitfield (display-mode-create-flags-khr))
+
+(defbitfield (display-plane-alpha-flag-bits-khr)
   (:opaque #x1)
   (:global #x2)
   (:per-pixel #x4)
   (:per-pixel-premultiplied #x8))
 
-(defbitfield (display-surface-create-flags-khr flags))
+(defbitfield (display-plane-alpha-flags-khr)
+  (:opaque #x1)
+  (:global #x2)
+  (:per-pixel #x4)
+  (:per-pixel-premultiplied #x8))
 
-(defbitfield (event-create-flags flags))
+(defbitfield (display-surface-create-flags-khr))
 
-(defbitfield (fence-create-flags flags)
+(defbitfield (event-create-flags))
+
+(defbitfield (fence-create-flag-bits)
   (:signaled #x1))
 
-(defbitfield (format-feature-flags flags)
+(defbitfield (fence-create-flags)
+  (:signaled #x1))
+
+(defbitfield (format-feature-flag-bits)
   (:sampled-image #x1) ;; Format can be used for sampled images (SAMPLED_IMAGE and COMBINED_IMAGE_SAMPLER descriptor types)
   (:storage-image #x2) ;; Format can be used for storage images (STORAGE_IMAGE descriptor type)
   (:storage-image-atomic #x4) ;; Format supports atomic operations in case it's used for storage images
@@ -160,22 +346,50 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:blit-dst #x800) ;; Format can be used as the destination image of blits with vkCmdBlitImage
   (:sampled-image-filter-linear #x1000)) ;; Format can be filtered with VK_FILTER_LINEAR when being sampled
 
-(defbitfield (framebuffer-create-flags flags))
+(defbitfield (format-feature-flags)
+  (:sampled-image #x1) ;; Format can be used for sampled images (SAMPLED_IMAGE and COMBINED_IMAGE_SAMPLER descriptor types)
+  (:storage-image #x2) ;; Format can be used for storage images (STORAGE_IMAGE descriptor type)
+  (:storage-image-atomic #x4) ;; Format supports atomic operations in case it's used for storage images
+  (:uniform-texel-buffer #x8) ;; Format can be used for uniform texel buffers (TBOs)
+  (:storage-texel-buffer #x10) ;; Format can be used for storage texel buffers (IBOs)
+  (:storage-texel-buffer-atomic #x20) ;; Format supports atomic operations in case it's used for storage texel buffers
+  (:vertex-buffer #x40) ;; Format can be used for vertex buffers (VBOs)
+  (:color-attachment #x80) ;; Format can be used for color attachment images
+  (:color-attachment-blend #x100) ;; Format supports blending in case it's used for color attachment images
+  (:depth-stencil-attachment #x200) ;; Format can be used for depth/stencil attachment images
+  (:blit-src #x400) ;; Format can be used as the source image of blits with vkCmdBlitImage
+  (:blit-dst #x800) ;; Format can be used as the destination image of blits with vkCmdBlitImage
+  (:sampled-image-filter-linear #x1000)) ;; Format can be filtered with VK_FILTER_LINEAR when being sampled
 
-(defbitfield (image-aspect-flags flags)
+(defbitfield (framebuffer-create-flags))
+
+(defbitfield (image-aspect-flag-bits)
   (:color #x1)
   (:depth #x2)
   (:stencil #x4)
   (:metadata #x8))
 
-(defbitfield (image-create-flags flags)
+(defbitfield (image-aspect-flags)
+  (:color #x1)
+  (:depth #x2)
+  (:stencil #x4)
+  (:metadata #x8))
+
+(defbitfield (image-create-flag-bits)
   (:sparse-binding #x1) ;; Image should support sparse backing
   (:sparse-residency #x2) ;; Image should support sparse backing with partial residency
   (:sparse-aliased #x4) ;; Image should support constent data access to physical memory blocks mapped into multiple locations of sparse images
   (:mutable-format #x8) ;; Allows image views to have different format than the base image
   (:cube-compatible #x10)) ;; Allows creating image views with cube type from the created image
 
-(defbitfield (image-usage-flags flags)
+(defbitfield (image-create-flags)
+  (:sparse-binding #x1) ;; Image should support sparse backing
+  (:sparse-residency #x2) ;; Image should support sparse backing with partial residency
+  (:sparse-aliased #x4) ;; Image should support constent data access to physical memory blocks mapped into multiple locations of sparse images
+  (:mutable-format #x8) ;; Allows image views to have different format than the base image
+  (:cube-compatible #x10)) ;; Allows creating image views with cube type from the created image
+
+(defbitfield (image-usage-flag-bits)
   (:transfer-src #x1) ;; Can be used as a source of transfer operations
   (:transfer-dst #x2) ;; Can be used as a destination of transfer operations
   (:sampled #x4) ;; Can be sampled from (SAMPLED_IMAGE and COMBINED_IMAGE_SAMPLER descriptor types)
@@ -185,48 +399,73 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:transient-attachment #x40) ;; Image data not needed outside of rendering
   (:input-attachment #x80)) ;; Can be used as framebuffer input attachment
 
-(defbitfield (image-view-create-flags flags))
+(defbitfield (image-usage-flags)
+  (:transfer-src #x1) ;; Can be used as a source of transfer operations
+  (:transfer-dst #x2) ;; Can be used as a destination of transfer operations
+  (:sampled #x4) ;; Can be sampled from (SAMPLED_IMAGE and COMBINED_IMAGE_SAMPLER descriptor types)
+  (:storage #x8) ;; Can be used as storage image (STORAGE_IMAGE descriptor type)
+  (:color-attachment #x10) ;; Can be used as framebuffer color attachment
+  (:depth-stencil-attachment #x20) ;; Can be used as framebuffer depth/stencil attachment
+  (:transient-attachment #x40) ;; Image data not needed outside of rendering
+  (:input-attachment #x80)) ;; Can be used as framebuffer input attachment
 
-(defbitfield (instance-create-flags flags))
+(defbitfield (image-view-create-flags))
 
-(defbitfield (memory-heap-flags flags)
+(defbitfield (instance-create-flags))
+
+(defbitfield (memory-heap-flag-bits)
   (:device-local #x1)) ;; If set, heap represents device memory
 
-(defbitfield (memory-map-flags flags))
+(defbitfield (memory-heap-flags)
+  (:device-local #x1)) ;; If set, heap represents device memory
 
-(defbitfield (memory-property-flags flags)
+(defbitfield (memory-map-flags))
+
+(defbitfield (memory-property-flag-bits)
   (:device-local #x1) ;; If otherwise stated, then allocate memory on device
   (:host-visible #x2) ;; Memory is mappable by host
   (:host-coherent #x4) ;; Memory will have i/o coherency. If not set, application may need to use vkFlushMappedMemoryRanges and vkInvalidateMappedMemoryRanges to flush/invalidate host cache
   (:host-cached #x8) ;; Memory will be cached by the host
   (:lazily-allocated #x10)) ;; Memory may be allocated by the driver when it is required
 
-(defbitfield (mir-surface-create-flags-khr flags))
+(defbitfield (memory-property-flags)
+  (:device-local #x1) ;; If otherwise stated, then allocate memory on device
+  (:host-visible #x2) ;; Memory is mappable by host
+  (:host-coherent #x4) ;; Memory will have i/o coherency. If not set, application may need to use vkFlushMappedMemoryRanges and vkInvalidateMappedMemoryRanges to flush/invalidate host cache
+  (:host-cached #x8) ;; Memory will be cached by the host
+  (:lazily-allocated #x10)) ;; Memory may be allocated by the driver when it is required
 
-(defbitfield (pipeline-cache-create-flags flags))
+(defbitfield (mir-surface-create-flags-khr))
 
-(defbitfield (pipeline-color-blend-state-create-flags flags))
+(defbitfield (pipeline-cache-create-flags))
 
-(defbitfield (pipeline-create-flags flags)
+(defbitfield (pipeline-color-blend-state-create-flags))
+
+(defbitfield (pipeline-create-flag-bits)
   (:disable-optimization #x1)
   (:allow-derivatives #x2)
   (:derivative #x4))
 
-(defbitfield (pipeline-depth-stencil-state-create-flags flags))
+(defbitfield (pipeline-create-flags)
+  (:disable-optimization #x1)
+  (:allow-derivatives #x2)
+  (:derivative #x4))
 
-(defbitfield (pipeline-dynamic-state-create-flags flags))
+(defbitfield (pipeline-depth-stencil-state-create-flags))
 
-(defbitfield (pipeline-input-assembly-state-create-flags flags))
+(defbitfield (pipeline-dynamic-state-create-flags))
 
-(defbitfield (pipeline-layout-create-flags flags))
+(defbitfield (pipeline-input-assembly-state-create-flags))
 
-(defbitfield (pipeline-multisample-state-create-flags flags))
+(defbitfield (pipeline-layout-create-flags))
 
-(defbitfield (pipeline-rasterization-state-create-flags flags))
+(defbitfield (pipeline-multisample-state-create-flags))
 
-(defbitfield (pipeline-shader-stage-create-flags flags))
+(defbitfield (pipeline-rasterization-state-create-flags))
 
-(defbitfield (pipeline-stage-flags flags)
+(defbitfield (pipeline-shader-stage-create-flags))
+
+(defbitfield (pipeline-stage-flag-bits)
   (:top-of-pipe #x1) ;; Before subsequent commands are processed
   (:draw-indirect #x2) ;; Draw/DispatchIndirect command fetch
   (:vertex-input #x4) ;; Vertex/index fetch
@@ -245,16 +484,38 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:all-graphics #x8000) ;; All stages of the graphics pipeline
   (:all-commands #x10000)) ;; All stages supported on the queue
 
-(defbitfield (pipeline-tessellation-state-create-flags flags))
+(defbitfield (pipeline-stage-flags)
+  (:top-of-pipe #x1) ;; Before subsequent commands are processed
+  (:draw-indirect #x2) ;; Draw/DispatchIndirect command fetch
+  (:vertex-input #x4) ;; Vertex/index fetch
+  (:vertex-shader #x8) ;; Vertex shading
+  (:tessellation-control-shader #x10) ;; Tessellation control shading
+  (:tessellation-evaluation-shader #x20) ;; Tessellation evaluation shading
+  (:geometry-shader #x40) ;; Geometry shading
+  (:fragment-shader #x80) ;; Fragment shading
+  (:early-fragment-tests #x100) ;; Early fragment (depth and stencil) tests
+  (:late-fragment-tests #x200) ;; Late fragment (depth and stencil) tests
+  (:color-attachment-output #x400) ;; Color attachment writes
+  (:compute-shader #x800) ;; Compute shading
+  (:transfer #x1000) ;; Transfer/copy operations
+  (:bottom-of-pipe #x2000) ;; After previous commands have completed
+  (:host #x4000) ;; Indicates host (CPU) is a source/sink of the dependency
+  (:all-graphics #x8000) ;; All stages of the graphics pipeline
+  (:all-commands #x10000)) ;; All stages supported on the queue
 
-(defbitfield (pipeline-vertex-input-state-create-flags flags))
+(defbitfield (pipeline-tessellation-state-create-flags))
 
-(defbitfield (pipeline-viewport-state-create-flags flags))
+(defbitfield (pipeline-vertex-input-state-create-flags))
 
-(defbitfield (query-control-flags flags)
+(defbitfield (pipeline-viewport-state-create-flags))
+
+(defbitfield (query-control-flag-bits)
   (:precise #x1)) ;; Require precise results to be collected by the query
 
-(defbitfield (query-pipeline-statistic-flags flags)
+(defbitfield (query-control-flags)
+  (:precise #x1)) ;; Require precise results to be collected by the query
+
+(defbitfield (query-pipeline-statistic-flag-bits)
   (:input-assembly-vertices #x1) ;; Optional
   (:input-assembly-primitives #x2) ;; Optional
   (:vertex-shader-invocations #x4) ;; Optional
@@ -267,23 +528,48 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:tessellation-evaluation-shader-invocations #x200) ;; Optional
   (:compute-shader-invocations #x400)) ;; Optional
 
-(defbitfield (query-pool-create-flags flags))
+(defbitfield (query-pipeline-statistic-flags)
+  (:input-assembly-vertices #x1) ;; Optional
+  (:input-assembly-primitives #x2) ;; Optional
+  (:vertex-shader-invocations #x4) ;; Optional
+  (:geometry-shader-invocations #x8) ;; Optional
+  (:geometry-shader-primitives #x10) ;; Optional
+  (:clipping-invocations #x20) ;; Optional
+  (:clipping-primitives #x40) ;; Optional
+  (:fragment-shader-invocations #x80) ;; Optional
+  (:tessellation-control-shader-patches #x100) ;; Optional
+  (:tessellation-evaluation-shader-invocations #x200) ;; Optional
+  (:compute-shader-invocations #x400)) ;; Optional
 
-(defbitfield (query-result-flags flags)
+(defbitfield (query-pool-create-flags))
+
+(defbitfield (query-result-flag-bits)
   (:64 #x1) ;; Results of the queries are written to the destination buffer as 64-bit values
   (:wait #x2) ;; Results of the queries are waited on before proceeding with the result copy
   (:with-availability #x4) ;; Besides the results of the query, the availability of the results is also written
   (:partial #x8)) ;; Copy the partial results of the query even if the final results aren't available
 
-(defbitfield (queue-flags flags)
+(defbitfield (query-result-flags)
+  (:64 #x1) ;; Results of the queries are written to the destination buffer as 64-bit values
+  (:wait #x2) ;; Results of the queries are waited on before proceeding with the result copy
+  (:with-availability #x4) ;; Besides the results of the query, the availability of the results is also written
+  (:partial #x8)) ;; Copy the partial results of the query even if the final results aren't available
+
+(defbitfield (queue-flag-bits)
   (:graphics #x1) ;; Queue supports graphics operations
   (:compute #x2) ;; Queue supports compute operations
   (:transfer #x4) ;; Queue supports transfer operations
   (:sparse-binding #x8)) ;; Queue supports sparse resource memory management operations
 
-(defbitfield (render-pass-create-flags flags))
+(defbitfield (queue-flags)
+  (:graphics #x1) ;; Queue supports graphics operations
+  (:compute #x2) ;; Queue supports compute operations
+  (:transfer #x4) ;; Queue supports transfer operations
+  (:sparse-binding #x8)) ;; Queue supports sparse resource memory management operations
 
-(defbitfield (sample-count-flags flags)
+(defbitfield (render-pass-create-flags))
+
+(defbitfield (sample-count-flag-bits)
   (:1 #x1) ;; Sample count 1 supported
   (:2 #x2) ;; Sample count 2 supported
   (:4 #x4) ;; Sample count 4 supported
@@ -292,13 +578,22 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:32 #x20) ;; Sample count 32 supported
   (:64 #x40)) ;; Sample count 64 supported
 
-(defbitfield (sampler-create-flags flags))
+(defbitfield (sample-count-flags)
+  (:1 #x1) ;; Sample count 1 supported
+  (:2 #x2) ;; Sample count 2 supported
+  (:4 #x4) ;; Sample count 4 supported
+  (:8 #x8) ;; Sample count 8 supported
+  (:16 #x10) ;; Sample count 16 supported
+  (:32 #x20) ;; Sample count 32 supported
+  (:64 #x40)) ;; Sample count 64 supported
 
-(defbitfield (semaphore-create-flags flags))
+(defbitfield (sampler-create-flags))
 
-(defbitfield (shader-module-create-flags flags))
+(defbitfield (semaphore-create-flags))
 
-(defbitfield (shader-stage-flags flags)
+(defbitfield (shader-module-create-flags))
+
+(defbitfield (shader-stage-flag-bits)
   (:vertex #x1)
   (:tessellation-control #x2)
   (:tessellation-evaluation #x4)
@@ -308,22 +603,45 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:all-graphics #x1F)
   (:all #x7FFFFFFF))
 
-(defbitfield (sparse-image-format-flags flags)
+(defbitfield (shader-stage-flags)
+  (:vertex #x1)
+  (:tessellation-control #x2)
+  (:tessellation-evaluation #x4)
+  (:geometry #x8)
+  (:fragment #x10)
+  (:compute #x20)
+  (:all-graphics #x1F)
+  (:all #x7FFFFFFF))
+
+(defbitfield (sparse-image-format-flag-bits)
   (:single-miptail #x1) ;; Image uses a single miptail region for all array layers
   (:aligned-mip-size #x2) ;; Image requires mip levels to be an exact multiple of the sparse image block size for non-miptail levels.
   (:nonstandard-block-size #x4)) ;; Image uses a non-standard sparse block size
 
-(defbitfield (sparse-memory-bind-flags flags)
+(defbitfield (sparse-image-format-flags)
+  (:single-miptail #x1) ;; Image uses a single miptail region for all array layers
+  (:aligned-mip-size #x2) ;; Image requires mip levels to be an exact multiple of the sparse image block size for non-miptail levels.
+  (:nonstandard-block-size #x4)) ;; Image uses a non-standard sparse block size
+
+(defbitfield (sparse-memory-bind-flag-bits)
   (:metadata #x1)) ;; Operation binds resource metadata to memory
 
-(defbitfield (stencil-face-flags flags)
+(defbitfield (sparse-memory-bind-flags)
+  (:metadata #x1)) ;; Operation binds resource metadata to memory
+
+(defbitfield (stencil-face-flag-bits)
   (:front #x1) ;; Front face
   (:back #x2) ;; Back face
   (:vk-stencil-front-and-back #x3)) ;; Front and back faces
 
-(defbitfield (subpass-description-flags flags))
+(defbitfield (stencil-face-flags)
+  (:front #x1) ;; Front face
+  (:back #x2) ;; Back face
+  (:vk-stencil-front-and-back #x3)) ;; Front and back faces
 
-(defbitfield (surface-transform-flags-khr flags)
+(defbitfield (subpass-description-flags))
+
+(defbitfield (surface-transform-flag-bits-khr)
   (:identity #x1)
   (:rotate-90 #x2)
   (:rotate-180 #x4)
@@ -334,15 +652,26 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:horizontal-mirror-rotate-270 #x80)
   (:inherit #x100))
 
-(defbitfield (swapchain-create-flags-khr flags))
+(defbitfield (surface-transform-flags-khr)
+  (:identity #x1)
+  (:rotate-90 #x2)
+  (:rotate-180 #x4)
+  (:rotate-270 #x8)
+  (:horizontal-mirror #x10)
+  (:horizontal-mirror-rotate-90 #x20)
+  (:horizontal-mirror-rotate-180 #x40)
+  (:horizontal-mirror-rotate-270 #x80)
+  (:inherit #x100))
 
-(defbitfield (wayland-surface-create-flags-khr flags))
+(defbitfield (swapchain-create-flags-khr))
 
-(defbitfield (win32-surface-create-flags-khr flags))
+(defbitfield (wayland-surface-create-flags-khr))
 
-(defbitfield (xcb-surface-create-flags-khr flags))
+(defbitfield (win32-surface-create-flags-khr))
 
-(defbitfield (xlib-surface-create-flags-khr flags))
+(defbitfield (xcb-surface-create-flags-khr))
+
+(defbitfield (xlib-surface-create-flags-khr))
 
 (defcenum (attachment-load-op)
   (:load #x0)
@@ -912,30 +1241,30 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defctype pfn-void-function :pointer)
 
 (defcstruct allocation-callbacks
-  (:p-user-data (:pointer :void))#||optional (true)||#
+  (:p-user-data (:pointer :void))#|optional (true)|#
   (:pfn-allocation pfn-allocation-function)
   (:pfn-reallocation pfn-reallocation-function)
   (:pfn-free pfn-free-function)
-  (:pfn-internal-allocation pfn-internal-allocation-notification)#||optional (true)||#
-  (:pfn-internal-free pfn-internal-free-notification)#||optional (true)||#)
+  (:pfn-internal-allocation pfn-internal-allocation-notification)#|optional (true)|#
+  (:pfn-internal-free pfn-internal-free-notification)#|optional (true)|#)
 
 (defcstruct android-surface-create-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags android-surface-create-flags-khr)#||optional (true)||#
+  (:flags android-surface-create-flags-khr)#|optional (true)|#
   (:window (:pointer a-native-window)))
 
 (defcstruct application-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:p-application-name :string)#||optional (true)||#
+  (:p-application-name :string)#|optional (true)|#
   (:application-version :uint32)
-  (:p-engine-name :string)#||optional (true)||#
+  (:p-engine-name :string)#|optional (true)|#
   (:engine-version :uint32)
   (:api-version :uint32))
 
 (defcstruct attachment-description
-  (:flags attachment-description-flags)#||optional (true)||#
+  (:flags attachment-description-flags)#|optional (true)|#
   (:format format)
   (:samples sample-count-flag-bits)
   (:load-op attachment-load-op)
@@ -952,15 +1281,16 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct bind-sparse-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:wait-semaphore-count :uint32)#||optional (true)||#
+  (:wait-semaphore-count :uint32)#|optional (true)|#
   (:p-wait-semaphores (:pointer semaphore))
-  (:buffer-bind-count :uint32)#||optional (true)||#
-  (:p-buffer-binds (:pointer sparse-buffer-memory-bind-info))
-  (:image-opaque-bind-count :uint32)#||optional (true)||#
-  (:p-image-opaque-binds (:pointer sparse-image-opaque-memory-bind-info))
-  (:image-bind-count :uint32)#||optional (true)||#
-  (:p-image-binds (:pointer sparse-image-memory-bind-info))
-  (:signal-semaphore-count :uint32)#||optional (true)||#
+  (:buffer-bind-count :uint32)#|optional (true)|#
+  (:p-buffer-binds (:pointer (:struct sparse-buffer-memory-bind-info)))
+  (:image-opaque-bind-count :uint32)#|optional (true)|#
+  (:p-image-opaque-binds (:pointer
+                          (:struct sparse-image-opaque-memory-bind-info)))
+  (:image-bind-count :uint32)#|optional (true)|#
+  (:p-image-binds (:pointer (:struct sparse-image-memory-bind-info)))
+  (:signal-semaphore-count :uint32)#|optional (true)|#
   (:p-signal-semaphores (:pointer semaphore)))
 
 (defcstruct buffer-copy
@@ -971,26 +1301,26 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct buffer-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags buffer-create-flags)#||optional (true)||#
+  (:flags buffer-create-flags)#|optional (true)|#
   (:size device-size)
   (:usage buffer-usage-flags)
   (:sharing-mode sharing-mode)
-  (:queue-family-index-count :uint32)#||optional (true)||#
+  (:queue-family-index-count :uint32)#|optional (true)|#
   (:p-queue-family-indices (:pointer :uint32)))
 
 (defcstruct buffer-image-copy
   (:buffer-offset device-size)
   (:buffer-row-length :uint32)
   (:buffer-image-height :uint32)
-  (:image-subresource image-subresource-layers)
-  (:image-offset offset-3d)
-  (:image-extent extent-3d))
+  (:image-subresource (:struct image-subresource-layers))
+  (:image-offset (:struct offset-3d))
+  (:image-extent (:struct extent-3d)))
 
 (defcstruct buffer-memory-barrier
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:src-access-mask access-flags)#||optional (true)||#
-  (:dst-access-mask access-flags)#||optional (true)||#
+  (:src-access-mask access-flags)#|optional (true)|#
+  (:dst-access-mask access-flags)#|optional (true)|#
   (:src-queue-family-index :uint32)
   (:dst-queue-family-index :uint32)
   (:buffer buffer)
@@ -1000,7 +1330,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct buffer-view-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags buffer-view-create-flags)#||optional (true)||#
+  (:flags buffer-view-create-flags)#|optional (true)|#
   (:buffer buffer)
   (:format format)
   (:offset device-size)
@@ -1009,7 +1339,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct clear-attachment
   (:aspect-mask image-aspect-flags)
   (:color-attachment :uint32)
-  (:clear-value clear-value))
+  (:clear-value (:union clear-value)))
 
 (defcunion clear-color-value
   (:float-32 :float)
@@ -1021,13 +1351,13 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:stencil :uint32))
 
 (defcstruct clear-rect
-  (:rect rect-2d)
+  (:rect (:struct rect-2d))
   (:base-array-layer :uint32)
   (:layer-count :uint32))
 
 (defcunion clear-value
-  (:color clear-color-value)
-  (:depth-stencil clear-depth-stencil-value))
+  (:color (:union clear-color-value))
+  (:depth-stencil (:struct clear-depth-stencil-value)))
 
 (defcstruct command-buffer-allocate-info
   (:s-type structure-type)
@@ -1039,23 +1369,23 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct command-buffer-begin-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags command-buffer-usage-flags)#||optional (true)||#
-  (:p-inheritance-info (:pointer command-buffer-inheritance-info))#||optional (true)||#)
+  (:flags command-buffer-usage-flags)#|optional (true)|#
+  (:p-inheritance-info (:pointer (:struct command-buffer-inheritance-info)))#|optional (true)|#)
 
 (defcstruct command-buffer-inheritance-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:render-pass render-pass)#||optional (true)||#
+  (:render-pass render-pass)#|optional (true)|#
   (:subpass :uint32)
-  (:framebuffer framebuffer)#||optional (true)||#
+  (:framebuffer framebuffer)#|optional (true)|#
   (:occlusion-query-enable bool32)
-  (:query-flags query-control-flags)#||optional (true)||#
-  (:pipeline-statistics query-pipeline-statistic-flags)#||optional (true)||#)
+  (:query-flags query-control-flags)#|optional (true)|#
+  (:pipeline-statistics query-pipeline-statistic-flags)#|optional (true)|#)
 
 (defcstruct command-pool-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags command-pool-create-flags)#||optional (true)||#
+  (:flags command-pool-create-flags)#|optional (true)|#
   (:queue-family-index :uint32))
 
 (defcstruct component-mapping
@@ -1067,10 +1397,10 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct compute-pipeline-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-create-flags)#||optional (true)||#
-  (:stage pipeline-shader-stage-create-info)
+  (:flags pipeline-create-flags)#|optional (true)|#
+  (:stage (:struct pipeline-shader-stage-create-info))
   (:layout pipeline-layout)
-  (:base-pipeline-handle pipeline)#||optional (true)||#
+  (:base-pipeline-handle pipeline)#|optional (true)|#
   (:base-pipeline-index :int32))
 
 (defcstruct copy-descriptor-set
@@ -1089,7 +1419,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-next (:pointer :void))
   (:flags debug-report-flags-ext)
   (:pfn-callback pfn-debug-report-callback-ext)
-  (:p-user-data (:pointer :void))#||optional (true)||#)
+  (:p-user-data (:pointer :void))#|optional (true)|#)
 
 (defcstruct descriptor-buffer-info
   (:buffer buffer)
@@ -1104,10 +1434,10 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct descriptor-pool-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags descriptor-pool-create-flags)#||optional (true)||#
+  (:flags descriptor-pool-create-flags)#|optional (true)|#
   (:max-sets :uint32)
   (:pool-size-count :uint32)
-  (:p-pool-sizes (:pointer descriptor-pool-size)))
+  (:p-pool-sizes (:pointer (:struct descriptor-pool-size))))
 
 (defcstruct descriptor-pool-size
   (:type descriptor-type)
@@ -1123,33 +1453,33 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct descriptor-set-layout-binding
   (:binding :uint32)
   (:descriptor-type descriptor-type)
-  (:descriptor-count :uint32)#||optional (true)||#
+  (:descriptor-count :uint32)#|optional (true)|#
   (:stage-flags shader-stage-flags)
-  (:p-immutable-samplers (:pointer sampler))#||optional (true)||#)
+  (:p-immutable-samplers (:pointer sampler))#|optional (true)|#)
 
 (defcstruct descriptor-set-layout-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags descriptor-set-layout-create-flags)#||optional (true)||#
-  (:binding-count :uint32)#||optional (true)||#
-  (:p-bindings (:pointer descriptor-set-layout-binding)))
+  (:flags descriptor-set-layout-create-flags)#|optional (true)|#
+  (:binding-count :uint32)#|optional (true)|#
+  (:p-bindings (:pointer (:struct descriptor-set-layout-binding))))
 
 (defcstruct device-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags device-create-flags)#||optional (true)||#
+  (:flags device-create-flags)#|optional (true)|#
   (:queue-create-info-count :uint32)
-  (:p-queue-create-infos (:pointer device-queue-create-info))
-  (:enabled-layer-count :uint32)#||optional (true)||#
-  (:pp-enabled-layer-names (:pointer (:pointer :char)))#||optional (true)||#
-  (:enabled-extension-count :uint32)#||optional (true)||#
-  (:pp-enabled-extension-names (:pointer (:pointer :char)))#||optional (true)||#
-  (:p-enabled-features (:pointer physical-device-features)))
+  (:p-queue-create-infos (:pointer (:struct device-queue-create-info)))
+  (:enabled-layer-count :uint32)#|optional (true)|#
+  (:pp-enabled-layer-names (:pointer (:pointer :char)))#|optional (true)|#
+  (:enabled-extension-count :uint32)#|optional (true)|#
+  (:pp-enabled-extension-names (:pointer (:pointer :char)))#|optional (true)|#
+  (:p-enabled-features (:pointer (:struct physical-device-features))))
 
 (defcstruct device-queue-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags device-queue-create-flags)#||optional (true)||#
+  (:flags device-queue-create-flags)#|optional (true)|#
   (:queue-family-index :uint32)
   (:queue-count :uint32)
   (:p-queue-priorities (:pointer :float)))
@@ -1162,27 +1492,27 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct display-mode-create-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags display-mode-create-flags-khr)#||optional (true)||#
-  (:parameters display-mode-parameters-khr))
+  (:flags display-mode-create-flags-khr)#|optional (true)|#
+  (:parameters (:struct display-mode-parameters-khr)))
 
 (defcstruct display-mode-parameters-khr
-  (:visible-region extent-2d)
+  (:visible-region (:struct extent-2d))
   (:refresh-rate :uint32))
 
 (defcstruct display-mode-properties-khr
   (:display-mode display-mode-khr)
-  (:parameters display-mode-parameters-khr))
+  (:parameters (:struct display-mode-parameters-khr)))
 
 (defcstruct display-plane-capabilities-khr
-  (:supported-alpha display-plane-alpha-flags-khr)#||optional (true)||#
-  (:min-src-position offset-2d)
-  (:max-src-position offset-2d)
-  (:min-src-extent extent-2d)
-  (:max-src-extent extent-2d)
-  (:min-dst-position offset-2d)
-  (:max-dst-position offset-2d)
-  (:min-dst-extent extent-2d)
-  (:max-dst-extent extent-2d))
+  (:supported-alpha display-plane-alpha-flags-khr)#|optional (true)|#
+  (:min-src-position (:struct offset-2d))
+  (:max-src-position (:struct offset-2d))
+  (:min-src-extent (:struct extent-2d))
+  (:max-src-extent (:struct extent-2d))
+  (:min-dst-position (:struct offset-2d))
+  (:max-dst-position (:struct offset-2d))
+  (:min-dst-extent (:struct extent-2d))
+  (:max-dst-extent (:struct extent-2d)))
 
 (defcstruct display-plane-properties-khr
   (:current-display display-khr)
@@ -1191,30 +1521,30 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct display-present-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:src-rect rect-2d)
-  (:dst-rect rect-2d)
+  (:src-rect (:struct rect-2d))
+  (:dst-rect (:struct rect-2d))
   (:persistent bool32))
 
 (defcstruct display-properties-khr
   (:display display-khr)
   (:display-name :string)
-  (:physical-dimensions extent-2d)
-  (:physical-resolution extent-2d)
-  (:supported-transforms surface-transform-flags-khr)#||optional (true)||#
+  (:physical-dimensions (:struct extent-2d))
+  (:physical-resolution (:struct extent-2d))
+  (:supported-transforms surface-transform-flags-khr)#|optional (true)|#
   (:plane-reorder-possible bool32)
   (:persistent-content bool32))
 
 (defcstruct display-surface-create-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags display-surface-create-flags-khr)#||optional (true)||#
+  (:flags display-surface-create-flags-khr)#|optional (true)|#
   (:display-mode display-mode-khr)
   (:plane-index :uint32)
   (:plane-stack-index :uint32)
   (:transform surface-transform-flag-bits-khr)
   (:global-alpha :float)
   (:alpha-mode display-plane-alpha-flag-bits-khr)
-  (:image-extent extent-2d))
+  (:image-extent (:struct extent-2d)))
 
 (defcstruct draw-indexed-indirect-command
   (:index-count :uint32)
@@ -1232,7 +1562,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct event-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags event-create-flags)#||optional (true)||#)
+  (:flags event-create-flags)#|optional (true)|#)
 
 (defcstruct extension-properties
   (:extension-name :char)
@@ -1250,19 +1580,19 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct fence-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags fence-create-flags)#||optional (true)||#)
+  (:flags fence-create-flags)#|optional (true)|#)
 
 (defcstruct format-properties
-  (:linear-tiling-features format-feature-flags)#||optional (true)||#
-  (:optimal-tiling-features format-feature-flags)#||optional (true)||#
-  (:buffer-features format-feature-flags)#||optional (true)||#)
+  (:linear-tiling-features format-feature-flags)#|optional (true)|#
+  (:optimal-tiling-features format-feature-flags)#|optional (true)|#
+  (:buffer-features format-feature-flags)#|optional (true)|#)
 
 (defcstruct framebuffer-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags framebuffer-create-flags)#||optional (true)||#
+  (:flags framebuffer-create-flags)#|optional (true)|#
   (:render-pass render-pass)
-  (:attachment-count :uint32)#||optional (true)||#
+  (:attachment-count :uint32)#|optional (true)|#
   (:p-attachments (:pointer image-view))
   (:width :uint32)
   (:height :uint32)
@@ -1271,79 +1601,86 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct graphics-pipeline-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-create-flags)#||optional (true)||#
+  (:flags pipeline-create-flags)#|optional (true)|#
   (:stage-count :uint32)
-  (:p-stages (:pointer pipeline-shader-stage-create-info))
-  (:p-vertex-input-state (:pointer pipeline-vertex-input-state-create-info))
-  (:p-input-assembly-state (:pointer pipeline-input-assembly-state-create-info))
-  (:p-tessellation-state (:pointer pipeline-tessellation-state-create-info))#||optional (true)||#
-  (:p-viewport-state (:pointer pipeline-viewport-state-create-info))#||optional (true)||#
-  (:p-rasterization-state (:pointer pipeline-rasterization-state-create-info))
-  (:p-multisample-state (:pointer pipeline-multisample-state-create-info))#||optional (true)||#
-  (:p-depth-stencil-state (:pointer pipeline-depth-stencil-state-create-info))#||optional (true)||#
-  (:p-color-blend-state (:pointer pipeline-color-blend-state-create-info))#||optional (true)||#
-  (:p-dynamic-state (:pointer pipeline-dynamic-state-create-info))#||optional (true)||#
+  (:p-stages (:pointer (:struct pipeline-shader-stage-create-info)))
+  (:p-vertex-input-state (:pointer
+                          (:struct pipeline-vertex-input-state-create-info)))
+  (:p-input-assembly-state (:pointer
+                            (:struct pipeline-input-assembly-state-create-info)))
+  (:p-tessellation-state (:pointer
+                          (:struct pipeline-tessellation-state-create-info)))#|optional (true)|#
+  (:p-viewport-state (:pointer (:struct pipeline-viewport-state-create-info)))#|optional (true)|#
+  (:p-rasterization-state (:pointer
+                           (:struct pipeline-rasterization-state-create-info)))
+  (:p-multisample-state (:pointer
+                         (:struct pipeline-multisample-state-create-info)))#|optional (true)|#
+  (:p-depth-stencil-state (:pointer
+                           (:struct pipeline-depth-stencil-state-create-info)))#|optional (true)|#
+  (:p-color-blend-state (:pointer
+                         (:struct pipeline-color-blend-state-create-info)))#|optional (true)|#
+  (:p-dynamic-state (:pointer (:struct pipeline-dynamic-state-create-info)))#|optional (true)|#
   (:layout pipeline-layout)
   (:render-pass render-pass)
   (:subpass :uint32)
-  (:base-pipeline-handle pipeline)#||optional (true)||#
+  (:base-pipeline-handle pipeline)#|optional (true)|#
   (:base-pipeline-index :int32))
 
 (defcstruct image-blit
-  (:src-subresource image-subresource-layers)
-  (:src-offsets[-2] offset-3d)
-  (:dst-subresource image-subresource-layers)
-  (:dst-offsets[-2] offset-3d))
+  (:src-subresource (:struct image-subresource-layers))
+  (:src-offsets[-2] (:struct offset-3d))
+  (:dst-subresource (:struct image-subresource-layers))
+  (:dst-offsets[-2] (:struct offset-3d)))
 
 (defcstruct image-copy
-  (:src-subresource image-subresource-layers)
-  (:src-offset offset-3d)
-  (:dst-subresource image-subresource-layers)
-  (:dst-offset offset-3d)
-  (:extent extent-3d))
+  (:src-subresource (:struct image-subresource-layers))
+  (:src-offset (:struct offset-3d))
+  (:dst-subresource (:struct image-subresource-layers))
+  (:dst-offset (:struct offset-3d))
+  (:extent (:struct extent-3d)))
 
 (defcstruct image-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags image-create-flags)#||optional (true)||#
+  (:flags image-create-flags)#|optional (true)|#
   (:image-type image-type)
   (:format format)
-  (:extent extent-3d)
+  (:extent (:struct extent-3d))
   (:mip-levels :uint32)
   (:array-layers :uint32)
   (:samples sample-count-flag-bits)
   (:tiling image-tiling)
   (:usage image-usage-flags)
   (:sharing-mode sharing-mode)
-  (:queue-family-index-count :uint32)#||optional (true)||#
+  (:queue-family-index-count :uint32)#|optional (true)|#
   (:p-queue-family-indices (:pointer :uint32))
   (:initial-layout image-layout))
 
 (defcstruct image-format-properties
-  (:max-extent extent-3d)
+  (:max-extent (:struct extent-3d))
   (:max-mip-levels :uint32)
   (:max-array-layers :uint32)
-  (:sample-counts sample-count-flags)#||optional (true)||#
+  (:sample-counts sample-count-flags)#|optional (true)|#
   (:max-resource-size device-size))
 
 (defcstruct image-memory-barrier
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:src-access-mask access-flags)#||optional (true)||#
-  (:dst-access-mask access-flags)#||optional (true)||#
+  (:src-access-mask access-flags)#|optional (true)|#
+  (:dst-access-mask access-flags)#|optional (true)|#
   (:old-layout image-layout)
   (:new-layout image-layout)
   (:src-queue-family-index :uint32)
   (:dst-queue-family-index :uint32)
   (:image image)
-  (:subresource-range image-subresource-range))
+  (:subresource-range (:struct image-subresource-range)))
 
 (defcstruct image-resolve
-  (:src-subresource image-subresource-layers)
-  (:src-offset offset-3d)
-  (:dst-subresource image-subresource-layers)
-  (:dst-offset offset-3d)
-  (:extent extent-3d))
+  (:src-subresource (:struct image-subresource-layers))
+  (:src-offset (:struct offset-3d))
+  (:dst-subresource (:struct image-subresource-layers))
+  (:dst-offset (:struct offset-3d))
+  (:extent (:struct extent-3d)))
 
 (defcstruct image-subresource
   (:aspect-mask image-aspect-flags)
@@ -1366,21 +1703,21 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct image-view-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags image-view-create-flags)#||optional (true)||#
+  (:flags image-view-create-flags)#|optional (true)|#
   (:image image)
   (:view-type image-view-type)
   (:format format)
-  (:components component-mapping)
-  (:subresource-range image-subresource-range))
+  (:components (:struct component-mapping))
+  (:subresource-range (:struct image-subresource-range)))
 
 (defcstruct instance-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags instance-create-flags)#||optional (true)||#
-  (:p-application-info (:pointer application-info))#||optional (true)||#
-  (:enabled-layer-count :uint32)#||optional (true)||#
+  (:flags instance-create-flags)#|optional (true)|#
+  (:p-application-info (:pointer (:struct application-info)))#|optional (true)|#
+  (:enabled-layer-count :uint32)#|optional (true)|#
   (:pp-enabled-layer-names (:pointer (:pointer :char)))
-  (:enabled-extension-count :uint32)#||optional (true)||#
+  (:enabled-extension-count :uint32)#|optional (true)|#
   (:pp-enabled-extension-names (:pointer (:pointer :char))))
 
 (defcstruct layer-properties
@@ -1405,12 +1742,12 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct memory-barrier
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:src-access-mask access-flags)#||optional (true)||#
-  (:dst-access-mask access-flags)#||optional (true)||#)
+  (:src-access-mask access-flags)#|optional (true)|#
+  (:dst-access-mask access-flags)#|optional (true)|#)
 
 (defcstruct memory-heap
   (:size device-size)
-  (:flags memory-heap-flags)#||optional (true)||#)
+  (:flags memory-heap-flags)#|optional (true)|#)
 
 (defcstruct memory-requirements
   (:size device-size)
@@ -1418,13 +1755,13 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:memory-type-bits :uint32))
 
 (defcstruct memory-type
-  (:property-flags memory-property-flags)#||optional (true)||#
+  (:property-flags memory-property-flags)#|optional (true)|#
   (:heap-index :uint32))
 
 (defcstruct mir-surface-create-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags mir-surface-create-flags-khr)#||optional (true)||#
+  (:flags mir-surface-create-flags-khr)#|optional (true)|#
   (:connection (:pointer mir-connection))
   (:mir-surface (:pointer mir-surface)))
 
@@ -1575,16 +1912,16 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-framebuffer-width :uint32)
   (:max-framebuffer-height :uint32)
   (:max-framebuffer-layers :uint32)
-  (:framebuffer-color-sample-counts sample-count-flags)#||optional (true)||#
-  (:framebuffer-depth-sample-counts sample-count-flags)#||optional (true)||#
-  (:framebuffer-stencil-sample-counts sample-count-flags)#||optional (true)||#
-  (:framebuffer-no-attachments-sample-counts sample-count-flags)#||optional (true)||#
+  (:framebuffer-color-sample-counts sample-count-flags)#|optional (true)|#
+  (:framebuffer-depth-sample-counts sample-count-flags)#|optional (true)|#
+  (:framebuffer-stencil-sample-counts sample-count-flags)#|optional (true)|#
+  (:framebuffer-no-attachments-sample-counts sample-count-flags)#|optional (true)|#
   (:max-color-attachments :uint32)
-  (:sampled-image-color-sample-counts sample-count-flags)#||optional (true)||#
-  (:sampled-image-integer-sample-counts sample-count-flags)#||optional (true)||#
-  (:sampled-image-depth-sample-counts sample-count-flags)#||optional (true)||#
-  (:sampled-image-stencil-sample-counts sample-count-flags)#||optional (true)||#
-  (:storage-image-sample-counts sample-count-flags)#||optional (true)||#
+  (:sampled-image-color-sample-counts sample-count-flags)#|optional (true)|#
+  (:sampled-image-integer-sample-counts sample-count-flags)#|optional (true)|#
+  (:sampled-image-depth-sample-counts sample-count-flags)#|optional (true)|#
+  (:sampled-image-stencil-sample-counts sample-count-flags)#|optional (true)|#
+  (:storage-image-sample-counts sample-count-flags)#|optional (true)|#
   (:max-sample-mask-words :uint32)
   (:timestamp-compute-and-graphics bool32)
   (:timestamp-period :float)
@@ -1604,9 +1941,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 
 (defcstruct physical-device-memory-properties
   (:memory-type-count :uint32)
-  (:memory-types memory-type)
+  (:memory-types (:struct memory-type))
   (:memory-heap-count :uint32)
-  (:memory-heaps memory-heap))
+  (:memory-heaps (:struct memory-heap)))
 
 (defcstruct physical-device-properties
   (:api-version :uint32)
@@ -1616,8 +1953,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:device-type physical-device-type)
   (:device-name :char)
   (:pipeline-cache-uuid :uint8)
-  (:limits physical-device-limits)
-  (:sparse-properties physical-device-sparse-properties))
+  (:limits (:struct physical-device-limits))
+  (:sparse-properties (:struct physical-device-sparse-properties)))
 
 (defcstruct physical-device-sparse-properties
   (:residency-standard-2d-block-shape bool32)
@@ -1629,8 +1966,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct pipeline-cache-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-cache-create-flags)#||optional (true)||#
-  (:initial-data-size size-t)#||optional (true)||#
+  (:flags pipeline-cache-create-flags)#|optional (true)|#
+  (:initial-data-size size-t)#|optional (true)|#
   (:p-initial-data (:pointer :void)))
 
 (defcstruct pipeline-color-blend-attachment-state
@@ -1641,74 +1978,74 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:src-alpha-blend-factor blend-factor)
   (:dst-alpha-blend-factor blend-factor)
   (:alpha-blend-op blend-op)
-  (:color-write-mask color-component-flags)#||optional (true)||#)
+  (:color-write-mask color-component-flags)#|optional (true)|#)
 
 (defcstruct pipeline-color-blend-state-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-color-blend-state-create-flags)#||optional (true)||#
+  (:flags pipeline-color-blend-state-create-flags)#|optional (true)|#
   (:logic-op-enable bool32)
   (:logic-op logic-op)
-  (:attachment-count :uint32)#||optional (true)||#
-  (:p-attachments (:pointer pipeline-color-blend-attachment-state))
+  (:attachment-count :uint32)#|optional (true)|#
+  (:p-attachments (:pointer (:struct pipeline-color-blend-attachment-state)))
   (:blend-constants :float))
 
 (defcstruct pipeline-depth-stencil-state-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-depth-stencil-state-create-flags)#||optional (true)||#
+  (:flags pipeline-depth-stencil-state-create-flags)#|optional (true)|#
   (:depth-test-enable bool32)
   (:depth-write-enable bool32)
   (:depth-compare-op compare-op)
   (:depth-bounds-test-enable bool32)
   (:stencil-test-enable bool32)
-  (:front stencil-op-state)
-  (:back stencil-op-state)
+  (:front (:struct stencil-op-state))
+  (:back (:struct stencil-op-state))
   (:min-depth-bounds :float)
   (:max-depth-bounds :float))
 
 (defcstruct pipeline-dynamic-state-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-dynamic-state-create-flags)#||optional (true)||#
+  (:flags pipeline-dynamic-state-create-flags)#|optional (true)|#
   (:dynamic-state-count :uint32)
   (:p-dynamic-states (:pointer dynamic-state)))
 
 (defcstruct pipeline-input-assembly-state-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-input-assembly-state-create-flags)#||optional (true)||#
+  (:flags pipeline-input-assembly-state-create-flags)#|optional (true)|#
   (:topology primitive-topology)
   (:primitive-restart-enable bool32))
 
 (defcstruct pipeline-layout-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-layout-create-flags)#||optional (true)||#
-  (:set-layout-count :uint32)#||optional (true)||#
+  (:flags pipeline-layout-create-flags)#|optional (true)|#
+  (:set-layout-count :uint32)#|optional (true)|#
   (:p-set-layouts (:pointer descriptor-set-layout))
-  (:push-constant-range-count :uint32)#||optional (true)||#
-  (:p-push-constant-ranges (:pointer push-constant-range)))
+  (:push-constant-range-count :uint32)#|optional (true)|#
+  (:p-push-constant-ranges (:pointer (:struct push-constant-range))))
 
 (defcstruct pipeline-multisample-state-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-multisample-state-create-flags)#||optional (true)||#
+  (:flags pipeline-multisample-state-create-flags)#|optional (true)|#
   (:rasterization-samples sample-count-flag-bits)
   (:sample-shading-enable bool32)
   (:min-sample-shading :float)
-  (:p-sample-mask (:pointer sample-mask))#||optional (true)||#
+  (:p-sample-mask (:pointer sample-mask))#|optional (true)|#
   (:alpha-to-coverage-enable bool32)
   (:alpha-to-one-enable bool32))
 
 (defcstruct pipeline-rasterization-state-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-rasterization-state-create-flags)#||optional (true)||#
+  (:flags pipeline-rasterization-state-create-flags)#|optional (true)|#
   (:depth-clamp-enable bool32)
   (:rasterizer-discard-enable bool32)
   (:polygon-mode polygon-mode)
-  (:cull-mode cull-mode-flags)#||optional (true)||#
+  (:cull-mode cull-mode-flags)#|optional (true)|#
   (:front-face front-face)
   (:depth-bias-enable bool32)
   (:depth-bias-constant-factor :float)
@@ -1719,46 +2056,48 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct pipeline-shader-stage-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-shader-stage-create-flags)#||optional (true)||#
+  (:flags pipeline-shader-stage-create-flags)#|optional (true)|#
   (:stage shader-stage-flag-bits)
   (:module shader-module)
   (:p-name :string)
-  (:p-specialization-info (:pointer specialization-info))#||optional (true)||#)
+  (:p-specialization-info (:pointer (:struct specialization-info)))#|optional (true)|#)
 
 (defcstruct pipeline-tessellation-state-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-tessellation-state-create-flags)#||optional (true)||#
+  (:flags pipeline-tessellation-state-create-flags)#|optional (true)|#
   (:patch-control-points :uint32))
 
 (defcstruct pipeline-vertex-input-state-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-vertex-input-state-create-flags)#||optional (true)||#
-  (:vertex-binding-description-count :uint32)#||optional (true)||#
-  (:p-vertex-binding-descriptions (:pointer vertex-input-binding-description))
-  (:vertex-attribute-description-count :uint32)#||optional (true)||#
+  (:flags pipeline-vertex-input-state-create-flags)#|optional (true)|#
+  (:vertex-binding-description-count :uint32)#|optional (true)|#
+  (:p-vertex-binding-descriptions (:pointer
+                                   (:struct vertex-input-binding-description)))
+  (:vertex-attribute-description-count :uint32)#|optional (true)|#
   (:p-vertex-attribute-descriptions (:pointer
-                                     vertex-input-attribute-description)))
+                                     (:struct
+                                      vertex-input-attribute-description))))
 
 (defcstruct pipeline-viewport-state-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags pipeline-viewport-state-create-flags)#||optional (true)||#
+  (:flags pipeline-viewport-state-create-flags)#|optional (true)|#
   (:viewport-count :uint32)
-  (:p-viewports (:pointer viewport))#||optional (true)||#
+  (:p-viewports (:pointer (:struct viewport)))#|optional (true)|#
   (:scissor-count :uint32)
-  (:p-scissors (:pointer rect-2d))#||optional (true)||#)
+  (:p-scissors (:pointer (:struct rect-2d)))#|optional (true)|#)
 
 (defcstruct present-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
   (:wait-semaphore-count :uint32)
-  (:p-wait-semaphores (:pointer semaphore))#||optional (true)||#
+  (:p-wait-semaphores (:pointer semaphore))#|optional (true)|#
   (:swapchain-count :uint32)
   (:p-swapchains (:pointer swapchain-khr))
   (:p-image-indices (:pointer :uint32))
-  (:p-results (:pointer result))#||optional (true)||#)
+  (:p-results (:pointer result))#|optional (true)|#)
 
 (defcstruct push-constant-range
   (:stage-flags shader-stage-flags)
@@ -1768,49 +2107,49 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct query-pool-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags query-pool-create-flags)#||optional (true)||#
+  (:flags query-pool-create-flags)#|optional (true)|#
   (:query-type query-type)
   (:query-count :uint32)
-  (:pipeline-statistics query-pipeline-statistic-flags)#||optional (true)||#)
+  (:pipeline-statistics query-pipeline-statistic-flags)#|optional (true)|#)
 
 (defcstruct queue-family-properties
-  (:queue-flags queue-flags)#||optional (true)||#
+  (:queue-flags queue-flags)#|optional (true)|#
   (:queue-count :uint32)
   (:timestamp-valid-bits :uint32)
-  (:min-image-transfer-granularity extent-3d))
+  (:min-image-transfer-granularity (:struct extent-3d)))
 
 (defcstruct rect-2d
-  (:offset offset-2d)
-  (:extent extent-2d))
+  (:offset (:struct offset-2d))
+  (:extent (:struct extent-2d)))
 
 (defcstruct rect-3d
-  (:offset offset-3d)
-  (:extent extent-3d))
+  (:offset (:struct offset-3d))
+  (:extent (:struct extent-3d)))
 
 (defcstruct render-pass-begin-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
   (:render-pass render-pass)
   (:framebuffer framebuffer)
-  (:render-area rect-2d)
-  (:clear-value-count :uint32)#||optional (true)||#
-  (:p-clear-values (:pointer clear-value)))
+  (:render-area (:struct rect-2d))
+  (:clear-value-count :uint32)#|optional (true)|#
+  (:p-clear-values (:pointer (:union clear-value))))
 
 (defcstruct render-pass-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags render-pass-create-flags)#||optional (true)||#
-  (:attachment-count :uint32)#||optional (true)||#
-  (:p-attachments (:pointer attachment-description))
+  (:flags render-pass-create-flags)#|optional (true)|#
+  (:attachment-count :uint32)#|optional (true)|#
+  (:p-attachments (:pointer (:struct attachment-description)))
   (:subpass-count :uint32)
-  (:p-subpasses (:pointer subpass-description))
-  (:dependency-count :uint32)#||optional (true)||#
-  (:p-dependencies (:pointer subpass-dependency)))
+  (:p-subpasses (:pointer (:struct subpass-description)))
+  (:dependency-count :uint32)#|optional (true)|#
+  (:p-dependencies (:pointer (:struct subpass-dependency))))
 
 (defcstruct sampler-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags sampler-create-flags)#||optional (true)||#
+  (:flags sampler-create-flags)#|optional (true)|#
   (:mag-filter filter)
   (:min-filter filter)
   (:mipmap-mode sampler-mipmap-mode)
@@ -1830,40 +2169,40 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct semaphore-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags semaphore-create-flags)#||optional (true)||#)
+  (:flags semaphore-create-flags)#|optional (true)|#)
 
 (defcstruct shader-module-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags shader-module-create-flags)#||optional (true)||#
+  (:flags shader-module-create-flags)#|optional (true)|#
   (:code-size size-t)
   (:p-code (:pointer :uint32)))
 
 (defcstruct sparse-buffer-memory-bind-info
   (:buffer buffer)
   (:bind-count :uint32)
-  (:p-binds (:pointer sparse-memory-bind)))
+  (:p-binds (:pointer (:struct sparse-memory-bind))))
 
 (defcstruct sparse-image-format-properties
-  (:aspect-mask image-aspect-flags)#||optional (true)||#
-  (:image-granularity extent-3d)
-  (:flags sparse-image-format-flags)#||optional (true)||#)
+  (:aspect-mask image-aspect-flags)#|optional (true)|#
+  (:image-granularity (:struct extent-3d))
+  (:flags sparse-image-format-flags)#|optional (true)|#)
 
 (defcstruct sparse-image-memory-bind
-  (:subresource image-subresource)
-  (:offset offset-3d)
-  (:extent extent-3d)
-  (:memory device-memory)#||optional (true)||#
+  (:subresource (:struct image-subresource))
+  (:offset (:struct offset-3d))
+  (:extent (:struct extent-3d))
+  (:memory device-memory)#|optional (true)|#
   (:memory-offset device-size)
-  (:flags sparse-memory-bind-flags)#||optional (true)||#)
+  (:flags sparse-memory-bind-flags)#|optional (true)|#)
 
 (defcstruct sparse-image-memory-bind-info
   (:image image)
   (:bind-count :uint32)
-  (:p-binds (:pointer sparse-image-memory-bind)))
+  (:p-binds (:pointer (:struct sparse-image-memory-bind))))
 
 (defcstruct sparse-image-memory-requirements
-  (:format-properties sparse-image-format-properties)
+  (:format-properties (:struct sparse-image-format-properties))
   (:image-mip-tail-first-lod :uint32)
   (:image-mip-tail-size device-size)
   (:image-mip-tail-offset device-size)
@@ -1872,19 +2211,19 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct sparse-image-opaque-memory-bind-info
   (:image image)
   (:bind-count :uint32)
-  (:p-binds (:pointer sparse-memory-bind)))
+  (:p-binds (:pointer (:struct sparse-memory-bind))))
 
 (defcstruct sparse-memory-bind
   (:resource-offset device-size)
   (:size device-size)
-  (:memory device-memory)#||optional (true)||#
+  (:memory device-memory)#|optional (true)|#
   (:memory-offset device-size)
-  (:flags sparse-memory-bind-flags)#||optional (true)||#)
+  (:flags sparse-memory-bind-flags)#|optional (true)|#)
 
 (defcstruct specialization-info
-  (:map-entry-count :uint32)#||optional (true)||#
-  (:p-map-entries (:pointer specialization-map-entry))
-  (:data-size size-t)#||optional (true)||#
+  (:map-entry-count :uint32)#|optional (true)|#
+  (:p-map-entries (:pointer (:struct specialization-map-entry)))
+  (:data-size size-t)#|optional (true)|#
   (:p-data (:pointer :void)))
 
 (defcstruct specialization-map-entry
@@ -1904,12 +2243,12 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct submit-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:wait-semaphore-count :uint32)#||optional (true)||#
+  (:wait-semaphore-count :uint32)#|optional (true)|#
   (:p-wait-semaphores (:pointer semaphore))
   (:p-wait-dst-stage-mask (:pointer pipeline-stage-flags))
-  (:command-buffer-count :uint32)#||optional (true)||#
+  (:command-buffer-count :uint32)#|optional (true)|#
   (:p-command-buffers (:pointer command-buffer))
-  (:signal-semaphore-count :uint32)#||optional (true)||#
+  (:signal-semaphore-count :uint32)#|optional (true)|#
   (:p-signal-semaphores (:pointer semaphore)))
 
 (defcstruct subpass-dependency
@@ -1917,20 +2256,20 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:dst-subpass :uint32)
   (:src-stage-mask pipeline-stage-flags)
   (:dst-stage-mask pipeline-stage-flags)
-  (:src-access-mask access-flags)#||optional (true)||#
-  (:dst-access-mask access-flags)#||optional (true)||#
-  (:dependency-flags dependency-flags)#||optional (true)||#)
+  (:src-access-mask access-flags)#|optional (true)|#
+  (:dst-access-mask access-flags)#|optional (true)|#
+  (:dependency-flags dependency-flags)#|optional (true)|#)
 
 (defcstruct subpass-description
-  (:flags subpass-description-flags)#||optional (true)||#
+  (:flags subpass-description-flags)#|optional (true)|#
   (:pipeline-bind-point pipeline-bind-point)
-  (:input-attachment-count :uint32)#||optional (true)||#
-  (:p-input-attachments (:pointer attachment-reference))
-  (:color-attachment-count :uint32)#||optional (true)||#
-  (:p-color-attachments (:pointer attachment-reference))
-  (:p-resolve-attachments (:pointer attachment-reference))#||optional (true)||#
-  (:p-depth-stencil-attachment (:pointer attachment-reference))#||optional (true)||#
-  (:preserve-attachment-count :uint32)#||optional (true)||#
+  (:input-attachment-count :uint32)#|optional (true)|#
+  (:p-input-attachments (:pointer (:struct attachment-reference)))
+  (:color-attachment-count :uint32)#|optional (true)|#
+  (:p-color-attachments (:pointer (:struct attachment-reference)))
+  (:p-resolve-attachments (:pointer (:struct attachment-reference)))#|optional (true)|#
+  (:p-depth-stencil-attachment (:pointer (:struct attachment-reference)))#|optional (true)|#
+  (:preserve-attachment-count :uint32)#|optional (true)|#
   (:p-preserve-attachments (:pointer :uint32)))
 
 (defcstruct subresource-layout
@@ -1943,14 +2282,14 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct surface-capabilities-khr
   (:min-image-count :uint32)
   (:max-image-count :uint32)
-  (:current-extent extent-2d)
-  (:min-image-extent extent-2d)
-  (:max-image-extent extent-2d)
+  (:current-extent (:struct extent-2d))
+  (:min-image-extent (:struct extent-2d))
+  (:max-image-extent (:struct extent-2d))
   (:max-image-array-layers :uint32)
-  (:supported-transforms surface-transform-flags-khr)#||optional (true)||#
+  (:supported-transforms surface-transform-flags-khr)#|optional (true)|#
   (:current-transform surface-transform-flag-bits-khr)
-  (:supported-composite-alpha composite-alpha-flags-khr)#||optional (true)||#
-  (:supported-usage-flags image-usage-flags)#||optional (true)||#)
+  (:supported-composite-alpha composite-alpha-flags-khr)#|optional (true)|#
+  (:supported-usage-flags image-usage-flags)#|optional (true)|#)
 
 (defcstruct surface-format-khr
   (:format format)
@@ -1959,22 +2298,22 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct swapchain-create-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags swapchain-create-flags-khr)#||optional (true)||#
+  (:flags swapchain-create-flags-khr)#|optional (true)|#
   (:surface surface-khr)
   (:min-image-count :uint32)
   (:image-format format)
   (:image-color-space color-space-khr)
-  (:image-extent extent-2d)
+  (:image-extent (:struct extent-2d))
   (:image-array-layers :uint32)
   (:image-usage image-usage-flags)
   (:image-sharing-mode sharing-mode)
-  (:queue-family-index-count :uint32)#||optional (true)||#
+  (:queue-family-index-count :uint32)#|optional (true)|#
   (:p-queue-family-indices (:pointer :uint32))
   (:pre-transform surface-transform-flag-bits-khr)
   (:composite-alpha composite-alpha-flag-bits-khr)
   (:present-mode present-mode-khr)
   (:clipped bool32)
-  (:old-swapchain swapchain-khr)#||optional (true)||#)
+  (:old-swapchain swapchain-khr)#|optional (true)|#)
 
 (defcstruct vertex-input-attribute-description
   (:location :uint32)
@@ -1998,16 +2337,16 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct wayland-surface-create-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags wayland-surface-create-flags-khr)#||optional (true)||#
+  (:flags wayland-surface-create-flags-khr)#|optional (true)|#
   (:display (:pointer (:struct wl_display)))
   (:surface (:pointer (:struct wl_surface))))
 
 (defcstruct win32-surface-create-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags win32-surface-create-flags-khr)#||optional (true)||#
-  (:hinstance h-i-n-s-t-a-n-c-e)
-  (:hwnd h-w-n-d))
+  (:flags win32-surface-create-flags-khr)#|optional (true)|#
+  (:hinstance hinstance)
+  (:hwnd hwnd))
 
 (defcstruct write-descriptor-set
   (:s-type structure-type)
@@ -2017,21 +2356,21 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:dst-array-element :uint32)
   (:descriptor-count :uint32)
   (:descriptor-type descriptor-type)
-  (:p-image-info (:pointer descriptor-image-info))
-  (:p-buffer-info (:pointer descriptor-buffer-info))
+  (:p-image-info (:pointer (:struct descriptor-image-info)))
+  (:p-buffer-info (:pointer (:struct descriptor-buffer-info)))
   (:p-texel-buffer-view (:pointer buffer-view)))
 
 (defcstruct xcb-surface-create-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags xcb-surface-create-flags-khr)#||optional (true)||#
+  (:flags xcb-surface-create-flags-khr)#|optional (true)|#
   (:connection (:pointer xcb_connection_t))
   (:window xcb_window_t))
 
 (defcstruct xlib-surface-create-info-khr
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:flags xlib-surface-create-flags-khr)#||optional (true)||#
+  (:flags xlib-surface-create-flags-khr)#|optional (true)|#
   (:dpy (:pointer display))
   (:window window))
 
