@@ -95,11 +95,7 @@
      (error "~s" str))))
 
 (defun fix-type-name (name)
-  (let* ((start (if (alexandria:starts-with-subseq "Vk" name) 2 0))
-         #++(vend (loop for v in *vendor-ids*
-                     when (alexandria:ends-with-subseq v name)
-                       return v))
-         #++(end (if vend (length vend) 0)))
+  (let* ((start (if (alexandria:starts-with-subseq "Vk" name) 2 0)))
     (when (zerop start)
       (setf name (ppcre:regex-replace-all "PFN_vk" name "Pfn")))
     (cffi:translate-camelcase-name (subseq name start)
@@ -230,8 +226,7 @@
           (parent (xps (xpath:evaluate "@parent" node)))
           (requires (xps (xpath:evaluate "@requires" node)))
           (comment (xps (xpath:evaluate "@comment" node)))
-          (attribs (attrib-names node))
-          #++(types (alexandria:copy-hash-table *vk-platform* :test 'equal)))
+          (attribs (attrib-names node)))
       ;; make sure nobody added any attributes we might care about
       (assert (not (set-difference attribs
                                    '("name" "category" "parent" "requires"
@@ -318,7 +313,8 @@
                               :members members
                               (when comment (list :comment comment))))))
           (t
-           (error "unknown type category ~s for name ~s~%" category (or name @name)))))))
+           (error "unknown type category ~s for name ~s~%"
+                  category (or name @name)))))))
 
 ;;; enums*
   (xpath:do-node-set (node (xpath:evaluate "/registry/enums" vk.xml))
@@ -407,12 +403,7 @@
                       :errors (kw-list errorcodes
                                        :translate 'make-const-keyword)
                       :queues (kw-list queues)
-                      :command-buffer-level (kw-list cmdbufferlevel))))
-        #++(format t "new function ~s: ~s (~s)~% ~s~% ~s~%~{~s~%~}"
-                   name type (xps proto)
-                   successcodes
-                   errorcodes
-                   params))))
+                      :command-buffer-level (kw-list cmdbufferlevel)))))))
 
 ;;; TODO: feature
 ;;; TODO: extensions
@@ -507,8 +498,7 @@
              (format out "~:[)~;~]~%~%" bits))
 
     ;; function pointer types
-    (loop ; with *print-right-margin* = 10000
-          for (name . attribs) in (sort (remove-if-not
+    (loop for (name . attribs) in (sort (remove-if-not
                                          (lambda (x)
                                            (and (consp (cdr x))
                                                 (eql (second x) :func)))
@@ -518,14 +508,7 @@
                      (list (cons "defcallback x" (getf (cdr attribs) :type)))
                      (fix-type-name name)))
 
-    (format nil "~@<;; ~@;~a~;~:>"
-        '((:POINTER VOID)
-          (("pUserData" (:POINTER VOID)) ("size" SIZE_T) ("alignment" SIZE_T)
-           ("allocationScope" SYSTEM-ALLOCATION-SCOPE)))
-        )
-
     ;; structs/unions
-    (setf *foo* types)
     (loop for (name . attribs) in (sort (remove-if-not
                                          (lambda (x)
                                            (and (consp (cdr x))
@@ -534,23 +517,11 @@
                                          (alexandria:hash-table-alist types))
                                         'string< :key 'car)
           for members = (getf (cddr attribs) :members)
-          do
-             (format out "(defc~(~a~) ~(~a~)" (first attribs)
+          do (format out "(defc~(~a~) ~(~a~)" (first attribs)
                      (fix-type-name name))
              (format out "~{~%  ~1{(:~(~a ~s)~^#||~@{~a~^ ~}||#~)~}~}"
                      members)
-             #++(loop for ((mn . mt) . more) on members
-                   for comment = (getf (cdr v) :comment)
-                   do (format out ""
-                              (string-trim '(#\-) (fix-bit-name k :prefix prefix))
-                              (minusp (first v)) (first v))
-                   unless more
-                     do (format out ")")
-                   when comment
-                     do (format out " ;; ~a" comment))
-                (format out "~:[)~;~]~%~%" nil))
-
-    )
+             (format out "~:[)~;~]~%~%" nil)))
 
   ;; todo: write functions file
 
