@@ -136,6 +136,7 @@
          (type (or (gethash .type *vk-platform*) (fix-type-name .type)))
          (prefix (xps (xpath:evaluate "type/preceding-sibling::text()" node)))
          (suffix (xps (xpath:evaluate "type/following-sibling::text()" node)))
+         (namesuf (xps (xpath:evaluate "name/following-sibling::text()" node)))
          (enum (xps (xpath:evaluate "enum" node)))
          (desc))
     ;; just hard coding the const/pointer stuff for
@@ -192,6 +193,8 @@
     (if enum
         (push (gethash enum *api-constants*) (cddr desc))
         (push nil (cddr desc)))
+    (ppcre:register-groups-bind (x) ("\\[(\\d+)\\]" namesuf)
+      (setf (caddr desc) (parse-integer x)))
     desc))
 
 (defun attrib-names (node)

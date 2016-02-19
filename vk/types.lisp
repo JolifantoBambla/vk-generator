@@ -1388,9 +1388,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:range device-size))
 
 (defcunion clear-color-value
-  (:float-32 :float)
-  (:int-32 :int32)
-  (:uint-32 :uint32))
+  (:float-32 :float :count 4)
+  (:int-32 :int32 :count 4)
+  (:uint-32 :uint32 :count 4))
 
 (defcstruct clear-depth-stencil-value
   (:depth :float)
@@ -1406,9 +1406,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:clear-value (:union clear-value)))
 
 (defcunion clear-color-value
-  (:float-32 :float)
-  (:int-32 :int32)
-  (:uint-32 :uint32))
+  (:float-32 :float :count 4)
+  (:int-32 :int32 :count 4)
+  (:uint-32 :uint32 :count 4))
 
 (defcstruct clear-depth-stencil-value
   (:depth :float)
@@ -1904,7 +1904,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:logic-op logic-op)
   (:attachment-count :uint32)#|optional (true)|#
   (:p-attachments (:pointer (:struct pipeline-color-blend-attachment-state)))
-  (:blend-constants :float))
+  (:blend-constants :float :count 4))
 
 (defcstruct pipeline-dynamic-state-create-info
   (:s-type structure-type)
@@ -2221,9 +2221,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-fragment-dual-src-attachments :uint32)
   (:max-fragment-combined-output-resources :uint32)
   (:max-compute-shared-memory-size :uint32)
-  (:max-compute-work-group-count :uint32)
+  (:max-compute-work-group-count :uint32 :count 3)
   (:max-compute-work-group-invocations :uint32)
-  (:max-compute-work-group-size :uint32)
+  (:max-compute-work-group-size :uint32 :count 3)
   (:sub-pixel-precision-bits :uint32)
   (:sub-texel-precision-bits :uint32)
   (:mipmap-precision-bits :uint32)
@@ -2232,8 +2232,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-sampler-lod-bias :float)
   (:max-sampler-anisotropy :float)
   (:max-viewports :uint32)
-  (:max-viewport-dimensions :uint32)
-  (:viewport-bounds-range :float)
+  (:max-viewport-dimensions :uint32 :count 2)
+  (:viewport-bounds-range :float :count 2)
   (:viewport-sub-pixel-bits :uint32)
   (:min-memory-map-alignment size-t)
   (:min-texel-buffer-offset-alignment device-size)
@@ -2266,8 +2266,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-cull-distances :uint32)
   (:max-combined-clip-and-cull-distances :uint32)
   (:discrete-queue-priorities :uint32)
-  (:point-size-range :float)
-  (:line-width-range :float)
+  (:point-size-range :float :count 2)
+  (:line-width-range :float :count 2)
   (:point-size-granularity :float)
   (:line-width-granularity :float)
   (:strict-lines bool32)
@@ -2343,9 +2343,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-fragment-dual-src-attachments :uint32)
   (:max-fragment-combined-output-resources :uint32)
   (:max-compute-shared-memory-size :uint32)
-  (:max-compute-work-group-count :uint32)
+  (:max-compute-work-group-count :uint32 :count 3)
   (:max-compute-work-group-invocations :uint32)
-  (:max-compute-work-group-size :uint32)
+  (:max-compute-work-group-size :uint32 :count 3)
   (:sub-pixel-precision-bits :uint32)
   (:sub-texel-precision-bits :uint32)
   (:mipmap-precision-bits :uint32)
@@ -2354,8 +2354,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-sampler-lod-bias :float)
   (:max-sampler-anisotropy :float)
   (:max-viewports :uint32)
-  (:max-viewport-dimensions :uint32)
-  (:viewport-bounds-range :float)
+  (:max-viewport-dimensions :uint32 :count 2)
+  (:viewport-bounds-range :float :count 2)
   (:viewport-sub-pixel-bits :uint32)
   (:min-memory-map-alignment size-t)
   (:min-texel-buffer-offset-alignment device-size)
@@ -2388,8 +2388,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-cull-distances :uint32)
   (:max-combined-clip-and-cull-distances :uint32)
   (:discrete-queue-priorities :uint32)
-  (:point-size-range :float)
-  (:line-width-range :float)
+  (:point-size-range :float :count 2)
+  (:line-width-range :float :count 2)
   (:point-size-granularity :float)
   (:line-width-granularity :float)
   (:strict-lines bool32)
@@ -2448,7 +2448,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:logic-op logic-op)
   (:attachment-count :uint32)#|optional (true)|#
   (:p-attachments (:pointer (:struct pipeline-color-blend-attachment-state)))
-  (:blend-constants :float))
+  (:blend-constants :float :count 4))
 
 (defcstruct pipeline-depth-stencil-state-create-info
   (:s-type structure-type)
