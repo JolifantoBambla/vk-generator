@@ -1278,6 +1278,51 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:attachment :uint32)
   (:layout image-layout))
 
+(defcstruct sparse-memory-bind
+  (:resource-offset device-size)
+  (:size device-size)
+  (:memory device-memory)#|optional (true)|#
+  (:memory-offset device-size)
+  (:flags sparse-memory-bind-flags)#|optional (true)|#)
+
+(defcstruct sparse-buffer-memory-bind-info
+  (:buffer buffer)
+  (:bind-count :uint32)
+  (:p-binds (:pointer (:struct sparse-memory-bind))))
+
+(defcstruct sparse-image-opaque-memory-bind-info
+  (:image image)
+  (:bind-count :uint32)
+  (:p-binds (:pointer (:struct sparse-memory-bind))))
+
+(defcstruct image-subresource
+  (:aspect-mask image-aspect-flags)
+  (:mip-level :uint32)
+  (:array-layer :uint32))
+
+(defcstruct offset-3d
+  (:x :int32)
+  (:y :int32)
+  (:z :int32))
+
+(defcstruct extent-3d
+  (:width :uint32)
+  (:height :uint32)
+  (:depth :uint32))
+
+(defcstruct sparse-image-memory-bind
+  (:subresource (:struct image-subresource))
+  (:offset (:struct offset-3d))
+  (:extent (:struct extent-3d))
+  (:memory device-memory)#|optional (true)|#
+  (:memory-offset device-size)
+  (:flags sparse-memory-bind-flags)#|optional (true)|#)
+
+(defcstruct sparse-image-memory-bind-info
+  (:image image)
+  (:bind-count :uint32)
+  (:p-binds (:pointer (:struct sparse-image-memory-bind))))
+
 (defcstruct bind-sparse-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
@@ -1308,6 +1353,12 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:queue-family-index-count :uint32)#|optional (true)|#
   (:p-queue-family-indices (:pointer :uint32)))
 
+(defcstruct image-subresource-layers
+  (:aspect-mask image-aspect-flags)
+  (:mip-level :uint32)
+  (:base-array-layer :uint32)
+  (:layer-count :uint32))
+
 (defcstruct buffer-image-copy
   (:buffer-offset device-size)
   (:buffer-row-length :uint32)
@@ -1336,6 +1387,19 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:offset device-size)
   (:range device-size))
 
+(defcunion clear-color-value
+  (:float-32 :float)
+  (:int-32 :int32)
+  (:uint-32 :uint32))
+
+(defcstruct clear-depth-stencil-value
+  (:depth :float)
+  (:stencil :uint32))
+
+(defcunion clear-value
+  (:color (:union clear-color-value))
+  (:depth-stencil (:struct clear-depth-stencil-value)))
+
 (defcstruct clear-attachment
   (:aspect-mask image-aspect-flags)
   (:color-attachment :uint32)
@@ -1349,6 +1413,18 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct clear-depth-stencil-value
   (:depth :float)
   (:stencil :uint32))
+
+(defcstruct offset-2d
+  (:x :int32)
+  (:y :int32))
+
+(defcstruct extent-2d
+  (:width :uint32)
+  (:height :uint32))
+
+(defcstruct rect-2d
+  (:offset (:struct offset-2d))
+  (:extent (:struct extent-2d)))
 
 (defcstruct clear-rect
   (:rect (:struct rect-2d))
@@ -1365,6 +1441,16 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:command-pool command-pool)
   (:level command-buffer-level)
   (:command-buffer-count :uint32))
+
+(defcstruct command-buffer-inheritance-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:render-pass render-pass)#|optional (true)|#
+  (:subpass :uint32)
+  (:framebuffer framebuffer)#|optional (true)|#
+  (:occlusion-query-enable bool32)
+  (:query-flags query-control-flags)#|optional (true)|#
+  (:pipeline-statistics query-pipeline-statistic-flags)#|optional (true)|#)
 
 (defcstruct command-buffer-begin-info
   (:s-type structure-type)
@@ -1393,6 +1479,26 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:g component-swizzle)
   (:b component-swizzle)
   (:a component-swizzle))
+
+(defcstruct specialization-map-entry
+  (:constant-id :uint32)
+  (:offset :uint32)
+  (:size size-t))
+
+(defcstruct specialization-info
+  (:map-entry-count :uint32)#|optional (true)|#
+  (:p-map-entries (:pointer (:struct specialization-map-entry)))
+  (:data-size size-t)#|optional (true)|#
+  (:p-data (:pointer :void)))
+
+(defcstruct pipeline-shader-stage-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-shader-stage-create-flags)#|optional (true)|#
+  (:stage shader-stage-flag-bits)
+  (:module shader-module)
+  (:p-name :string)
+  (:p-specialization-info (:pointer (:struct specialization-info)))#|optional (true)|#)
 
 (defcstruct compute-pipeline-create-info
   (:s-type structure-type)
@@ -1431,6 +1537,10 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:image-view image-view)
   (:image-layout image-layout))
 
+(defcstruct descriptor-pool-size
+  (:type descriptor-type)
+  (:descriptor-count :uint32))
+
 (defcstruct descriptor-pool-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
@@ -1457,12 +1567,84 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:stage-flags shader-stage-flags)
   (:p-immutable-samplers (:pointer sampler))#|optional (true)|#)
 
+(defcstruct descriptor-set-layout-binding
+  (:binding :uint32)
+  (:descriptor-type descriptor-type)
+  (:descriptor-count :uint32)#|optional (true)|#
+  (:stage-flags shader-stage-flags)
+  (:p-immutable-samplers (:pointer sampler))#|optional (true)|#)
+
 (defcstruct descriptor-set-layout-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
   (:flags descriptor-set-layout-create-flags)#|optional (true)|#
   (:binding-count :uint32)#|optional (true)|#
   (:p-bindings (:pointer (:struct descriptor-set-layout-binding))))
+
+(defcstruct device-queue-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags device-queue-create-flags)#|optional (true)|#
+  (:queue-family-index :uint32)
+  (:queue-count :uint32)
+  (:p-queue-priorities (:pointer :float)))
+
+(defcstruct physical-device-features
+  (:robust-buffer-access bool32)
+  (:full-draw-index-uint-32 bool32)
+  (:image-cube-array bool32)
+  (:independent-blend bool32)
+  (:geometry-shader bool32)
+  (:tessellation-shader bool32)
+  (:sample-rate-shading bool32)
+  (:dual-src-blend bool32)
+  (:logic-op bool32)
+  (:multi-draw-indirect bool32)
+  (:draw-indirect-first-instance bool32)
+  (:depth-clamp bool32)
+  (:depth-bias-clamp bool32)
+  (:fill-mode-non-solid bool32)
+  (:depth-bounds bool32)
+  (:wide-lines bool32)
+  (:large-points bool32)
+  (:alpha-to-one bool32)
+  (:multi-viewport bool32)
+  (:sampler-anisotropy bool32)
+  (:texture-compression-e-t-c-2 bool32)
+  (:texture-compression-a-s-t-c_-l-d-r bool32)
+  (:texture-compression-b-c bool32)
+  (:occlusion-query-precise bool32)
+  (:pipeline-statistics-query bool32)
+  (:vertex-pipeline-stores-and-atomics bool32)
+  (:fragment-stores-and-atomics bool32)
+  (:shader-tessellation-and-geometry-point-size bool32)
+  (:shader-image-gather-extended bool32)
+  (:shader-storage-image-extended-formats bool32)
+  (:shader-storage-image-multisample bool32)
+  (:shader-storage-image-read-without-format bool32)
+  (:shader-storage-image-write-without-format bool32)
+  (:shader-uniform-buffer-array-dynamic-indexing bool32)
+  (:shader-sampled-image-array-dynamic-indexing bool32)
+  (:shader-storage-buffer-array-dynamic-indexing bool32)
+  (:shader-storage-image-array-dynamic-indexing bool32)
+  (:shader-clip-distance bool32)
+  (:shader-cull-distance bool32)
+  (:shader-float-64 bool32)
+  (:shader-int-64 bool32)
+  (:shader-int-16 bool32)
+  (:shader-resource-residency bool32)
+  (:shader-resource-min-lod bool32)
+  (:sparse-binding bool32)
+  (:sparse-residency-buffer bool32)
+  (:sparse-residency-image-2d bool32)
+  (:sparse-residency-image-3d bool32)
+  (:sparse-residency-2-samples bool32)
+  (:sparse-residency-4-samples bool32)
+  (:sparse-residency-8-samples bool32)
+  (:sparse-residency-16-samples bool32)
+  (:sparse-residency-aliased bool32)
+  (:variable-multisample-rate bool32)
+  (:inherited-queries bool32))
 
 (defcstruct device-create-info
   (:s-type structure-type)
@@ -1488,6 +1670,10 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:x :uint32)
   (:y :uint32)
   (:z :uint32))
+
+(defcstruct display-mode-parameters-khr
+  (:visible-region (:struct extent-2d))
+  (:refresh-rate :uint32))
 
 (defcstruct display-mode-create-info-khr
   (:s-type structure-type)
@@ -1598,6 +1784,135 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:height :uint32)
   (:layers :uint32))
 
+(defcstruct vertex-input-binding-description
+  (:binding :uint32)
+  (:stride :uint32)
+  (:input-rate vertex-input-rate))
+
+(defcstruct vertex-input-attribute-description
+  (:location :uint32)
+  (:binding :uint32)
+  (:format format)
+  (:offset :uint32))
+
+(defcstruct pipeline-vertex-input-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-vertex-input-state-create-flags)#|optional (true)|#
+  (:vertex-binding-description-count :uint32)#|optional (true)|#
+  (:p-vertex-binding-descriptions (:pointer
+                                   (:struct vertex-input-binding-description)))
+  (:vertex-attribute-description-count :uint32)#|optional (true)|#
+  (:p-vertex-attribute-descriptions (:pointer
+                                     (:struct
+                                      vertex-input-attribute-description))))
+
+(defcstruct pipeline-input-assembly-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-input-assembly-state-create-flags)#|optional (true)|#
+  (:topology primitive-topology)
+  (:primitive-restart-enable bool32))
+
+(defcstruct pipeline-tessellation-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-tessellation-state-create-flags)#|optional (true)|#
+  (:patch-control-points :uint32))
+
+(defcstruct viewport
+  (:x :float)
+  (:y :float)
+  (:width :float)
+  (:height :float)
+  (:min-depth :float)
+  (:max-depth :float))
+
+(defcstruct pipeline-viewport-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-viewport-state-create-flags)#|optional (true)|#
+  (:viewport-count :uint32)
+  (:p-viewports (:pointer (:struct viewport)))#|optional (true)|#
+  (:scissor-count :uint32)
+  (:p-scissors (:pointer (:struct rect-2d)))#|optional (true)|#)
+
+(defcstruct pipeline-rasterization-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-rasterization-state-create-flags)#|optional (true)|#
+  (:depth-clamp-enable bool32)
+  (:rasterizer-discard-enable bool32)
+  (:polygon-mode polygon-mode)
+  (:cull-mode cull-mode-flags)#|optional (true)|#
+  (:front-face front-face)
+  (:depth-bias-enable bool32)
+  (:depth-bias-constant-factor :float)
+  (:depth-bias-clamp :float)
+  (:depth-bias-slope-factor :float)
+  (:line-width :float))
+
+(defcstruct pipeline-multisample-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-multisample-state-create-flags)#|optional (true)|#
+  (:rasterization-samples sample-count-flag-bits)
+  (:sample-shading-enable bool32)
+  (:min-sample-shading :float)
+  (:p-sample-mask (:pointer sample-mask))#|optional (true)|#
+  (:alpha-to-coverage-enable bool32)
+  (:alpha-to-one-enable bool32))
+
+(defcstruct stencil-op-state
+  (:fail-op stencil-op)
+  (:pass-op stencil-op)
+  (:depth-fail-op stencil-op)
+  (:compare-op compare-op)
+  (:compare-mask :uint32)
+  (:write-mask :uint32)
+  (:reference :uint32))
+
+(defcstruct pipeline-depth-stencil-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-depth-stencil-state-create-flags)#|optional (true)|#
+  (:depth-test-enable bool32)
+  (:depth-write-enable bool32)
+  (:depth-compare-op compare-op)
+  (:depth-bounds-test-enable bool32)
+  (:stencil-test-enable bool32)
+  (:front (:struct stencil-op-state))
+  (:back (:struct stencil-op-state))
+  (:min-depth-bounds :float)
+  (:max-depth-bounds :float))
+
+(defcstruct pipeline-color-blend-attachment-state
+  (:blend-enable bool32)
+  (:src-color-blend-factor blend-factor)
+  (:dst-color-blend-factor blend-factor)
+  (:color-blend-op blend-op)
+  (:src-alpha-blend-factor blend-factor)
+  (:dst-alpha-blend-factor blend-factor)
+  (:alpha-blend-op blend-op)
+  (:color-write-mask color-component-flags)#|optional (true)|#)
+
+(defcstruct pipeline-color-blend-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-color-blend-state-create-flags)#|optional (true)|#
+  (:logic-op-enable bool32)
+  (:logic-op logic-op)
+  (:attachment-count :uint32)#|optional (true)|#
+  (:p-attachments (:pointer (:struct pipeline-color-blend-attachment-state)))
+  (:blend-constants :float))
+
+(defcstruct pipeline-dynamic-state-create-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:flags pipeline-dynamic-state-create-flags)#|optional (true)|#
+  (:dynamic-state-count :uint32)
+  (:p-dynamic-states (:pointer dynamic-state)))
+
 (defcstruct graphics-pipeline-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
@@ -1663,6 +1978,13 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:sample-counts sample-count-flags)#|optional (true)|#
   (:max-resource-size device-size))
 
+(defcstruct image-subresource-range
+  (:aspect-mask image-aspect-flags)
+  (:base-mip-level :uint32)
+  (:level-count :uint32)
+  (:base-array-layer :uint32)
+  (:layer-count :uint32))
+
 (defcstruct image-memory-barrier
   (:s-type structure-type)
   (:p-next (:pointer :void))
@@ -1700,6 +2022,12 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:base-array-layer :uint32)
   (:layer-count :uint32))
 
+(defcstruct component-mapping
+  (:r component-swizzle)
+  (:g component-swizzle)
+  (:b component-swizzle)
+  (:a component-swizzle))
+
 (defcstruct image-view-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
@@ -1709,6 +2037,15 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:format format)
   (:components (:struct component-mapping))
   (:subresource-range (:struct image-subresource-range)))
+
+(defcstruct application-info
+  (:s-type structure-type)
+  (:p-next (:pointer :void))
+  (:p-application-name :string)#|optional (true)|#
+  (:application-version :uint32)
+  (:p-engine-name :string)#|optional (true)|#
+  (:engine-version :uint32)
+  (:api-version :uint32))
 
 (defcstruct instance-create-info
   (:s-type structure-type)
@@ -1939,11 +2276,134 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:optimal-buffer-copy-row-pitch-alignment device-size)
   (:non-coherent-atom-size device-size))
 
+(defcstruct memory-type
+  (:property-flags memory-property-flags)#|optional (true)|#
+  (:heap-index :uint32))
+
+(defcstruct memory-heap
+  (:size device-size)
+  (:flags memory-heap-flags)#|optional (true)|#)
+
 (defcstruct physical-device-memory-properties
   (:memory-type-count :uint32)
   (:memory-types (:struct memory-type))
   (:memory-heap-count :uint32)
   (:memory-heaps (:struct memory-heap)))
+
+(defcstruct physical-device-limits
+  (:max-image-dimension-1d :uint32)
+  (:max-image-dimension-2d :uint32)
+  (:max-image-dimension-3d :uint32)
+  (:max-image-dimension-cube :uint32)
+  (:max-image-array-layers :uint32)
+  (:max-texel-buffer-elements :uint32)
+  (:max-uniform-buffer-range :uint32)
+  (:max-storage-buffer-range :uint32)
+  (:max-push-constants-size :uint32)
+  (:max-memory-allocation-count :uint32)
+  (:max-sampler-allocation-count :uint32)
+  (:buffer-image-granularity device-size)
+  (:sparse-address-space-size device-size)
+  (:max-bound-descriptor-sets :uint32)
+  (:max-per-stage-descriptor-samplers :uint32)
+  (:max-per-stage-descriptor-uniform-buffers :uint32)
+  (:max-per-stage-descriptor-storage-buffers :uint32)
+  (:max-per-stage-descriptor-sampled-images :uint32)
+  (:max-per-stage-descriptor-storage-images :uint32)
+  (:max-per-stage-descriptor-input-attachments :uint32)
+  (:max-per-stage-resources :uint32)
+  (:max-descriptor-set-samplers :uint32)
+  (:max-descriptor-set-uniform-buffers :uint32)
+  (:max-descriptor-set-uniform-buffers-dynamic :uint32)
+  (:max-descriptor-set-storage-buffers :uint32)
+  (:max-descriptor-set-storage-buffers-dynamic :uint32)
+  (:max-descriptor-set-sampled-images :uint32)
+  (:max-descriptor-set-storage-images :uint32)
+  (:max-descriptor-set-input-attachments :uint32)
+  (:max-vertex-input-attributes :uint32)
+  (:max-vertex-input-bindings :uint32)
+  (:max-vertex-input-attribute-offset :uint32)
+  (:max-vertex-input-binding-stride :uint32)
+  (:max-vertex-output-components :uint32)
+  (:max-tessellation-generation-level :uint32)
+  (:max-tessellation-patch-size :uint32)
+  (:max-tessellation-control-per-vertex-input-components :uint32)
+  (:max-tessellation-control-per-vertex-output-components :uint32)
+  (:max-tessellation-control-per-patch-output-components :uint32)
+  (:max-tessellation-control-total-output-components :uint32)
+  (:max-tessellation-evaluation-input-components :uint32)
+  (:max-tessellation-evaluation-output-components :uint32)
+  (:max-geometry-shader-invocations :uint32)
+  (:max-geometry-input-components :uint32)
+  (:max-geometry-output-components :uint32)
+  (:max-geometry-output-vertices :uint32)
+  (:max-geometry-total-output-components :uint32)
+  (:max-fragment-input-components :uint32)
+  (:max-fragment-output-attachments :uint32)
+  (:max-fragment-dual-src-attachments :uint32)
+  (:max-fragment-combined-output-resources :uint32)
+  (:max-compute-shared-memory-size :uint32)
+  (:max-compute-work-group-count :uint32)
+  (:max-compute-work-group-invocations :uint32)
+  (:max-compute-work-group-size :uint32)
+  (:sub-pixel-precision-bits :uint32)
+  (:sub-texel-precision-bits :uint32)
+  (:mipmap-precision-bits :uint32)
+  (:max-draw-indexed-index-value :uint32)
+  (:max-draw-indirect-count :uint32)
+  (:max-sampler-lod-bias :float)
+  (:max-sampler-anisotropy :float)
+  (:max-viewports :uint32)
+  (:max-viewport-dimensions :uint32)
+  (:viewport-bounds-range :float)
+  (:viewport-sub-pixel-bits :uint32)
+  (:min-memory-map-alignment size-t)
+  (:min-texel-buffer-offset-alignment device-size)
+  (:min-uniform-buffer-offset-alignment device-size)
+  (:min-storage-buffer-offset-alignment device-size)
+  (:min-texel-offset :int32)
+  (:max-texel-offset :uint32)
+  (:min-texel-gather-offset :int32)
+  (:max-texel-gather-offset :uint32)
+  (:min-interpolation-offset :float)
+  (:max-interpolation-offset :float)
+  (:sub-pixel-interpolation-offset-bits :uint32)
+  (:max-framebuffer-width :uint32)
+  (:max-framebuffer-height :uint32)
+  (:max-framebuffer-layers :uint32)
+  (:framebuffer-color-sample-counts sample-count-flags)#|optional (true)|#
+  (:framebuffer-depth-sample-counts sample-count-flags)#|optional (true)|#
+  (:framebuffer-stencil-sample-counts sample-count-flags)#|optional (true)|#
+  (:framebuffer-no-attachments-sample-counts sample-count-flags)#|optional (true)|#
+  (:max-color-attachments :uint32)
+  (:sampled-image-color-sample-counts sample-count-flags)#|optional (true)|#
+  (:sampled-image-integer-sample-counts sample-count-flags)#|optional (true)|#
+  (:sampled-image-depth-sample-counts sample-count-flags)#|optional (true)|#
+  (:sampled-image-stencil-sample-counts sample-count-flags)#|optional (true)|#
+  (:storage-image-sample-counts sample-count-flags)#|optional (true)|#
+  (:max-sample-mask-words :uint32)
+  (:timestamp-compute-and-graphics bool32)
+  (:timestamp-period :float)
+  (:max-clip-distances :uint32)
+  (:max-cull-distances :uint32)
+  (:max-combined-clip-and-cull-distances :uint32)
+  (:discrete-queue-priorities :uint32)
+  (:point-size-range :float)
+  (:line-width-range :float)
+  (:point-size-granularity :float)
+  (:line-width-granularity :float)
+  (:strict-lines bool32)
+  (:standard-sample-locations bool32)
+  (:optimal-buffer-copy-offset-alignment device-size)
+  (:optimal-buffer-copy-row-pitch-alignment device-size)
+  (:non-coherent-atom-size device-size))
+
+(defcstruct physical-device-sparse-properties
+  (:residency-standard-2d-block-shape bool32)
+  (:residency-standard-2d-multisample-block-shape bool32)
+  (:residency-standard-3d-block-shape bool32)
+  (:residency-aligned-mip-size bool32)
+  (:residency-non-resident-strict bool32))
 
 (defcstruct physical-device-properties
   (:api-version :uint32)
@@ -2017,6 +2477,11 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:flags pipeline-input-assembly-state-create-flags)#|optional (true)|#
   (:topology primitive-topology)
   (:primitive-restart-enable bool32))
+
+(defcstruct push-constant-range
+  (:stage-flags shader-stage-flags)
+  (:offset :uint32)
+  (:size :uint32))
 
 (defcstruct pipeline-layout-create-info
   (:s-type structure-type)
@@ -2135,6 +2600,42 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:clear-value-count :uint32)#|optional (true)|#
   (:p-clear-values (:pointer (:union clear-value))))
 
+(defcstruct attachment-description
+  (:flags attachment-description-flags)#|optional (true)|#
+  (:format format)
+  (:samples sample-count-flag-bits)
+  (:load-op attachment-load-op)
+  (:store-op attachment-store-op)
+  (:stencil-load-op attachment-load-op)
+  (:stencil-store-op attachment-store-op)
+  (:initial-layout image-layout)
+  (:final-layout image-layout))
+
+(defcstruct attachment-reference
+  (:attachment :uint32)
+  (:layout image-layout))
+
+(defcstruct subpass-description
+  (:flags subpass-description-flags)#|optional (true)|#
+  (:pipeline-bind-point pipeline-bind-point)
+  (:input-attachment-count :uint32)#|optional (true)|#
+  (:p-input-attachments (:pointer (:struct attachment-reference)))
+  (:color-attachment-count :uint32)#|optional (true)|#
+  (:p-color-attachments (:pointer (:struct attachment-reference)))
+  (:p-resolve-attachments (:pointer (:struct attachment-reference)))#|optional (true)|#
+  (:p-depth-stencil-attachment (:pointer (:struct attachment-reference)))#|optional (true)|#
+  (:preserve-attachment-count :uint32)#|optional (true)|#
+  (:p-preserve-attachments (:pointer :uint32)))
+
+(defcstruct subpass-dependency
+  (:src-subpass :uint32)
+  (:dst-subpass :uint32)
+  (:src-stage-mask pipeline-stage-flags)
+  (:dst-stage-mask pipeline-stage-flags)
+  (:src-access-mask access-flags)#|optional (true)|#
+  (:dst-access-mask access-flags)#|optional (true)|#
+  (:dependency-flags dependency-flags)#|optional (true)|#)
+
 (defcstruct render-pass-create-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
@@ -2200,6 +2701,11 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:image image)
   (:bind-count :uint32)
   (:p-binds (:pointer (:struct sparse-image-memory-bind))))
+
+(defcstruct sparse-image-format-properties
+  (:aspect-mask image-aspect-flags)#|optional (true)|#
+  (:image-granularity (:struct extent-3d))
+  (:flags sparse-image-format-flags)#|optional (true)|#)
 
 (defcstruct sparse-image-memory-requirements
   (:format-properties (:struct sparse-image-format-properties))
@@ -2347,6 +2853,16 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:flags win32-surface-create-flags-khr)#|optional (true)|#
   (:hinstance hinstance)
   (:hwnd hwnd))
+
+(defcstruct descriptor-image-info
+  (:sampler sampler)
+  (:image-view image-view)
+  (:image-layout image-layout))
+
+(defcstruct descriptor-buffer-info
+  (:buffer buffer)
+  (:offset device-size)
+  (:range device-size))
 
 (defcstruct write-descriptor-set
   (:s-type structure-type)
