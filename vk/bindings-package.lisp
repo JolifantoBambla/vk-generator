@@ -1,4 +1,5 @@
 ;; temporary, to be generated...
 
 (defpackage #:cl-vulkan-bindings
-  (:use :cl :cffi))
+  (:use :cl :cffi)
+  (:nicknames :%vk))
