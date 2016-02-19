@@ -49,4 +49,15 @@
         (with-foreign-object (p :pointer)
           (let ((ret (%vk::create-instance ici (null-pointer) p)))
             (format t "created instance, ret = ~s~%" ret))
-          (mem-ref p :pointer))))))
+          (values (mem-ref p :pointer) ret))))))
+
+(defun enumerate-physical-devices (instance)
+  (with-foreign-object (p-count :uint32)
+    (setf (mem-ref p-count :uint32) 0)
+    (%vk:enumerate-physical-devices instance p-count (null-pointer))
+    (let ((count (mem-ref p-count :uint32)))
+      (with-foreign-object (phys '%vk:physical-device count)
+        (let ((ret (%vk:enumerate-physical-devices instance p-count phys)))
+          (values (loop for i below count
+                        collect (mem-aref phys '%vk:physical-device i))
+                  ret))))))
