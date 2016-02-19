@@ -78,7 +78,8 @@
                                 "3d" "2d" "1d"
                                 "3D" "2D" "1D"
                                 "ID" "UUID"
-                                "HINSTANCE" "HWND"))
+                                "HINSTANCE" "HWND"
+                                "ETC2" "ASTC" "ASTC_" "LDR" "BC"))
 ;; not sure if we should remove the type prefixes in struct members or
 ;; not?
 ;;(defparameter *type-prefixes* '("s-" "p-" "pfn-" "pp-"))
