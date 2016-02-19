@@ -48,8 +48,8 @@
                 :pp-enabled-extension-names ,p-exts))
         (with-foreign-object (p :pointer)
           (let ((ret (%vk::create-instance ici (null-pointer) p)))
-            (format t "created instance, ret = ~s~%" ret))
-          (values (mem-ref p :pointer) ret))))))
+            (format t "created instance, ret = ~s~%" ret)
+            (values (mem-ref p :pointer) ret)))))))
 
 (defun enumerate-physical-devices (instance)
   (with-foreign-object (p-count :uint32)
