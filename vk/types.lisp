@@ -1257,9 +1257,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct application-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:p-application-name :string)#|optional (true)|#
+  (:p-application-name (:pointer :char))#|optional (true)|#
   (:application-version :uint32)
-  (:p-engine-name :string)#|optional (true)|#
+  (:p-engine-name (:pointer :char))#|optional (true)|#
   (:engine-version :uint32)
   (:api-version :uint32))
 
@@ -1497,7 +1497,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:flags pipeline-shader-stage-create-flags)#|optional (true)|#
   (:stage shader-stage-flag-bits)
   (:module shader-module)
-  (:p-name :string)
+  (:p-name (:pointer :char))
   (:p-specialization-info (:pointer (:struct specialization-info)))#|optional (true)|#)
 
 (defcstruct compute-pipeline-create-info
@@ -1713,7 +1713,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 
 (defcstruct display-properties-khr
   (:display display-khr)
-  (:display-name :string)
+  (:display-name (:pointer :char))
   (:physical-dimensions (:struct extent-2d))
   (:physical-resolution (:struct extent-2d))
   (:supported-transforms surface-transform-flags-khr)#|optional (true)|#
@@ -1751,7 +1751,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:flags event-create-flags)#|optional (true)|#)
 
 (defcstruct extension-properties
-  (:extension-name :char)
+  (:extension-name :char :count 256)
   (:spec-version :uint32))
 
 (defcstruct extent-2d
@@ -2041,9 +2041,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct application-info
   (:s-type structure-type)
   (:p-next (:pointer :void))
-  (:p-application-name :string)#|optional (true)|#
+  (:p-application-name (:pointer :char))#|optional (true)|#
   (:application-version :uint32)
-  (:p-engine-name :string)#|optional (true)|#
+  (:p-engine-name (:pointer :char))#|optional (true)|#
   (:engine-version :uint32)
   (:api-version :uint32))
 
@@ -2058,10 +2058,10 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:pp-enabled-extension-names (:pointer (:pointer :char))))
 
 (defcstruct layer-properties
-  (:layer-name :char)
+  (:layer-name :char :count 256)
   (:spec-version :uint32)
   (:implementation-version :uint32)
-  (:description :char))
+  (:description :char :count 256))
 
 (defcstruct mapped-memory-range
   (:s-type structure-type)
@@ -2286,9 +2286,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 
 (defcstruct physical-device-memory-properties
   (:memory-type-count :uint32)
-  (:memory-types (:struct memory-type))
+  (:memory-types (:struct memory-type) :count 32)
   (:memory-heap-count :uint32)
-  (:memory-heaps (:struct memory-heap)))
+  (:memory-heaps (:struct memory-heap) :count 16))
 
 (defcstruct physical-device-limits
   (:max-image-dimension-1d :uint32)
@@ -2411,8 +2411,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:vendor-id :uint32)
   (:device-id :uint32)
   (:device-type physical-device-type)
-  (:device-name :char)
-  (:pipeline-cache-uuid :uint8)
+  (:device-name :char :count 256)
+  (:pipeline-cache-uuid :uint8 :count 16)
   (:limits (:struct physical-device-limits))
   (:sparse-properties (:struct physical-device-sparse-properties)))
 
@@ -2524,7 +2524,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:flags pipeline-shader-stage-create-flags)#|optional (true)|#
   (:stage shader-stage-flag-bits)
   (:module shader-module)
-  (:p-name :string)
+  (:p-name (:pointer :char))
   (:p-specialization-info (:pointer (:struct specialization-info)))#|optional (true)|#)
 
 (defcstruct pipeline-tessellation-state-create-info

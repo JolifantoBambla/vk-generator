@@ -45,7 +45,7 @@
 (defparameter *vk-last-updated* nil)
 ;; should we store a git hash or something like the svn version in cl-opengl?
 
-(defparameter *api-constants* (make-hash-table))
+(defparameter *api-constants* (make-hash-table :test 'equal))
 
 (defparameter *foo* nil)
 
@@ -124,7 +124,7 @@
                                                           *vendor-ids*))))
 
 
-(defun parse-arg-type (node &optional gt)
+(defun parse-arg-type (node gt &key stringify)
   (let* ((type-node (xpath:evaluate "type" node))
          (.type (xps type-node))
          (len (xps (xpath:evaluate "@len" node)))
@@ -135,6 +135,7 @@
          (type (or (gethash .type *vk-platform*) (fix-type-name .type)))
          (prefix (xps (xpath:evaluate "type/preceding-sibling::text()" node)))
          (suffix (xps (xpath:evaluate "type/following-sibling::text()" node)))
+         (enum (xps (xpath:evaluate "enum" node)))
          (desc))
     ;; just hard coding the const/pointer stuff for
     ;; now. adjust as the spec changes...
@@ -175,15 +176,21 @@
          (error "failed to translate type ~s ~s ~s?" prefix type suffix)
          #++(setf desc (list :??? name type prefix suffix)))))
     (cond
-      ((and (equalp (second desc) '(:pointer :char))
+      ((and stringify
+            (equalp (second desc) '(:pointer :char))
             (string= len "null-terminated"))
        (setf (second desc) :string))
-      ((string= len "null-terminated")
+      #++((string= len "null-terminated")
        (error "unhandled len=~s" len)))
     (when optional
       (setf (getf (cddr desc) :optional)
             (mapcar 'make-keyword
                     (split-sequence:split-sequence #\, optional))))
+    (when enum
+      (assert (gethash enum *api-constants*)))
+    (if enum
+        (push (gethash enum *api-constants*) (cddr desc))
+        (push nil (cddr desc)))
     desc))
 
 (defun attrib-names (node)
@@ -261,6 +268,14 @@
         (setf (gethash (fix-type-name name) structs)
               (make-keyword category))))
 
+    ;; and extract "API constants" enum first too for member array sizes
+    (xpath:do-node-set (enum (xpath:evaluate "/registry/enums[(@name=\"API Constants\")]/enum" vk.xml))
+      (let ((name (xps (xpath:evaluate "@name" enum)))
+            (value (numeric-value (xps (xpath:evaluate "@value" enum)))))
+        (when (gethash name *api-constants*)
+          (assert (= value (gethash name *api-constants*))))
+        (setf (gethash name *api-constants*) value)))
+
     ;; extract types
     ;; todo:? VK_DEFINE_HANDLE VK_DEFINE_NON_DISPATCHABLE_HANDLE
     ;; #define VK_NULL_HANDLE 0
@@ -273,6 +288,7 @@
             (parent (xps (xpath:evaluate "@parent" node)))
             (requires (xps (xpath:evaluate "@requires" node)))
             (comment (xps (xpath:evaluate "@comment" node)))
+            (returnedonly (xps (xpath:evaluate "@returnedonly" node)))
             (attribs (attrib-names node)))
         ;; make sure nobody added any attributes we might care about
         (assert (not (set-difference attribs
@@ -349,7 +365,8 @@
                  (string= category "union"))
              (let ((members nil))
                (xpath:do-node-set (member (xpath:evaluate "member" node))
-                 (push (parse-arg-type member (lambda (a) (gethash a structs)))
+                 (push (parse-arg-type member (lambda (a) (gethash a structs))
+                                       :stringify returnedonly)
                        members))
                (setf members (nreverse members))
                (format t "new ~s ~s: ~%~{  ~s~^~%~}~%"
@@ -387,11 +404,7 @@
               for value = (numeric-value (xps (xpath:evaluate "@value" enum)))
               for bitpos = (numeric-value (xps (xpath:evaluate "@bitpos" enum)))
               for comment2 = (xps (xpath:evaluate "@comment" enum))
-              when (string= name "API Constants")
-                do (when (gethash name2 *api-constants*)
-                     (assert (= value (gethash name2 *api-constants*))))
-                   (setf (gethash name2 *api-constants*) value)
-              else
+              unless (string= name "API Constants")
                 do (assert (not (and bitpos value)))
                    (assert (or bitpos value))
                    (push `(,name2 ,(or value (ash 1 bitpos))
@@ -435,7 +448,8 @@
                       for len = (xps (xpath:evaluate "@len" p))
                       for noautovalidity = (xps (xpath:evaluate "@noautovalidity" p))
                       for desc = (parse-arg-type p (lambda (a)
-                                                     (gethash a structs)))
+                                                     (gethash a structs))
+                                                 :stringify t)
                       for attribs = (attrib-names p)
                       do
                          (assert (not (set-difference attribs
@@ -618,7 +632,7 @@
                               (format out "(defc~(~a~) ~(~a~)" (first attribs)
                                       (fix-type-name name))
                               (format out
-                                      "~{~%  ~1{(:~(~a ~s)~^#|~@{~a~^ ~}|#~)~}~}"
+                                      "~{~%  ~1{(:~(~a ~s~@[ :count ~a~])~^#|~@{~a~^ ~}|#~)~}~}"
                                       members)
                               (format out "~:[)~;~]~%~%" nil)
                               (setf (gethash name dumped) t))))))
@@ -651,6 +665,5 @@
     ;; todo: write package file
 
     ;; todo: print out changes
-
     (force-output)
     nil))
