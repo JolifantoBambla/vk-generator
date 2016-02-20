@@ -10,5 +10,6 @@
                  (:file "bindings")
                  (:file "types")
                  (:file "funcs")
+                 (:file "translators")
                  (:file "package")
                  (:file "wrappers")))))

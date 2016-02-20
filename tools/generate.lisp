@@ -60,7 +60,7 @@
                                  "size_t" size-t)
                                :test 'equal))
 (defparameter *opaque-types*
-  '("semaphore" "a-native-window" "mir-connection" "mir-surface"
+  '("a-native-window" "mir-connection" "mir-surface"
     "xcb_connection_t" "display"))
 (defparameter *opaque-struct-types*
   '("wl_display" "wl_surface"))
@@ -124,7 +124,6 @@
                                    :special-words (append *special-words*
                                                           *vendor-ids*))))
 
-
 (defun parse-arg-type (node gt &key stringify)
   (let* ((type-node (xpath:evaluate "type" node))
          (.type (xps type-node))
@@ -138,7 +137,13 @@
          (suffix (xps (xpath:evaluate "type/following-sibling::text()" node)))
          (namesuf (xps (xpath:evaluate "name/following-sibling::text()" node)))
          (enum (xps (xpath:evaluate "enum" node)))
+         (following (xps (xpath:evaluate "following-sibling::comment()" node)))
          (desc))
+    (assert (not (set-difference (attrib-names node)
+                                 '("len" "optional"
+                                   ;; todo:
+                                   "noautovalidity" "externsync")
+                                 :test 'string=)))
     ;; just hard coding the const/pointer stuff for
     ;; now. adjust as the spec changes...
     (when prefix
@@ -184,6 +189,35 @@
        (setf (second desc) :string))
       #++((string= len "null-terminated")
        (error "unhandled len=~s" len)))
+    (ppcre:register-groups-bind (x) ("Must be ([A-Z_]+)" following)
+      (when x
+        ;; fixme: handle "Must be" for other types?
+        ;; need to figure out how much to remove from name first,
+        ;; possibly store string -> symbol mapping somewhere?
+        (when (alexandria:starts-with-subseq "VK_STRUCTURE_TYPE_" x)
+          (setf (getf (cddr desc) :must-be)
+                (substitute #\- #\_ (subseq x (length "VK_STRUCTURE_TYPE_")))))))
+    (when (or (find type *opaque-types* :test 'string-equal)
+              (find type *opaque-struct-types* :test 'string-equal)
+              (eql type :void))
+      (format t "  opaque!~%")
+      (setf (getf (cddr desc) :opaque) t))
+    (when len
+      (setf (getf (cddr desc) :len)
+            (mapcar (lambda (a)
+                      (cond
+                        ((string= a "null-terminated")
+                         :null-terminated)
+                        ((alexandria:starts-with-subseq "latexmath:" a)
+                         a)
+                        ;; try to catch unmarked equations
+                        ((ppcre:scan "[:+-/*]" a)
+                         a)
+                        (t
+                         (make-keyword
+                          (cffi:translate-camelcase-name
+                           a :special-words *special-words*)))))
+                    (split-sequence:split-sequence #\, len))))
     (when optional
       (setf (getf (cddr desc) :optional)
             (mapcar 'make-keyword
@@ -194,7 +228,8 @@
         (push (gethash enum *api-constants*) (cddr desc))
         (push nil (cddr desc)))
     (ppcre:register-groups-bind (x) ("\\[(\\d+)\\]" namesuf)
-      (setf (caddr desc) (parse-integer x)))
+      (when x
+        (setf (caddr desc) (parse-integer x))))
     desc))
 
 (defun attrib-names (node)
@@ -222,6 +257,7 @@
        (relative-spec (make-pathname :directory '(:relative :up "spec")))
        (spec-dir (merge-pathnames relative-spec this-dir))
        (binding-package-file (merge-pathnames "bindings-package.lisp" vk-dir))
+       (translators-file (merge-pathnames "translators.lisp" vk-dir))
        (types-file (merge-pathnames "types.lisp" vk-dir))
        (funcs-file (merge-pathnames "funcs.lisp" vk-dir))
        #++(name-map (read-name-map vk-dir))
@@ -375,12 +411,13 @@
                (setf members (nreverse members))
                (format t "new ~s ~s: ~%~{  ~s~^~%~}~%"
                        category @name members)
-               (set-type (list* (if (string= category "struct")
-                                    :struct
-                                    :union)
-                                @name
-                                :members members
-                                (when comment (list :comment comment))))))
+               (set-type `(,(if (string= category "struct")
+                                :struct
+                                :union)
+                           , @name
+                           :members ,members
+                           :returned-only ,returnedonly
+                           ,@(when comment (list :comment comment))))))
             (t
              (error "unknown type category ~s for name ~s~%"
                     category (or name @name)))))))
@@ -689,6 +726,31 @@
                                 'string< :key 'car)
             do (format out "~(    #:~a~)~%" (fix-function-name func)))
       (format out "))~%"))
+
+    ;; write struct translators
+    ;; possibly should do this while dumping struct types?
+    (with-open-file (out translators-file
+                         :direction :output :if-exists :supersede)
+      (format out ";;; this file is automatically generated, do not edit~%")
+      (format out "#||~%~a~%||#~%~%" copyright)
+      (format out "(in-package #:cl-vulkan-bindings)~%~%")
+      (loop for (name . attribs) in (sort (remove-if-not
+                                           (lambda (x)
+                                             (and (consp (cdr x))
+                                                  (member (second x)
+                                                          '(:struct :union))))
+                                           types)
+                                          'string< :key 'car)
+            for members = (getf (cddr attribs) :members)
+            do (format out "~((def-translator ~a (deref-~a ~:[:fill fill-~a~;~])~)~%"
+                       (fix-type-name name)
+                       (fix-type-name name)
+                       (getf (cddr attribs) :returned-only)
+                       (fix-type-name name))
+                  (loop for m in members
+                        do (format out "~&  ~((:~{~s~^ ~})~)" m))
+               (format out ")~%~%")))
+
     ;; todo: print out changes
     (force-output)
     nil))

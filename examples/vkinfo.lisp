@@ -8,7 +8,7 @@
         for i from 0
         for props = (get-physical-device-properties device)
         do (format t "device ~d: ~a~%"
-                   i (foreign-string-to-lisp (getf props :device-name)))
+                   i (getf props :device-name))
            (format t "  limits:~%    ~{~s ~s~^~%    ~}~%" (getf props :limits))
            (remf props :limits)
            (format t "  properties:~%    ~{~s ~s~^~%    ~}~%" props)

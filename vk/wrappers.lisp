@@ -61,26 +61,13 @@
           (values (loop for i below count
                         collect (mem-aref phys '%vk:physical-device i))
                   ret))))))
-#++
-(defun deref (p type)
-  (let ((d (cffi:mem-ref p type)))
-    (loop for (k v) on d by #'cddr
-          when (typep v 'foreign-pointer)
-            do (let ((stype (foreign-slot-type type k))
-                     (scount (foreign-slot-count type k)))
-                 (progn ;unless (eq stype :char)
-                   (setf v (loop for i below scount
-                                 collect (mem-aref v stype i)))))
-          collect k collect v)))
 
 (defun get-physical-device-properties (device)
   (with-foreign-object (p '(:struct %vk:physical-device-properties))
     (%vk:get-physical-device-properties device p)
-    (mem-ref p '(:struct %vk:physical-device-properties))
-    #++(deref p '(:struct %vk:physical-device-properties))))
+    (%vk::deref-physical-device-properties p)))
 
 (defun get-physical-device-features (device)
   (with-foreign-object (p '(:struct %vk:physical-device-features))
     (%vk:get-physical-device-features device p)
-    (mem-ref p '(:struct %vk:physical-device-features))
-    #++(deref p '(:struct %vk:physical-device-features))))
+    (%vk::deref-physical-device-features p)))
