@@ -22,7 +22,7 @@
          (map nil 'foreign-string-free ,string-pointers)))))
 
 (defun create-instance (&key exts layers (app "cl-vulkan test")
-                          (engine "cl-vulkam"))
+                          (engine "cl-vulkan"))
   (with-foreign-string-arrays ((p-exts exts)
                                (p-layers layers))
     (with-foreign-strings ((app app)
