@@ -1095,7 +1095,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:pipeline-statistics #x1) ;; Optional
   (:timestamp #x2))
 
-(defcenum (result)
+(defcenum (result :int)
   (:success #x0) ;; Command completed successfully
   (:not-ready #x1) ;; A fence or query has not yet completed
   (:timeout #x2) ;; A wait operation has not completed in the specified time

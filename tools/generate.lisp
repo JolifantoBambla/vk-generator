@@ -572,7 +572,11 @@
                        (and (not bits)
                             (alexandria:ends-with-subseq "Bits" name)))
               do
-                 (format out "(defcenum (~(~a~))" fixed-name)
+                 (if (string-equal fixed-name "RESULT")
+                     ;; work around cffi bug: cffi always uses unsigned
+                     ;; type for enums, and VkResult has negative values
+                     (format out "(defcenum (~(~a :int~))" fixed-name)
+                     (format out "(defcenum (~(~a~))" fixed-name))
                  (when bits
                    ;; find longest prefix out of VK_, name - vendor, and expand
                    (when expand
