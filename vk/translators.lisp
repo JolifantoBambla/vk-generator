@@ -35,13 +35,13 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:pfn-internal-free pfn-internal-free-notification nil :optional (:true)))
 
 (def-translator android-surface-create-info-khr (deref-android-surface-create-info-khr :fill fill-android-surface-create-info-khr)
-  (:s-type structure-type nil :must-be "android-surface-create-info-khr")
+  (:s-type structure-type nil :must-be :android-surface-create-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags android-surface-create-flags-khr nil :optional (:true))
   (:window (:pointer a-native-window) nil :opaque t))
 
 (def-translator application-info (deref-application-info :fill fill-application-info)
-  (:s-type structure-type nil)
+  (:s-type structure-type nil :must-be :application-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:p-application-name (:pointer :char) nil :optional (:true) :len (:null-terminated))
   (:application-version :uint32 nil)
@@ -65,7 +65,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:layout image-layout nil))
 
 (def-translator bind-sparse-info (deref-bind-sparse-info :fill fill-bind-sparse-info)
-  (:s-type structure-type nil :must-be "bind-sparse-info")
+  (:s-type structure-type nil :must-be :bind-sparse-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:wait-semaphore-count :uint32 nil :optional (:true))
   (:p-wait-semaphores (:pointer semaphore) nil :len (:wait-semaphore-count))
@@ -85,7 +85,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:size device-size nil))
 
 (def-translator buffer-create-info (deref-buffer-create-info :fill fill-buffer-create-info)
-  (:s-type structure-type nil :must-be "buffer-create-info")
+  (:s-type structure-type nil :must-be :buffer-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags buffer-create-flags nil :optional (:true))
   (:size device-size nil)
@@ -103,7 +103,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:image-extent (:struct extent-3d) nil))
 
 (def-translator buffer-memory-barrier (deref-buffer-memory-barrier :fill fill-buffer-memory-barrier)
-  (:s-type structure-type nil :must-be "buffer-memory-barrier")
+  (:s-type structure-type nil :must-be :buffer-memory-barrier)
   (:p-next (:pointer :void) nil :opaque t)
   (:src-access-mask access-flags nil :optional (:true))
   (:dst-access-mask access-flags nil :optional (:true))
@@ -114,7 +114,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:size device-size nil))
 
 (def-translator buffer-view-create-info (deref-buffer-view-create-info :fill fill-buffer-view-create-info)
-  (:s-type structure-type nil :must-be "buffer-view-create-info")
+  (:s-type structure-type nil :must-be :buffer-view-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags buffer-view-create-flags nil :optional (:true))
   (:buffer buffer nil)
@@ -127,11 +127,6 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:color-attachment :uint32 nil)
   (:clear-value (:union clear-value) nil))
 
-(def-translator clear-color-value (deref-clear-color-value :fill fill-clear-color-value)
-  (:float-32 :float 4)
-  (:int-32 :int32 4)
-  (:uint-32 :uint32 4))
-
 (def-translator clear-depth-stencil-value (deref-clear-depth-stencil-value :fill fill-clear-depth-stencil-value)
   (:depth :float nil)
   (:stencil :uint32 nil))
@@ -141,25 +136,21 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:base-array-layer :uint32 nil)
   (:layer-count :uint32 nil))
 
-(def-translator clear-value (deref-clear-value :fill fill-clear-value)
-  (:color (:union clear-color-value) nil)
-  (:depth-stencil (:struct clear-depth-stencil-value) nil))
-
 (def-translator command-buffer-allocate-info (deref-command-buffer-allocate-info :fill fill-command-buffer-allocate-info)
-  (:s-type structure-type nil :must-be "command-buffer-allocate-info")
+  (:s-type structure-type nil :must-be :command-buffer-allocate-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:command-pool command-pool nil)
   (:level command-buffer-level nil)
   (:command-buffer-count :uint32 nil))
 
 (def-translator command-buffer-begin-info (deref-command-buffer-begin-info :fill fill-command-buffer-begin-info)
-  (:s-type structure-type nil :must-be "command-buffer-begin-info")
+  (:s-type structure-type nil :must-be :command-buffer-begin-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags command-buffer-usage-flags nil :optional (:true))
   (:p-inheritance-info (:pointer (:struct command-buffer-inheritance-info)) nil :optional (:true)))
 
 (def-translator command-buffer-inheritance-info (deref-command-buffer-inheritance-info :fill fill-command-buffer-inheritance-info)
-  (:s-type structure-type nil :must-be "command-buffer-inheritance-info")
+  (:s-type structure-type nil :must-be :command-buffer-inheritance-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:render-pass render-pass nil :optional (:true))
   (:subpass :uint32 nil)
@@ -169,7 +160,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:pipeline-statistics query-pipeline-statistic-flags nil :optional (:true)))
 
 (def-translator command-pool-create-info (deref-command-pool-create-info :fill fill-command-pool-create-info)
-  (:s-type structure-type nil :must-be "command-pool-create-info")
+  (:s-type structure-type nil :must-be :command-pool-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags command-pool-create-flags nil :optional (:true))
   (:queue-family-index :uint32 nil))
@@ -181,7 +172,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:a component-swizzle nil))
 
 (def-translator compute-pipeline-create-info (deref-compute-pipeline-create-info :fill fill-compute-pipeline-create-info)
-  (:s-type structure-type nil :must-be "compute-pipeline-create-info")
+  (:s-type structure-type nil :must-be :compute-pipeline-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-create-flags nil :optional (:true))
   (:stage (:struct pipeline-shader-stage-create-info) nil)
@@ -190,7 +181,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:base-pipeline-index :int32 nil))
 
 (def-translator copy-descriptor-set (deref-copy-descriptor-set :fill fill-copy-descriptor-set)
-  (:s-type structure-type nil :must-be "copy-descriptor-set")
+  (:s-type structure-type nil :must-be :copy-descriptor-set)
   (:p-next (:pointer :void) nil :opaque t)
   (:src-set descriptor-set nil)
   (:src-binding :uint32 nil)
@@ -201,7 +192,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:descriptor-count :uint32 nil))
 
 (def-translator debug-report-callback-create-info-ext (deref-debug-report-callback-create-info-ext :fill fill-debug-report-callback-create-info-ext)
-  (:s-type structure-type nil :must-be "debug-report-callback-create-info")
+  (:s-type structure-type nil :must-be :debug-report-callback-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags debug-report-flags-ext nil)
   (:pfn-callback pfn-debug-report-callback-ext nil)
@@ -218,7 +209,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:image-layout image-layout nil))
 
 (def-translator descriptor-pool-create-info (deref-descriptor-pool-create-info :fill fill-descriptor-pool-create-info)
-  (:s-type structure-type nil :must-be "descriptor-pool-create-info")
+  (:s-type structure-type nil :must-be :descriptor-pool-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags descriptor-pool-create-flags nil :optional (:true))
   (:max-sets :uint32 nil)
@@ -230,7 +221,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:descriptor-count :uint32 nil))
 
 (def-translator descriptor-set-allocate-info (deref-descriptor-set-allocate-info :fill fill-descriptor-set-allocate-info)
-  (:s-type structure-type nil :must-be "descriptor-set-allocate-info")
+  (:s-type structure-type nil :must-be :descriptor-set-allocate-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:descriptor-pool descriptor-pool nil)
   (:descriptor-set-count :uint32 nil)
@@ -244,14 +235,14 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-immutable-samplers (:pointer sampler) nil :optional (:true) :len (:descriptor-count)))
 
 (def-translator descriptor-set-layout-create-info (deref-descriptor-set-layout-create-info :fill fill-descriptor-set-layout-create-info)
-  (:s-type structure-type nil :must-be "descriptor-set-layout-create-info")
+  (:s-type structure-type nil :must-be :descriptor-set-layout-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags descriptor-set-layout-create-flags nil :optional (:true))
   (:binding-count :uint32 nil :optional (:true))
   (:p-bindings (:pointer (:struct descriptor-set-layout-binding)) nil :len (:binding-count)))
 
 (def-translator device-create-info (deref-device-create-info :fill fill-device-create-info)
-  (:s-type structure-type nil)
+  (:s-type structure-type nil :must-be :device-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags device-create-flags nil :optional (:true))
   (:queue-create-info-count :uint32 nil)
@@ -265,7 +256,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-enabled-features (:pointer (:struct physical-device-features)) nil))
 
 (def-translator device-queue-create-info (deref-device-queue-create-info :fill fill-device-queue-create-info)
-  (:s-type structure-type nil)
+  (:s-type structure-type nil :must-be :device-queue-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags device-queue-create-flags nil :optional (:true))
   (:queue-family-index :uint32 nil)
@@ -278,7 +269,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:z :uint32 nil))
 
 (def-translator display-mode-create-info-khr (deref-display-mode-create-info-khr :fill fill-display-mode-create-info-khr)
-  (:s-type structure-type nil :must-be "display-mode-create-info-khr")
+  (:s-type structure-type nil :must-be :display-mode-create-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags display-mode-create-flags-khr nil :optional (:true))
   (:parameters (:struct display-mode-parameters-khr) nil))
@@ -307,7 +298,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:current-stack-index :uint32 nil))
 
 (def-translator display-present-info-khr (deref-display-present-info-khr :fill fill-display-present-info-khr)
-  (:s-type structure-type nil :must-be "display-present-info-khr")
+  (:s-type structure-type nil :must-be :display-present-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:src-rect (:struct rect-2d) nil)
   (:dst-rect (:struct rect-2d) nil)
@@ -323,7 +314,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:persistent-content bool32 nil))
 
 (def-translator display-surface-create-info-khr (deref-display-surface-create-info-khr :fill fill-display-surface-create-info-khr)
-  (:s-type structure-type nil :must-be "display-surface-create-info-khr")
+  (:s-type structure-type nil :must-be :display-surface-create-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags display-surface-create-flags-khr nil :optional (:true))
   (:display-mode display-mode-khr nil)
@@ -348,7 +339,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:first-instance :uint32 nil))
 
 (def-translator event-create-info (deref-event-create-info :fill fill-event-create-info)
-  (:s-type structure-type nil :must-be "event-create-info")
+  (:s-type structure-type nil :must-be :event-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags event-create-flags nil :optional (:true)))
 
@@ -366,7 +357,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:depth :uint32 nil))
 
 (def-translator fence-create-info (deref-fence-create-info :fill fill-fence-create-info)
-  (:s-type structure-type nil :must-be "fence-create-info")
+  (:s-type structure-type nil :must-be :fence-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags fence-create-flags nil :optional (:true)))
 
@@ -376,7 +367,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:buffer-features format-feature-flags nil :optional (:true)))
 
 (def-translator framebuffer-create-info (deref-framebuffer-create-info :fill fill-framebuffer-create-info)
-  (:s-type structure-type nil :must-be "framebuffer-create-info")
+  (:s-type structure-type nil :must-be :framebuffer-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags framebuffer-create-flags nil :optional (:true))
   (:render-pass render-pass nil)
@@ -387,7 +378,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:layers :uint32 nil))
 
 (def-translator graphics-pipeline-create-info (deref-graphics-pipeline-create-info :fill fill-graphics-pipeline-create-info)
-  (:s-type structure-type nil :must-be "graphics-pipeline-create-info")
+  (:s-type structure-type nil :must-be :graphics-pipeline-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-create-flags nil :optional (:true))
   (:stage-count :uint32 nil)
@@ -428,7 +419,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:extent (:struct extent-3d) nil))
 
 (def-translator image-create-info (deref-image-create-info :fill fill-image-create-info)
-  (:s-type structure-type nil :must-be "image-create-info")
+  (:s-type structure-type nil :must-be :image-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags image-create-flags nil :optional (:true))
   (:image-type image-type nil)
@@ -452,7 +443,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-resource-size device-size nil))
 
 (def-translator image-memory-barrier (deref-image-memory-barrier :fill fill-image-memory-barrier)
-  (:s-type structure-type nil :must-be "image-memory-barrier")
+  (:s-type structure-type nil :must-be :image-memory-barrier)
   (:p-next (:pointer :void) nil :opaque t)
   (:src-access-mask access-flags nil :optional (:true))
   (:dst-access-mask access-flags nil :optional (:true))
@@ -489,7 +480,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:layer-count :uint32 nil))
 
 (def-translator image-view-create-info (deref-image-view-create-info :fill fill-image-view-create-info)
-  (:s-type structure-type nil :must-be "image-view-create-info")
+  (:s-type structure-type nil :must-be :image-view-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags image-view-create-flags nil :optional (:true))
   (:image image nil)
@@ -499,7 +490,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:subresource-range (:struct image-subresource-range) nil))
 
 (def-translator instance-create-info (deref-instance-create-info :fill fill-instance-create-info)
-  (:s-type structure-type nil)
+  (:s-type structure-type nil :must-be :instance-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags instance-create-flags nil :optional (:true))
   (:p-application-info (:pointer (:struct application-info)) nil :optional (:true))
@@ -517,20 +508,20 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:description :char 256))
 
 (def-translator mapped-memory-range (deref-mapped-memory-range :fill fill-mapped-memory-range)
-  (:s-type structure-type nil :must-be "mapped-memory-range")
+  (:s-type structure-type nil :must-be :mapped-memory-range)
   (:p-next (:pointer :void) nil :opaque t)
   (:memory device-memory nil)
   (:offset device-size nil)
   (:size device-size nil))
 
 (def-translator memory-allocate-info (deref-memory-allocate-info :fill fill-memory-allocate-info)
-  (:s-type structure-type nil :must-be "memory-allocate-info")
+  (:s-type structure-type nil :must-be :memory-allocate-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:allocation-size device-size nil)
   (:memory-type-index :uint32 nil))
 
 (def-translator memory-barrier (deref-memory-barrier :fill fill-memory-barrier)
-  (:s-type structure-type nil :must-be "memory-barrier")
+  (:s-type structure-type nil :must-be :memory-barrier)
   (:p-next (:pointer :void) nil :opaque t)
   (:src-access-mask access-flags nil :optional (:true))
   (:dst-access-mask access-flags nil :optional (:true)))
@@ -549,7 +540,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:heap-index :uint32 nil))
 
 (def-translator mir-surface-create-info-khr (deref-mir-surface-create-info-khr :fill fill-mir-surface-create-info-khr)
-  (:s-type structure-type nil :must-be "mir-surface-create-info-khr")
+  (:s-type structure-type nil :must-be :mir-surface-create-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags mir-surface-create-flags-khr nil :optional (:true))
   (:connection (:pointer mir-connection) nil :opaque t)
@@ -754,7 +745,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:residency-non-resident-strict bool32 nil))
 
 (def-translator pipeline-cache-create-info (deref-pipeline-cache-create-info :fill fill-pipeline-cache-create-info)
-  (:s-type structure-type nil :must-be "pipeline-cache-create-info")
+  (:s-type structure-type nil :must-be :pipeline-cache-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-cache-create-flags nil :optional (:true))
   (:initial-data-size size-t nil :optional (:true))
@@ -771,7 +762,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:color-write-mask color-component-flags nil :optional (:true)))
 
 (def-translator pipeline-color-blend-state-create-info (deref-pipeline-color-blend-state-create-info :fill fill-pipeline-color-blend-state-create-info)
-  (:s-type structure-type nil :must-be "pipeline-color-blend-state-create-info")
+  (:s-type structure-type nil :must-be :pipeline-color-blend-state-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-color-blend-state-create-flags nil :optional (:true))
   (:logic-op-enable bool32 nil)
@@ -781,7 +772,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:blend-constants :float 4))
 
 (def-translator pipeline-depth-stencil-state-create-info (deref-pipeline-depth-stencil-state-create-info :fill fill-pipeline-depth-stencil-state-create-info)
-  (:s-type structure-type nil :must-be "pipeline-depth-stencil-state-create-info")
+  (:s-type structure-type nil :must-be :pipeline-depth-stencil-state-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-depth-stencil-state-create-flags nil :optional (:true))
   (:depth-test-enable bool32 nil)
@@ -795,21 +786,21 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-depth-bounds :float nil))
 
 (def-translator pipeline-dynamic-state-create-info (deref-pipeline-dynamic-state-create-info :fill fill-pipeline-dynamic-state-create-info)
-  (:s-type structure-type nil :must-be "pipeline-dynamic-state-create-info")
+  (:s-type structure-type nil :must-be :pipeline-dynamic-state-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-dynamic-state-create-flags nil :optional (:true))
   (:dynamic-state-count :uint32 nil)
   (:p-dynamic-states (:pointer dynamic-state) nil :len (:dynamic-state-count)))
 
 (def-translator pipeline-input-assembly-state-create-info (deref-pipeline-input-assembly-state-create-info :fill fill-pipeline-input-assembly-state-create-info)
-  (:s-type structure-type nil :must-be "pipeline-iinput-assembly-state-create-info")
+  (:s-type structure-type nil :must-be :pipeline-input-assembly-state-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-input-assembly-state-create-flags nil :optional (:true))
   (:topology primitive-topology nil)
   (:primitive-restart-enable bool32 nil))
 
 (def-translator pipeline-layout-create-info (deref-pipeline-layout-create-info :fill fill-pipeline-layout-create-info)
-  (:s-type structure-type nil :must-be "pipeline-layout-create-info")
+  (:s-type structure-type nil :must-be :pipeline-layout-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-layout-create-flags nil :optional (:true))
   (:set-layout-count :uint32 nil :optional (:true))
@@ -818,7 +809,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-push-constant-ranges (:pointer (:struct push-constant-range)) nil :len (:push-constant-range-count)))
 
 (def-translator pipeline-multisample-state-create-info (deref-pipeline-multisample-state-create-info :fill fill-pipeline-multisample-state-create-info)
-  (:s-type structure-type nil :must-be "pipeline-multisample-state-create-info")
+  (:s-type structure-type nil :must-be :pipeline-multisample-state-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-multisample-state-create-flags nil :optional (:true))
   (:rasterization-samples sample-count-flag-bits nil)
@@ -829,7 +820,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:alpha-to-one-enable bool32 nil))
 
 (def-translator pipeline-rasterization-state-create-info (deref-pipeline-rasterization-state-create-info :fill fill-pipeline-rasterization-state-create-info)
-  (:s-type structure-type nil :must-be "pipeline-rasterization-state-create-info")
+  (:s-type structure-type nil :must-be :pipeline-rasterization-state-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-rasterization-state-create-flags nil :optional (:true))
   (:depth-clamp-enable bool32 nil)
@@ -844,7 +835,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:line-width :float nil))
 
 (def-translator pipeline-shader-stage-create-info (deref-pipeline-shader-stage-create-info :fill fill-pipeline-shader-stage-create-info)
-  (:s-type structure-type nil :must-be "pipeline-shader-stage-create-info")
+  (:s-type structure-type nil :must-be :pipeline-shader-stage-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-shader-stage-create-flags nil :optional (:true))
   (:stage shader-stage-flag-bits nil)
@@ -853,13 +844,13 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-specialization-info (:pointer (:struct specialization-info)) nil :optional (:true)))
 
 (def-translator pipeline-tessellation-state-create-info (deref-pipeline-tessellation-state-create-info :fill fill-pipeline-tessellation-state-create-info)
-  (:s-type structure-type nil :must-be "pipeline-tessellation-state-create-info")
+  (:s-type structure-type nil :must-be :pipeline-tessellation-state-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-tessellation-state-create-flags nil :optional (:true))
   (:patch-control-points :uint32 nil))
 
 (def-translator pipeline-vertex-input-state-create-info (deref-pipeline-vertex-input-state-create-info :fill fill-pipeline-vertex-input-state-create-info)
-  (:s-type structure-type nil)
+  (:s-type structure-type nil :must-be :pipeline-vertex-input-state-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-vertex-input-state-create-flags nil :optional (:true))
   (:vertex-binding-description-count :uint32 nil :optional (:true))
@@ -871,7 +862,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
                                       vertex-input-attribute-description)) nil :len (:vertex-attribute-description-count)))
 
 (def-translator pipeline-viewport-state-create-info (deref-pipeline-viewport-state-create-info :fill fill-pipeline-viewport-state-create-info)
-  (:s-type structure-type nil :must-be "pipeline-viewport-state-create-info")
+  (:s-type structure-type nil :must-be :pipeline-viewport-state-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags pipeline-viewport-state-create-flags nil :optional (:true))
   (:viewport-count :uint32 nil)
@@ -880,7 +871,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-scissors (:pointer (:struct rect-2d)) nil :optional (:true) :len (:scissor-count)))
 
 (def-translator present-info-khr (deref-present-info-khr :fill fill-present-info-khr)
-  (:s-type structure-type nil :must-be "present-info-khr")
+  (:s-type structure-type nil :must-be :present-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:wait-semaphore-count :uint32 nil)
   (:p-wait-semaphores (:pointer semaphore) nil :optional (:true) :len (:wait-semaphore-count))
@@ -895,7 +886,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:size :uint32 nil))
 
 (def-translator query-pool-create-info (deref-query-pool-create-info :fill fill-query-pool-create-info)
-  (:s-type structure-type nil :must-be "query-pool-create-info")
+  (:s-type structure-type nil :must-be :query-pool-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags query-pool-create-flags nil :optional (:true))
   (:query-type query-type nil)
@@ -917,7 +908,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:extent (:struct extent-3d) nil))
 
 (def-translator render-pass-begin-info (deref-render-pass-begin-info :fill fill-render-pass-begin-info)
-  (:s-type structure-type nil :must-be "render-pass-begin-info")
+  (:s-type structure-type nil :must-be :render-pass-begin-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:render-pass render-pass nil)
   (:framebuffer framebuffer nil)
@@ -926,7 +917,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-clear-values (:pointer (:union clear-value)) nil :len (:clear-value-count)))
 
 (def-translator render-pass-create-info (deref-render-pass-create-info :fill fill-render-pass-create-info)
-  (:s-type structure-type nil :must-be "render-pass-create-info")
+  (:s-type structure-type nil :must-be :render-pass-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags render-pass-create-flags nil :optional (:true))
   (:attachment-count :uint32 nil :optional (:true))
@@ -937,7 +928,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-dependencies (:pointer (:struct subpass-dependency)) nil :len (:dependency-count)))
 
 (def-translator sampler-create-info (deref-sampler-create-info :fill fill-sampler-create-info)
-  (:s-type structure-type nil :must-be "sampler-create-info")
+  (:s-type structure-type nil :must-be :sampler-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags sampler-create-flags nil :optional (:true))
   (:mag-filter filter nil)
@@ -957,12 +948,12 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:unnormalized-coordinates bool32 nil))
 
 (def-translator semaphore-create-info (deref-semaphore-create-info :fill fill-semaphore-create-info)
-  (:s-type structure-type nil :must-be "semaphore-create-info")
+  (:s-type structure-type nil :must-be :semaphore-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags semaphore-create-flags nil :optional (:true)))
 
 (def-translator shader-module-create-info (deref-shader-module-create-info :fill fill-shader-module-create-info)
-  (:s-type structure-type nil :must-be "shader-module-create-info")
+  (:s-type structure-type nil :must-be :shader-module-create-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags shader-module-create-flags nil :optional (:true))
   (:code-size size-t nil)
@@ -1031,7 +1022,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:reference :uint32 nil))
 
 (def-translator submit-info (deref-submit-info :fill fill-submit-info)
-  (:s-type structure-type nil)
+  (:s-type structure-type nil :must-be :submit-info)
   (:p-next (:pointer :void) nil :opaque t)
   (:wait-semaphore-count :uint32 nil :optional (:true))
   (:p-wait-semaphores (:pointer semaphore) nil :len (:wait-semaphore-count))
@@ -1051,8 +1042,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:dependency-flags dependency-flags nil :optional (:true)))
 
 (def-translator subpass-description (deref-subpass-description :fill fill-subpass-description)
-  (:flags subpass-description-flags nil :optional (:true) :must-be "oint-graphics")
-  (:pipeline-bind-point pipeline-bind-point nil :must-be "oint-graphics")
+  (:flags subpass-description-flags nil :optional (:true))
+  (:pipeline-bind-point pipeline-bind-point nil)
   (:input-attachment-count :uint32 nil :optional (:true))
   (:p-input-attachments (:pointer (:struct attachment-reference)) nil :len (:input-attachment-count))
   (:color-attachment-count :uint32 nil :optional (:true))
@@ -1086,7 +1077,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:color-space color-space-khr nil))
 
 (def-translator swapchain-create-info-khr (deref-swapchain-create-info-khr :fill fill-swapchain-create-info-khr)
-  (:s-type structure-type nil :must-be "swapchain-create-info-khr")
+  (:s-type structure-type nil :must-be :swapchain-create-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags swapchain-create-flags-khr nil :optional (:true))
   (:surface surface-khr nil)
@@ -1125,21 +1116,21 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-depth :float nil))
 
 (def-translator wayland-surface-create-info-khr (deref-wayland-surface-create-info-khr :fill fill-wayland-surface-create-info-khr)
-  (:s-type structure-type nil :must-be "wayland-surface-create-info-khr")
+  (:s-type structure-type nil :must-be :wayland-surface-create-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags wayland-surface-create-flags-khr nil :optional (:true))
   (:display (:pointer (:struct wl_display)) nil :opaque t)
   (:surface (:pointer (:struct wl_surface)) nil :opaque t))
 
 (def-translator win32-surface-create-info-khr (deref-win32-surface-create-info-khr :fill fill-win32-surface-create-info-khr)
-  (:s-type structure-type nil :must-be "win")
+  (:s-type structure-type nil :must-be :win32-surface-create-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags win32-surface-create-flags-khr nil :optional (:true))
   (:hinstance hinstance nil)
   (:hwnd hwnd nil))
 
 (def-translator write-descriptor-set (deref-write-descriptor-set :fill fill-write-descriptor-set)
-  (:s-type structure-type nil :must-be "write-descriptor-set")
+  (:s-type structure-type nil :must-be :write-descriptor-set)
   (:p-next (:pointer :void) nil :opaque t)
   (:dst-set descriptor-set nil)
   (:dst-binding :uint32 nil)
@@ -1151,14 +1142,14 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-texel-buffer-view (:pointer buffer-view) nil :len (:descriptor-count)))
 
 (def-translator xcb-surface-create-info-khr (deref-xcb-surface-create-info-khr :fill fill-xcb-surface-create-info-khr)
-  (:s-type structure-type nil :must-be "xcb-surface-create-info-khr")
+  (:s-type structure-type nil :must-be :xcb-surface-create-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags xcb-surface-create-flags-khr nil :optional (:true))
   (:connection (:pointer xcb_connection_t) nil :opaque t)
   (:window xcb_window_t nil))
 
 (def-translator xlib-surface-create-info-khr (deref-xlib-surface-create-info-khr :fill fill-xlib-surface-create-info-khr)
-  (:s-type structure-type nil :must-be "xlib-surface-create-info-khr")
+  (:s-type structure-type nil :must-be :xlib-surface-create-info-khr)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags xlib-surface-create-flags-khr nil :optional (:true))
   (:dpy (:pointer display) nil :opaque t)

@@ -80,6 +80,11 @@
                                 "ID" "UUID"
                                 "HINSTANCE" "HWND"
                                 "ETC2" "ASTC" "ASTC_" "LDR" "BC"))
+
+(defparameter *fix-must-be*
+  (alexandria:alist-hash-table
+   '((:pipeline-iinput-assembly-state-create-info
+      . :pipeline-input-assembly-state-create-info))))
 ;; not sure if we should remove the type prefixes in struct members or
 ;; not?
 ;;(defparameter *type-prefixes* '("s-" "p-" "pfn-" "pp-"))
@@ -189,14 +194,18 @@
        (setf (second desc) :string))
       #++((string= len "null-terminated")
        (error "unhandled len=~s" len)))
-    (ppcre:register-groups-bind (x) ("Must be ([A-Z_]+)" following)
+    (ppcre:register-groups-bind (must x)
+        ("([Mm]ust be|[Ss]hould be) ([A-Z0-9_]+)" following)
+      (declare (ignore must)) ;; not sure if there is a difference
+                              ;; between "must be" and "should be"?
       (when x
         ;; fixme: handle "Must be" for other types?
         ;; need to figure out how much to remove from name first,
         ;; possibly store string -> symbol mapping somewhere?
         (when (alexandria:starts-with-subseq "VK_STRUCTURE_TYPE_" x)
-          (setf (getf (cddr desc) :must-be)
-                (substitute #\- #\_ (subseq x (length "VK_STRUCTURE_TYPE_")))))))
+          (let ((k (make-keyword
+                    (substitute #\- #\_ (subseq x (length "VK_STRUCTURE_TYPE_"))))))
+            (setf (getf (cddr desc) :must-be) (gethash k *fix-must-be* k))))))
     (when (or (find type *opaque-types* :test 'string-equal)
               (find type *opaque-struct-types* :test 'string-equal)
               (eql type :void))
@@ -738,7 +747,7 @@
                                            (lambda (x)
                                              (and (consp (cdr x))
                                                   (member (second x)
-                                                          '(:struct :union))))
+                                                          '(:struct))))
                                            types)
                                           'string< :key 'car)
             for members = (getf (cddr attribs) :members)

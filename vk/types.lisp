@@ -1253,7 +1253,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:window (:pointer a-native-window))#|opaque t|#)
 
 (defcstruct application-info
-  (:s-type structure-type)
+  (:s-type structure-type)#|must-be application-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:p-application-name (:pointer :char))#|optional (true) len (null-terminated)|#
   (:application-version :uint32)
@@ -1580,7 +1580,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-bindings (:pointer (:struct descriptor-set-layout-binding)))#|len (binding-count)|#)
 
 (defcstruct device-queue-create-info
-  (:s-type structure-type)
+  (:s-type structure-type)#|must-be device-queue-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags device-queue-create-flags)#|optional (true)|#
   (:queue-family-index :uint32)
@@ -1645,7 +1645,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:inherited-queries bool32))
 
 (defcstruct device-create-info
-  (:s-type structure-type)
+  (:s-type structure-type)#|must-be device-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags device-create-flags)#|optional (true)|#
   (:queue-create-info-count :uint32)
@@ -1659,7 +1659,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-enabled-features (:pointer (:struct physical-device-features))))
 
 (defcstruct device-queue-create-info
-  (:s-type structure-type)
+  (:s-type structure-type)#|must-be device-queue-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags device-queue-create-flags)#|optional (true)|#
   (:queue-family-index :uint32)
@@ -1796,7 +1796,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:offset :uint32))
 
 (defcstruct pipeline-vertex-input-state-create-info
-  (:s-type structure-type)
+  (:s-type structure-type)#|must-be pipeline-vertex-input-state-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags pipeline-vertex-input-state-create-flags)#|optional (true)|#
   (:vertex-binding-description-count :uint32)#|optional (true)|#
@@ -1808,7 +1808,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
                                       vertex-input-attribute-description)))#|len (vertex-attribute-description-count)|#)
 
 (defcstruct pipeline-input-assembly-state-create-info
-  (:s-type structure-type)#|must-be pipeline-iinput-assembly-state-create-info|#
+  (:s-type structure-type)#|must-be pipeline-input-assembly-state-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags pipeline-input-assembly-state-create-flags)#|optional (true)|#
   (:topology primitive-topology)
@@ -2039,7 +2039,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:subresource-range (:struct image-subresource-range)))
 
 (defcstruct application-info
-  (:s-type structure-type)
+  (:s-type structure-type)#|must-be application-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:p-application-name (:pointer :char))#|optional (true) len (null-terminated)|#
   (:application-version :uint32)
@@ -2048,7 +2048,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:api-version :uint32))
 
 (defcstruct instance-create-info
-  (:s-type structure-type)
+  (:s-type structure-type)#|must-be instance-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags instance-create-flags)#|optional (true)|#
   (:p-application-info (:pointer (:struct application-info)))#|optional (true)|#
@@ -2474,7 +2474,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-dynamic-states (:pointer dynamic-state))#|len (dynamic-state-count)|#)
 
 (defcstruct pipeline-input-assembly-state-create-info
-  (:s-type structure-type)#|must-be pipeline-iinput-assembly-state-create-info|#
+  (:s-type structure-type)#|must-be pipeline-input-assembly-state-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags pipeline-input-assembly-state-create-flags)#|optional (true)|#
   (:topology primitive-topology)
@@ -2536,7 +2536,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:patch-control-points :uint32))
 
 (defcstruct pipeline-vertex-input-state-create-info
-  (:s-type structure-type)
+  (:s-type structure-type)#|must-be pipeline-vertex-input-state-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags pipeline-vertex-input-state-create-flags)#|optional (true)|#
   (:vertex-binding-description-count :uint32)#|optional (true)|#
@@ -2618,8 +2618,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:layout image-layout))
 
 (defcstruct subpass-description
-  (:flags subpass-description-flags)#|optional (true) must-be oint-graphics|#
-  (:pipeline-bind-point pipeline-bind-point)#|must-be oint-graphics|#
+  (:flags subpass-description-flags)#|optional (true)|#
+  (:pipeline-bind-point pipeline-bind-point)
   (:input-attachment-count :uint32)#|optional (true)|#
   (:p-input-attachments (:pointer (:struct attachment-reference)))#|len (input-attachment-count)|#
   (:color-attachment-count :uint32)#|optional (true)|#
@@ -2749,7 +2749,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:reference :uint32))
 
 (defcstruct submit-info
-  (:s-type structure-type)
+  (:s-type structure-type)#|must-be submit-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:wait-semaphore-count :uint32)#|optional (true)|#
   (:p-wait-semaphores (:pointer semaphore))#|len (wait-semaphore-count)|#
@@ -2769,8 +2769,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:dependency-flags dependency-flags)#|optional (true)|#)
 
 (defcstruct subpass-description
-  (:flags subpass-description-flags)#|optional (true) must-be oint-graphics|#
-  (:pipeline-bind-point pipeline-bind-point)#|must-be oint-graphics|#
+  (:flags subpass-description-flags)#|optional (true)|#
+  (:pipeline-bind-point pipeline-bind-point)
   (:input-attachment-count :uint32)#|optional (true)|#
   (:p-input-attachments (:pointer (:struct attachment-reference)))#|len (input-attachment-count)|#
   (:color-attachment-count :uint32)#|optional (true)|#
@@ -2850,7 +2850,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:surface (:pointer (:struct wl_surface)))#|opaque t|#)
 
 (defcstruct win32-surface-create-info-khr
-  (:s-type structure-type)#|must-be win|#
+  (:s-type structure-type)#|must-be win32-surface-create-info-khr|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags win32-surface-create-flags-khr)#|optional (true)|#
   (:hinstance hinstance)
