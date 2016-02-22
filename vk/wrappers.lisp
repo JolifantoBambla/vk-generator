@@ -44,6 +44,15 @@
         (format t "created instance2, ret = ~s~%" ret)
         (values (unless (null-pointer-p instance) instance) ret)))))
 
+(defmacro with-instance ((var &key exts layers (app "cl-vulkan test")
+                                (engine "cl-vulkan"))
+                         &body body)
+  `(let ((,var (create-instance :exts ,exts :layers ,layers
+                                :app ,app :engine ,engine)))
+     (unwind-protect
+          (progn ,@body)
+       (%vk:destroy-instance ,var (null-pointer)))))
+
 (defun enumerate-physical-devices (instance)
   (with-foreign-object (p-count :uint32)
     (setf (mem-ref p-count :uint32) 0)

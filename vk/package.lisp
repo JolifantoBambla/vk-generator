@@ -7,4 +7,6 @@
    #:get-event-status
    #:get-fence-status
    #:get-instance-proc-addr
-   ))
+   )
+  (:export
+   #:with-instance))
