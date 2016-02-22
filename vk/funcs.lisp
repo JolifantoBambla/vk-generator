@@ -26,7 +26,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 
 (in-package #:cl-vulkan-bindings)
 
-(defvkfun ("vkAcquireNextImageKHR" acquire-next-image-khr) result
+(defvkfun ("vkAcquireNextImageKHR" acquire-next-image-khr) checked-result
   (device device)
   (swapchain swapchain-khr) ;; :EXTERNSYNC "true"
   (timeout :uint64)
@@ -34,35 +34,35 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (fence fence) ;; :OPTIONAL "true" :EXTERNSYNC "true"
   (p-image-index (:pointer :uint32)))
 
-(defvkfun ("vkAllocateCommandBuffers" allocate-command-buffers) result
+(defvkfun ("vkAllocateCommandBuffers" allocate-command-buffers) checked-result
   (device device)
   (p-allocate-info (:pointer (:struct command-buffer-allocate-info))) ;; :EXTERNSYNC "pAllocateInfo->commandPool"
   (p-command-buffers (:pointer command-buffer)) ;; :LEN "pAllocateInfo->commandBufferCount"
 )
 
-(defvkfun ("vkAllocateDescriptorSets" allocate-descriptor-sets) result
+(defvkfun ("vkAllocateDescriptorSets" allocate-descriptor-sets) checked-result
   (device device)
   (p-allocate-info (:pointer (:struct descriptor-set-allocate-info))) ;; :EXTERNSYNC "pAllocateInfo->descriptorPool"
   (p-descriptor-sets (:pointer descriptor-set)) ;; :LEN "pAllocateInfo->descriptorSetCount"
 )
 
-(defvkfun ("vkAllocateMemory" allocate-memory) result
+(defvkfun ("vkAllocateMemory" allocate-memory) checked-result
   (device device)
   (p-allocate-info (:pointer (:struct memory-allocate-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-memory (:pointer device-memory)))
 
-(defvkfun ("vkBeginCommandBuffer" begin-command-buffer) result
+(defvkfun ("vkBeginCommandBuffer" begin-command-buffer) checked-result
   (command-buffer command-buffer) ;; :EXTERNSYNC "true"
   (p-begin-info (:pointer (:struct command-buffer-begin-info))))
 
-(defvkfun ("vkBindBufferMemory" bind-buffer-memory) result
+(defvkfun ("vkBindBufferMemory" bind-buffer-memory) checked-result
   (device device)
   (buffer buffer) ;; :EXTERNSYNC "true"
   (memory device-memory)
   (memory-offset device-size))
 
-(defvkfun ("vkBindImageMemory" bind-image-memory) result
+(defvkfun ("vkBindImageMemory" bind-image-memory) checked-result
   (device device)
   (image image) ;; :EXTERNSYNC "true"
   (memory device-memory)
@@ -383,31 +383,31 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (query-pool query-pool)
   (query :uint32))
 
-(defvkfun ("vkCreateAndroidSurfaceKHR" create-android-surface-khr) result
+(defvkfun ("vkCreateAndroidSurfaceKHR" create-android-surface-khr) checked-result
   (instance instance)
   (p-create-info (:pointer (:struct android-surface-create-info-khr)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-surface (:pointer surface-khr)))
 
-(defvkfun ("vkCreateBuffer" create-buffer) result
+(defvkfun ("vkCreateBuffer" create-buffer) checked-result
   (device device)
   (p-create-info (:pointer (:struct buffer-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-buffer (:pointer buffer)))
 
-(defvkfun ("vkCreateBufferView" create-buffer-view) result
+(defvkfun ("vkCreateBufferView" create-buffer-view) checked-result
   (device device)
   (p-create-info (:pointer (:struct buffer-view-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-view (:pointer buffer-view)))
 
-(defvkfun ("vkCreateCommandPool" create-command-pool) result
+(defvkfun ("vkCreateCommandPool" create-command-pool) checked-result
   (device device)
   (p-create-info (:pointer (:struct command-pool-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-command-pool (:pointer command-pool)))
 
-(defvkfun ("vkCreateComputePipelines" create-compute-pipelines) result
+(defvkfun ("vkCreateComputePipelines" create-compute-pipelines) checked-result
   (device device)
   (pipeline-cache pipeline-cache) ;; :OPTIONAL "true"
   (create-info-count :uint32)
@@ -416,62 +416,62 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (p-pipelines (:pointer pipeline)) ;; :LEN "createInfoCount"
 )
 
-(defvkfun ("vkCreateDebugReportCallbackEXT" create-debug-report-callback-ext) result
+(defvkfun ("vkCreateDebugReportCallbackEXT" create-debug-report-callback-ext) checked-result
   (instance instance)
   (p-create-info (:pointer (:struct debug-report-callback-create-info-ext)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-callback (:pointer debug-report-callback-ext)))
 
-(defvkfun ("vkCreateDescriptorPool" create-descriptor-pool) result
+(defvkfun ("vkCreateDescriptorPool" create-descriptor-pool) checked-result
   (device device)
   (p-create-info (:pointer (:struct descriptor-pool-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-descriptor-pool (:pointer descriptor-pool)))
 
-(defvkfun ("vkCreateDescriptorSetLayout" create-descriptor-set-layout) result
+(defvkfun ("vkCreateDescriptorSetLayout" create-descriptor-set-layout) checked-result
   (device device)
   (p-create-info (:pointer (:struct descriptor-set-layout-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-set-layout (:pointer descriptor-set-layout)))
 
-(defvkfun ("vkCreateDevice" create-device) result
+(defvkfun ("vkCreateDevice" create-device) checked-result
   (physical-device physical-device)
   (p-create-info (:pointer (:struct device-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-device (:pointer device)))
 
-(defvkfun ("vkCreateDisplayModeKHR" create-display-mode-khr) result
+(defvkfun ("vkCreateDisplayModeKHR" create-display-mode-khr) checked-result
   (physical-device physical-device)
   (display display-khr) ;; :EXTERNSYNC "true"
   (p-create-info (:pointer (:struct display-mode-create-info-khr)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-mode (:pointer display-mode-khr)))
 
-(defvkfun ("vkCreateDisplayPlaneSurfaceKHR" create-display-plane-surface-khr) result
+(defvkfun ("vkCreateDisplayPlaneSurfaceKHR" create-display-plane-surface-khr) checked-result
   (instance instance)
   (p-create-info (:pointer (:struct display-surface-create-info-khr)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-surface (:pointer surface-khr)))
 
-(defvkfun ("vkCreateEvent" create-event) result
+(defvkfun ("vkCreateEvent" create-event) checked-result
   (device device)
   (p-create-info (:pointer (:struct event-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-event (:pointer event)))
 
-(defvkfun ("vkCreateFence" create-fence) result
+(defvkfun ("vkCreateFence" create-fence) checked-result
   (device device)
   (p-create-info (:pointer (:struct fence-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-fence (:pointer fence)))
 
-(defvkfun ("vkCreateFramebuffer" create-framebuffer) result
+(defvkfun ("vkCreateFramebuffer" create-framebuffer) checked-result
   (device device)
   (p-create-info (:pointer (:struct framebuffer-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-framebuffer (:pointer framebuffer)))
 
-(defvkfun ("vkCreateGraphicsPipelines" create-graphics-pipelines) result
+(defvkfun ("vkCreateGraphicsPipelines" create-graphics-pipelines) checked-result
   (device device)
   (pipeline-cache pipeline-cache) ;; :OPTIONAL "true"
   (create-info-count :uint32)
@@ -480,72 +480,72 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (p-pipelines (:pointer pipeline)) ;; :LEN "createInfoCount"
 )
 
-(defvkfun ("vkCreateImage" create-image) result
+(defvkfun ("vkCreateImage" create-image) checked-result
   (device device)
   (p-create-info (:pointer (:struct image-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-image (:pointer image)))
 
-(defvkfun ("vkCreateImageView" create-image-view) result
+(defvkfun ("vkCreateImageView" create-image-view) checked-result
   (device device)
   (p-create-info (:pointer (:struct image-view-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-view (:pointer image-view)))
 
-(defvkfun ("vkCreateInstance" create-instance) result
+(defvkfun ("vkCreateInstance" create-instance) checked-result
   (p-create-info (:pointer (:struct instance-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-instance (:pointer instance)))
 
-(defvkfun ("vkCreateMirSurfaceKHR" create-mir-surface-khr) result
+(defvkfun ("vkCreateMirSurfaceKHR" create-mir-surface-khr) checked-result
   (instance instance)
   (p-create-info (:pointer (:struct mir-surface-create-info-khr)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-surface (:pointer surface-khr)))
 
-(defvkfun ("vkCreatePipelineCache" create-pipeline-cache) result
+(defvkfun ("vkCreatePipelineCache" create-pipeline-cache) checked-result
   (device device)
   (p-create-info (:pointer (:struct pipeline-cache-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-pipeline-cache (:pointer pipeline-cache)))
 
-(defvkfun ("vkCreatePipelineLayout" create-pipeline-layout) result
+(defvkfun ("vkCreatePipelineLayout" create-pipeline-layout) checked-result
   (device device)
   (p-create-info (:pointer (:struct pipeline-layout-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-pipeline-layout (:pointer pipeline-layout)))
 
-(defvkfun ("vkCreateQueryPool" create-query-pool) result
+(defvkfun ("vkCreateQueryPool" create-query-pool) checked-result
   (device device)
   (p-create-info (:pointer (:struct query-pool-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-query-pool (:pointer query-pool)))
 
-(defvkfun ("vkCreateRenderPass" create-render-pass) result
+(defvkfun ("vkCreateRenderPass" create-render-pass) checked-result
   (device device)
   (p-create-info (:pointer (:struct render-pass-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-render-pass (:pointer render-pass)))
 
-(defvkfun ("vkCreateSampler" create-sampler) result
+(defvkfun ("vkCreateSampler" create-sampler) checked-result
   (device device)
   (p-create-info (:pointer (:struct sampler-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-sampler (:pointer sampler)))
 
-(defvkfun ("vkCreateSemaphore" create-semaphore) result
+(defvkfun ("vkCreateSemaphore" create-semaphore) checked-result
   (device device)
   (p-create-info (:pointer (:struct semaphore-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-semaphore (:pointer semaphore)))
 
-(defvkfun ("vkCreateShaderModule" create-shader-module) result
+(defvkfun ("vkCreateShaderModule" create-shader-module) checked-result
   (device device)
   (p-create-info (:pointer (:struct shader-module-create-info)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-shader-module (:pointer shader-module)))
 
-(defvkfun ("vkCreateSharedSwapchainsKHR" create-shared-swapchains-khr) result
+(defvkfun ("vkCreateSharedSwapchainsKHR" create-shared-swapchains-khr) checked-result
   (device device)
   (swapchain-count :uint32)
   (p-create-infos (:pointer (:struct swapchain-create-info-khr))) ;; :LEN "swapchainCount" :EXTERNSYNC "pCreateInfos[].surface,pCreateInfos[].oldSwapchain"
@@ -553,31 +553,31 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (p-swapchains (:pointer swapchain-khr)) ;; :LEN "swapchainCount"
 )
 
-(defvkfun ("vkCreateSwapchainKHR" create-swapchain-khr) result
+(defvkfun ("vkCreateSwapchainKHR" create-swapchain-khr) checked-result
   (device device)
   (p-create-info (:pointer (:struct swapchain-create-info-khr))) ;; :EXTERNSYNC "pCreateInfo.surface,pCreateInfo.oldSwapchain"
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-swapchain (:pointer swapchain-khr)))
 
-(defvkfun ("vkCreateWaylandSurfaceKHR" create-wayland-surface-khr) result
+(defvkfun ("vkCreateWaylandSurfaceKHR" create-wayland-surface-khr) checked-result
   (instance instance)
   (p-create-info (:pointer (:struct wayland-surface-create-info-khr)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-surface (:pointer surface-khr)))
 
-(defvkfun ("vkCreateWin32SurfaceKHR" create-win32-surface-khr) result
+(defvkfun ("vkCreateWin32SurfaceKHR" create-win32-surface-khr) checked-result
   (instance instance)
   (p-create-info (:pointer (:struct win32-surface-create-info-khr)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-surface (:pointer surface-khr)))
 
-(defvkfun ("vkCreateXcbSurfaceKHR" create-xcb-surface-khr) result
+(defvkfun ("vkCreateXcbSurfaceKHR" create-xcb-surface-khr) checked-result
   (instance instance)
   (p-create-info (:pointer (:struct xcb-surface-create-info-khr)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
   (p-surface (:pointer surface-khr)))
 
-(defvkfun ("vkCreateXlibSurfaceKHR" create-xlib-surface-khr) result
+(defvkfun ("vkCreateXlibSurfaceKHR" create-xlib-surface-khr) checked-result
   (instance instance)
   (p-create-info (:pointer (:struct xlib-surface-create-info-khr)))
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
@@ -729,44 +729,44 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (p-allocator (:pointer (:struct allocation-callbacks))) ;; :OPTIONAL "true"
 )
 
-(defvkfun ("vkDeviceWaitIdle" device-wait-idle) result
+(defvkfun ("vkDeviceWaitIdle" device-wait-idle) checked-result
   (device device))
 
-(defvkfun ("vkEndCommandBuffer" end-command-buffer) result
+(defvkfun ("vkEndCommandBuffer" end-command-buffer) checked-result
   (command-buffer command-buffer) ;; :EXTERNSYNC "true"
 )
 
-(defvkfun ("vkEnumerateDeviceExtensionProperties" enumerate-device-extension-properties) result
+(defvkfun ("vkEnumerateDeviceExtensionProperties" enumerate-device-extension-properties) checked-result
   (physical-device physical-device)
   (p-layer-name :string) ;; :OPTIONAL "true" :LEN "null-terminated"
   (p-property-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-properties (:pointer (:struct extension-properties))) ;; :OPTIONAL "true" :LEN "pPropertyCount"
 )
 
-(defvkfun ("vkEnumerateDeviceLayerProperties" enumerate-device-layer-properties) result
+(defvkfun ("vkEnumerateDeviceLayerProperties" enumerate-device-layer-properties) checked-result
   (physical-device physical-device) ;; :OPTIONAL "false,true"
   (p-property-count (:pointer :uint32))
   (p-properties (:pointer (:struct layer-properties))) ;; :OPTIONAL "true" :LEN "pPropertyCount"
 )
 
-(defvkfun ("vkEnumerateInstanceExtensionProperties" enumerate-instance-extension-properties) result
+(defvkfun ("vkEnumerateInstanceExtensionProperties" enumerate-instance-extension-properties) checked-result
   (p-layer-name :string) ;; :OPTIONAL "true" :LEN "null-terminated"
   (p-property-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-properties (:pointer (:struct extension-properties))) ;; :OPTIONAL "true" :LEN "pPropertyCount"
 )
 
-(defvkfun ("vkEnumerateInstanceLayerProperties" enumerate-instance-layer-properties) result
+(defvkfun ("vkEnumerateInstanceLayerProperties" enumerate-instance-layer-properties) checked-result
   (p-property-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-properties (:pointer (:struct layer-properties))) ;; :OPTIONAL "true" :LEN "pPropertyCount"
 )
 
-(defvkfun ("vkEnumeratePhysicalDevices" enumerate-physical-devices) result
+(defvkfun ("vkEnumeratePhysicalDevices" enumerate-physical-devices) checked-result
   (instance instance)
   (p-physical-device-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-physical-devices (:pointer physical-device)) ;; :OPTIONAL "true" :LEN "pPhysicalDeviceCount"
 )
 
-(defvkfun ("vkFlushMappedMemoryRanges" flush-mapped-memory-ranges) result
+(defvkfun ("vkFlushMappedMemoryRanges" flush-mapped-memory-ranges) checked-result
   (device device)
   (memory-range-count :uint32)
   (p-memory-ranges (:pointer (:struct mapped-memory-range))) ;; :LEN "memoryRangeCount"
@@ -779,7 +779,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (p-command-buffers (:pointer command-buffer)) ;; :LEN "commandBufferCount" :NOAUTOVALIDITY "true" :EXTERNSYNC "true"
 )
 
-(defvkfun ("vkFreeDescriptorSets" free-descriptor-sets) result
+(defvkfun ("vkFreeDescriptorSets" free-descriptor-sets) checked-result
   (device device)
   (descriptor-pool descriptor-pool) ;; :EXTERNSYNC "true"
   (descriptor-set-count :uint32)
@@ -813,31 +813,31 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (queue-index :uint32)
   (p-queue (:pointer queue)))
 
-(defvkfun ("vkGetDisplayModePropertiesKHR" get-display-mode-properties-khr) result
+(defvkfun ("vkGetDisplayModePropertiesKHR" get-display-mode-properties-khr) checked-result
   (physical-device physical-device)
   (display display-khr)
   (p-property-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-properties (:pointer (:struct display-mode-properties-khr))) ;; :OPTIONAL "true" :LEN "pPropertyCount"
 )
 
-(defvkfun ("vkGetDisplayPlaneCapabilitiesKHR" get-display-plane-capabilities-khr) result
+(defvkfun ("vkGetDisplayPlaneCapabilitiesKHR" get-display-plane-capabilities-khr) checked-result
   (physical-device physical-device)
   (mode display-mode-khr) ;; :EXTERNSYNC "true"
   (plane-index :uint32)
   (p-capabilities (:pointer (:struct display-plane-capabilities-khr))))
 
-(defvkfun ("vkGetDisplayPlaneSupportedDisplaysKHR" get-display-plane-supported-displays-khr) result
+(defvkfun ("vkGetDisplayPlaneSupportedDisplaysKHR" get-display-plane-supported-displays-khr) checked-result
   (physical-device physical-device)
   (plane-index :uint32)
   (p-display-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-displays (:pointer display-khr)) ;; :OPTIONAL "true" :LEN "pDisplayCount"
 )
 
-(defvkfun ("vkGetEventStatus" get-event-status) result
+(defvkfun ("vkGetEventStatus" get-event-status) checked-result
   (device device)
   (event event))
 
-(defvkfun ("vkGetFenceStatus" get-fence-status) result
+(defvkfun ("vkGetFenceStatus" get-fence-status) checked-result
   (device device)
   (fence fence))
 
@@ -864,13 +864,13 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (p-name :string) ;; :LEN "null-terminated"
 )
 
-(defvkfun ("vkGetPhysicalDeviceDisplayPlanePropertiesKHR" get-physical-device-display-plane-properties-khr) result
+(defvkfun ("vkGetPhysicalDeviceDisplayPlanePropertiesKHR" get-physical-device-display-plane-properties-khr) checked-result
   (physical-device physical-device)
   (p-property-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-properties (:pointer (:struct display-plane-properties-khr))) ;; :OPTIONAL "true" :LEN "pPropertyCount"
 )
 
-(defvkfun ("vkGetPhysicalDeviceDisplayPropertiesKHR" get-physical-device-display-properties-khr) result
+(defvkfun ("vkGetPhysicalDeviceDisplayPropertiesKHR" get-physical-device-display-properties-khr) checked-result
   (physical-device physical-device)
   (p-property-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-properties (:pointer (:struct display-properties-khr))) ;; :OPTIONAL "true" :LEN "pPropertyCount"
@@ -885,7 +885,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (format format)
   (p-format-properties (:pointer (:struct format-properties))))
 
-(defvkfun ("vkGetPhysicalDeviceImageFormatProperties" get-physical-device-image-format-properties) result
+(defvkfun ("vkGetPhysicalDeviceImageFormatProperties" get-physical-device-image-format-properties) checked-result
   (physical-device physical-device)
   (format format)
   (type image-type)
@@ -924,26 +924,26 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (p-properties (:pointer (:struct sparse-image-format-properties))) ;; :OPTIONAL "true" :LEN "pPropertyCount"
 )
 
-(defvkfun ("vkGetPhysicalDeviceSurfaceCapabilitiesKHR" get-physical-device-surface-capabilities-khr) result
+(defvkfun ("vkGetPhysicalDeviceSurfaceCapabilitiesKHR" get-physical-device-surface-capabilities-khr) checked-result
   (physical-device physical-device)
   (surface surface-khr)
   (p-surface-capabilities (:pointer (:struct surface-capabilities-khr))))
 
-(defvkfun ("vkGetPhysicalDeviceSurfaceFormatsKHR" get-physical-device-surface-formats-khr) result
+(defvkfun ("vkGetPhysicalDeviceSurfaceFormatsKHR" get-physical-device-surface-formats-khr) checked-result
   (physical-device physical-device)
   (surface surface-khr)
   (p-surface-format-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-surface-formats (:pointer (:struct surface-format-khr))) ;; :OPTIONAL "true" :LEN "pSurfaceFormatCount"
 )
 
-(defvkfun ("vkGetPhysicalDeviceSurfacePresentModesKHR" get-physical-device-surface-present-modes-khr) result
+(defvkfun ("vkGetPhysicalDeviceSurfacePresentModesKHR" get-physical-device-surface-present-modes-khr) checked-result
   (physical-device physical-device)
   (surface surface-khr)
   (p-present-mode-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-present-modes (:pointer present-mode-khr)) ;; :OPTIONAL "true" :LEN "pPresentModeCount"
 )
 
-(defvkfun ("vkGetPhysicalDeviceSurfaceSupportKHR" get-physical-device-surface-support-khr) result
+(defvkfun ("vkGetPhysicalDeviceSurfaceSupportKHR" get-physical-device-surface-support-khr) checked-result
   (physical-device physical-device)
   (queue-family-index :uint32)
   (surface surface-khr)
@@ -970,14 +970,14 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (dpy (:pointer display))
   (visual-id visual-id))
 
-(defvkfun ("vkGetPipelineCacheData" get-pipeline-cache-data) result
+(defvkfun ("vkGetPipelineCacheData" get-pipeline-cache-data) checked-result
   (device device)
   (pipeline-cache pipeline-cache)
   (p-data-size (:pointer size-t)) ;; :OPTIONAL "false,true"
   (p-data (:pointer :void)) ;; :OPTIONAL "true" :LEN "pDataSize"
 )
 
-(defvkfun ("vkGetQueryPoolResults" get-query-pool-results) result
+(defvkfun ("vkGetQueryPoolResults" get-query-pool-results) checked-result
   (device device)
   (query-pool query-pool)
   (first-query :uint32)
@@ -993,20 +993,20 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (render-pass render-pass)
   (p-granularity (:pointer (:struct extent-2d))))
 
-(defvkfun ("vkGetSwapchainImagesKHR" get-swapchain-images-khr) result
+(defvkfun ("vkGetSwapchainImagesKHR" get-swapchain-images-khr) checked-result
   (device device)
   (swapchain swapchain-khr)
   (p-swapchain-image-count (:pointer :uint32)) ;; :OPTIONAL "false,true"
   (p-swapchain-images (:pointer image)) ;; :OPTIONAL "true" :LEN "pSwapchainImageCount"
 )
 
-(defvkfun ("vkInvalidateMappedMemoryRanges" invalidate-mapped-memory-ranges) result
+(defvkfun ("vkInvalidateMappedMemoryRanges" invalidate-mapped-memory-ranges) checked-result
   (device device)
   (memory-range-count :uint32)
   (p-memory-ranges (:pointer (:struct mapped-memory-range))) ;; :LEN "memoryRangeCount"
 )
 
-(defvkfun ("vkMapMemory" map-memory) result
+(defvkfun ("vkMapMemory" map-memory) checked-result
   (device device)
   (memory device-memory) ;; :EXTERNSYNC "true"
   (offset device-size)
@@ -1014,64 +1014,64 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (flags memory-map-flags) ;; :OPTIONAL "true"
   (pp-data (:pointer (:pointer :void))))
 
-(defvkfun ("vkMergePipelineCaches" merge-pipeline-caches) result
+(defvkfun ("vkMergePipelineCaches" merge-pipeline-caches) checked-result
   (device device)
   (dst-cache pipeline-cache) ;; :EXTERNSYNC "true"
   (src-cache-count :uint32)
   (p-src-caches (:pointer pipeline-cache)) ;; :LEN "srcCacheCount"
 )
 
-(defvkfun ("vkQueueBindSparse" queue-bind-sparse) result
+(defvkfun ("vkQueueBindSparse" queue-bind-sparse) checked-result
   (queue queue) ;; :EXTERNSYNC "true"
   (bind-info-count :uint32) ;; :OPTIONAL "true"
   (p-bind-info (:pointer (:struct bind-sparse-info))) ;; :LEN "bindInfoCount" :EXTERNSYNC "pBindInfo[].pWaitSemaphores[],pBindInfo[].pSignalSemaphores[],pBindInfo[].pBufferBinds[].buffer,pBindInfo[].pImageOpaqueBinds[].image,pBindInfo[].pImageBinds[].image"
   (fence fence) ;; :OPTIONAL "true" :EXTERNSYNC "true"
 )
 
-(defvkfun ("vkQueuePresentKHR" queue-present-khr) result
+(defvkfun ("vkQueuePresentKHR" queue-present-khr) checked-result
   (queue queue) ;; :EXTERNSYNC "true"
   (p-present-info (:pointer (:struct present-info-khr))) ;; :EXTERNSYNC "pPresentInfo.pWaitSemaphores[],pPresentInfo.pSwapchains[]"
 )
 
-(defvkfun ("vkQueueSubmit" queue-submit) result
+(defvkfun ("vkQueueSubmit" queue-submit) checked-result
   (queue queue) ;; :EXTERNSYNC "true"
   (submit-count :uint32) ;; :OPTIONAL "true"
   (p-submits (:pointer (:struct submit-info))) ;; :LEN "submitCount" :EXTERNSYNC "pSubmits[].pWaitSemaphores[],pSubmits[].pSignalSemaphores[]"
   (fence fence) ;; :OPTIONAL "true" :EXTERNSYNC "true"
 )
 
-(defvkfun ("vkQueueWaitIdle" queue-wait-idle) result
+(defvkfun ("vkQueueWaitIdle" queue-wait-idle) checked-result
   (queue queue))
 
-(defvkfun ("vkResetCommandBuffer" reset-command-buffer) result
+(defvkfun ("vkResetCommandBuffer" reset-command-buffer) checked-result
   (command-buffer command-buffer) ;; :EXTERNSYNC "true"
   (flags command-buffer-reset-flags) ;; :OPTIONAL "true"
 )
 
-(defvkfun ("vkResetCommandPool" reset-command-pool) result
+(defvkfun ("vkResetCommandPool" reset-command-pool) checked-result
   (device device)
   (command-pool command-pool) ;; :EXTERNSYNC "true"
   (flags command-pool-reset-flags) ;; :OPTIONAL "true"
 )
 
-(defvkfun ("vkResetDescriptorPool" reset-descriptor-pool) result
+(defvkfun ("vkResetDescriptorPool" reset-descriptor-pool) checked-result
   (device device)
   (descriptor-pool descriptor-pool) ;; :EXTERNSYNC "true"
   (flags descriptor-pool-reset-flags) ;; :OPTIONAL "true"
 )
 
-(defvkfun ("vkResetEvent" reset-event) result
+(defvkfun ("vkResetEvent" reset-event) checked-result
   (device device)
   (event event) ;; :EXTERNSYNC "true"
 )
 
-(defvkfun ("vkResetFences" reset-fences) result
+(defvkfun ("vkResetFences" reset-fences) checked-result
   (device device)
   (fence-count :uint32)
   (p-fences (:pointer fence)) ;; :LEN "fenceCount" :EXTERNSYNC "true"
 )
 
-(defvkfun ("vkSetEvent" set-event) result
+(defvkfun ("vkSetEvent" set-event) checked-result
   (device device)
   (event event) ;; :EXTERNSYNC "true"
 )
@@ -1089,7 +1089,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (p-descriptor-copies (:pointer (:struct copy-descriptor-set))) ;; :LEN "descriptorCopyCount" :EXTERNSYNC "pDescriptorCopies[].dstSet"
 )
 
-(defvkfun ("vkWaitForFences" wait-for-fences) result
+(defvkfun ("vkWaitForFences" wait-for-fences) checked-result
   (device device)
   (fence-count :uint32)
   (p-fences (:pointer fence)) ;; :LEN "fenceCount"

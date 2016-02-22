@@ -560,7 +560,7 @@
                                (+ *ext-base*
                                   (* *ext-block-size* (1- ext-number))
                                   (parse-integer offset)))
-                        :comment (format nil "~a" ext))
+                        :ext (format nil "~a" ext))
                   (cdr (last (getf extend :enum))))))
         (format t "ext: ~s ~s ~s ~s ~s~%" value name extends offset dir)))
 
@@ -681,14 +681,22 @@
                          (setf prefix expand)))))
                  (loop for ((k . v) . more) on bits
                        for comment = (getf (cdr v) :comment)
+                       for ext = (getf (cdr v) :ext)
                        do (format out "~%  (:~(~a~) ~:[#x~x~;~d~])"
                                   (string-trim '(#\-) (fix-bit-name k :prefix prefix))
                                   (minusp (first v)) (first v))
                        unless more
                          do (format out ")")
-                       when comment
-                         do (format out " ;; ~a" comment))
-                 (format out "~:[)~;~]~%~%" bits))
+                       when (or ext comment)
+                         do (format out " ;;~@[ ~a~]~@[ ~a~]" ext comment))
+                 (format out "~:[)~;~]~%~%" bits)
+                 (when (string-equal fixed-name "RESULT")
+                   ;; write out error->comment, since they seem useful
+                   ;; enough to print out to users in errors
+                   (format out "(defparameter *result-comments*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
+                           (loop for (k nil . v) in bits
+                                 collect (string-trim '(#\-) (fix-bit-name k :prefix prefix))
+                                 collect (getf v :comment)))))
 
       ;; function pointer types
       (loop for (name . attribs) in (sort (remove-if-not
@@ -748,8 +756,12 @@
                        (if ext *ext-definer* *core-definer*)
                        name
                        (fix-function-name name)
-                       (if (keywordp ret) (format nil "~s" ret)
-                           (fix-type-name ret)))
+                       (cond
+                         ((string-equal ret "VkResult")
+                          "checked-result")
+                         ((keywordp ret)
+                          (format nil "~s" ret))
+                         (t (fix-type-name ret))))
                (loop with *print-right-margin* = 10000
                      for (arg . opts) in args
                      do (format out "~&  ~1{~((~a ~s)~)~}" arg)

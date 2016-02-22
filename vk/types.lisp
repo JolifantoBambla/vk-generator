@@ -1121,6 +1121,34 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:nv-extension-0-error -1000012000) ;; VK_NV_extension_0
   (:nv-extension-1-error -1000013000)) ;; VK_NV_extension_1
 
+(defparameter *result-comments*
+  (alexandria:plist-hash-table
+    '(:success "Command completed successfully"
+     :not-ready "A fence or query has not yet completed"
+     :timeout "A wait operation has not completed in the specified time"
+     :event-set "An event is signaled"
+     :event-reset "An event is unsignalled"
+     :incomplete "A return array was too small for the resul"
+     :error-out-of-host-memory "A host memory allocation has failed"
+     :error-out-of-device-memory "A device memory allocation has failed"
+     :error-initialization-failed "The logical device has been lost. See <<devsandqueues-lost-device>>"
+     :error-device-lost "Initialization of a object has failed"
+     :error-memory-map-failed "Mapping of a memory object has failed"
+     :error-layer-not-present "Layer specified does not exist"
+     :error-extension-not-present "Extension specified does not exist"
+     :error-feature-not-present "Requested feature is not available on this device"
+     :error-incompatible-driver "Unable to find a Vulkan driver"
+     :error-too-many-objects "Too many objects of the type have already been created"
+     :error-format-not-supported "Requested format is not supported on this device"
+     :error-surface-lost-khr NIL
+     :error-native-window-in-use-khr NIL
+     :suboptimal-khr NIL
+     :error-out-of-date-khr NIL
+     :error-incompatible-display-khr NIL
+     :error-validation-failed-ext NIL
+     :nv-extension-0-error NIL
+     :nv-extension-1-error NIL)))
+
 (defcenum (sampler-address-mode)
   (:repeat #x0)
   (:mirrored-repeat #x1)

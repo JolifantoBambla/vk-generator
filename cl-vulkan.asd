@@ -9,6 +9,7 @@
     :components ((:file "bindings-package")
                  (:file "bindings")
                  (:file "types")
+                 (:file "extra-types")
                  (:file "funcs")
                  (:file "translators")
                  (:file "package")
