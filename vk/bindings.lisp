@@ -429,6 +429,6 @@
    `(progn
       ,(generate-reader struct-type reader members)
       ,@(when fill
-          (setf (gethash struct-name *translators*) fill)
-          (list (generate-filler struct-name fill members))))))
+          (list `(setf (gethash ',struct-name *translators*) ',fill)
+                (generate-filler struct-name fill members))))))
 
