@@ -41,6 +41,10 @@
 (defparameter *core-definer* "defvkfun")
 (defparameter *ext-definer* "defvkextfun")
 
+;; from generator.py
+(defparameter *ext-base* 1000000000)
+(defparameter *ext-block-size* 1000)
+
 (defparameter *vk-api-version* nil) ;; (major minor patch)
 (defparameter *vk-last-updated* nil)
 ;; should we store a git hash or something like the svn version in cl-opengl?
@@ -526,7 +530,41 @@
                         :renderpass (kw-list renderpass)))))))
 
 ;;; TODO: feature
-;;; TODO: extensions
+;;; extensions
+    ;; mostly just expanding the enums, since the new struct/functions
+    ;; definitions are included with core definitions earlier.
+    ;; probably will eventually want to mark which names go with which
+    ;; version/extension though.
+    (xpath:do-node-set (node (xpath:evaluate "/registry/extensions/extension/require/enum" vk.xml))
+      (let* ((ext (xps (xpath:evaluate "../../@name" node)))
+             (ext-number (parse-integer
+                          (xps (xpath:evaluate "../../@number" node))))
+             (api (xps (xpath:evaluate "../../@supported" node)))
+             (value (xps (xpath:evaluate "@value" node)))
+             (.name (xps (xpath:evaluate "@name" node)))
+             (name (make-const-keyword .name))
+             (extends (xps (xpath:evaluate "@extends" node)))
+             (offset (xps (xpath:evaluate "@offset" node)))
+             (dir (xps (xpath:evaluate "@dir" node)))
+             (attribs (attrib-names node)))
+        (assert (not (set-difference attribs
+                                     '("value" "name" "extends" "offset" "dir")
+                                     :test 'string=)))
+       (when extends ;; todo: do something with the version/ext name enums
+          (let ((extend (get-type extends)))
+            (assert (and offset (not value)))
+            (push (list .name (*
+                               (if (equalp dir "-")
+                                   -1
+                                   1)
+                               (+ *ext-base*
+                                  (* *ext-block-size* (1- ext-number))
+                                  (parse-integer offset)))
+                        :comment (format nil "~a" ext))
+                  (cdr (last (getf extend :enum))))))
+        (format t "ext: ~s ~s ~s ~s ~s~%" value name extends offset dir)))
+
+
     (setf types (nreverse types))
 
     ;; write types file
@@ -756,8 +794,8 @@
                        (fix-type-name name)
                        (getf (cddr attribs) :returned-only)
                        (fix-type-name name))
-                  (loop for m in members
-                        do (format out "~&  ~((:~{~s~^ ~})~)" m))
+               (loop for m in members
+                     do (format out "~&  ~((:~{~s~^ ~})~)" m))
                (format out ")~%~%")))
 
     ;; todo: print out changes

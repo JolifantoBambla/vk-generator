@@ -1005,7 +1005,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:shader-read-only-optimal #x5) ;; Optimal layout when image is used for read only shader access
   (:transfer-src-optimal #x6) ;; Optimal layout when image is used only as source of transfer operations
   (:transfer-dst-optimal #x7) ;; Optimal layout when image is used only as destination of transfer operations
-  (:preinitialized #x8)) ;; Initial layout used when the data is populated by the CPU
+  (:preinitialized #x8) ;; Initial layout used when the data is populated by the CPU
+  (:present-src-khr #x3B9ACDEA)) ;; VK_KHR_swapchain
 
 (defcenum (image-tiling)
   (:optimal #x0)
@@ -1110,7 +1111,15 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:error-feature-not-present -8) ;; Requested feature is not available on this device
   (:error-incompatible-driver -9) ;; Unable to find a Vulkan driver
   (:error-too-many-objects -10) ;; Too many objects of the type have already been created
-  (:error-format-not-supported -11)) ;; Requested format is not supported on this device
+  (:error-format-not-supported -11) ;; Requested format is not supported on this device
+  (:error-surface-lost-khr -1000000000) ;; VK_KHR_surface
+  (:error-native-window-in-use-khr -1000000001) ;; VK_KHR_surface
+  (:suboptimal-khr #x3B9ACDEB) ;; VK_KHR_swapchain
+  (:error-out-of-date-khr -1000001004) ;; VK_KHR_swapchain
+  (:error-incompatible-display-khr -1000003001) ;; VK_KHR_display_swapchain
+  (:error-validation-failed-ext -1000011001) ;; VK_EXT_debug_report
+  (:nv-extension-0-error -1000012000) ;; VK_NV_extension_0
+  (:nv-extension-1-error -1000013000)) ;; VK_NV_extension_1
 
 (defcenum (sampler-address-mode)
   (:repeat #x0)
@@ -1186,7 +1195,19 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:image-memory-barrier #x2D)
   (:memory-barrier #x2E)
   (:loader-instance-create-info #x2F)
-  (:loader-device-create-info #x30))
+  (:loader-device-create-info #x30)
+  (:swapchain-create-info-khr #x3B9ACDE8) ;; VK_KHR_swapchain
+  (:present-info-khr #x3B9ACDE9) ;; VK_KHR_swapchain
+  (:display-mode-create-info-khr #x3B9AD1D0) ;; VK_KHR_display
+  (:display-surface-create-info-khr #x3B9AD1D1) ;; VK_KHR_display
+  (:display-present-info-khr #x3B9AD5B8) ;; VK_KHR_display_swapchain
+  (:xlib-surface-create-info-khr #x3B9AD9A0) ;; VK_KHR_xlib_surface
+  (:xcb-surface-create-info-khr #x3B9ADD88) ;; VK_KHR_xcb_surface
+  (:wayland-surface-create-info-khr #x3B9AE170) ;; VK_KHR_wayland_surface
+  (:mir-surface-create-info-khr #x3B9AE558) ;; VK_KHR_mir_surface
+  (:android-surface-create-info-khr #x3B9AE940) ;; VK_KHR_android_surface
+  (:win32-surface-create-info-khr #x3B9AED28) ;; VK_KHR_win32_surface
+  (:debug-report-create-info-ext #x3B9AF4F8)) ;; VK_EXT_debug_report
 
 (defcenum (subpass-contents)
   (:inline #x0)
