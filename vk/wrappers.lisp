@@ -21,8 +21,89 @@
                    `(progn ,@body)))
          (map nil 'foreign-string-free ,string-pointers)))))
 
+(macrolet ((define-creator (fun &body args)
+             (let ((structs
+                     (loop for a in args
+                           when (consp a)
+                             collect (list (first a)
+                                           (find-symbol (string (second a))
+                                                        (find-package :%vk))
+                                           (second a))))
+                   (p (gensym "POINTER")))
+               (print
+                `(defun ,fun (,@(loop for a in args
+                                      collect (if (consp a) (second a) a)))
+                   (%vk::with-vk-structs (,@structs)
+                     (with-foreign-object (,p :pointer)
+                       (,(intern (string-trim "%"(string fun))
+                                 (find-package :%vk))
+                        ,@(loop for a in args
+                                      collect (if (consp a) (car a) a))
+                        (null-pointer) ;; no allocator support for now...
+                        ,p)
+                       (let ((v (mem-ref ,p :pointer)))
+                         (unless (null-pointer-p v) v)))))))))
+  (define-creator %create-instance (ici instance-create-info))
+  (define-creator %create-device physical-device (dci device-create-info))
+  (define-creator %create-android-surface-khr instance (asci android-surface-create-info-khr))
+  (define-creator %create-buffer device (bci buffer-create-info))
+  (define-creator %create-buffer-view device (bvci buffer-view-create-info))
+  (define-creator %create-command-pool device (cpci command-pool-create-info))
+  #++
+  (define-creator %create-compute-pipelines device pipeline-cache
+    (cpci compute-pipeline-create-info :counted t))
+  (define-creator %create-debug-report-callback-ext instance
+    (drcci debug-report-callback-create-info-ext))
+  (define-creator %create-descriptor-pool device (dpci descriptor-pool-create-info))
+  (define-creator %create-descriptor-set-layout device (dslci descriptor-set-layout-create-info))
+  (define-creator %create-display-mode-khr physical-device display
+    (dmci display-mode-create-info-khr))
+  (define-creator %create-display-plane-surface-khr instance (dsci display-surface-create-info-khr))
+  (define-creator %create-event device (eci event-create-info))
+  (define-creator %create-fence device (fci fence-create-info))
+  (define-creator %create-framebuffer device (fci framebuffer-create-info))
+  #++
+  (define-creator %create-graphics-pipelines device pipeline-cache
+    (gpci graphics-pipeline-create-info :counted t))
+  (define-creator %create-image device (ici image-create-info))
+  (define-creator %create-image-view device (ivci image-view-create-info))
+  (define-creator %create-mir-surface-khr instance (msci mir-surface-create-info-khr))
+  (define-creator %create-pipeline-cache device (pcci pipeline-cache-create-info))
+  (define-creator %create-pipeline-layout device (plci pipeline-layout-create-info))
+  (define-creator %create-query-pool device (qpci query-pool-create-info))
+  (define-creator %create-render-pass device (rpci render-pass-create-info))
+  (define-creator %create-sampler device (sci sampler-create-info))
+  (define-creator %create-semaphore device (sci semaphore-create-info))
+  (define-creator %create-shader-module device (smci shader-module-create-info))
+  #++
+  (define-creator %create-shared-swapchains-khr device (sci swapchain-create-info-khr :counted t))
+  (define-creator %create-swapchain-khr device (sci swapchain-create-info-khr))
+  (define-creator %create-wayland-surface-khr instance (wsci wayland-surface-create-info-khr))
+  (define-creator %create-win32-surface-khr instance (wsci win32-surface-create-info-khr))
+  (define-creator %create-xcb-surface-khr instance (xsci xcb-surface-create-info-khr))
+  (define-creator %create-xlib-surface-khr instance (xsci xlib-surface-create-info-khr)))
+
 (defun create-instance (&key exts layers (app "cl-vulkan test")
                           (engine "cl-vulkan"))
+  (setf exts (loop for x in exts
+                   when (keywordp x)
+                     collect (gethash x %vk::*extension-names* x)
+                   else collect x))
+  (%create-instance `(;:s-type :instance-create-info
+                                :p-next nil
+                                :flags 0
+                                :p-application-info (;:s-type :application-info
+                                                     :p-next nil
+                                                     :p-application-name ,app
+                                                     :application-version 0
+                                                     :p-engine-name ,engine
+                                                     :engine-version 0
+                                                     :api-version ,*api-version*)
+                                ;:enabled-layer-count ,(length layers)
+                                :pp-enabled-layer-names ,layers
+                                ;:enabled-extension-count ,(length exts)
+                                :pp-enabled-extension-names ,exts))
+  #++
   (%vk::with-vk-structs ((ici %vk:instance-create-info
                               `(;:s-type :instance-create-info
                                 :p-next nil
@@ -53,6 +134,83 @@
           (progn ,@body)
        (when ,var
          (%vk:destroy-instance ,var (null-pointer))))))
+
+
+
+(defun create-device (physical-device &key (queue-family-index 0)
+                                        (priorities '(1.0))
+                                        layers exts
+                                        (features (get-physical-device-features physical-device)))
+  (setf exts (loop for x in exts
+                   when (keywordp x)
+                     collect (gethash x %vk::*extension-names* x)
+                   else collect x))
+  (%create-device physical-device
+                  `(:flags 0
+                    :p-queue-create-infos ((:flags 0
+                                            :queue-family-index
+                                            ,queue-family-index
+                                            :p-queue-priorities
+                                            ,priorities))
+                    :pp-enabled-layer-names ,layers
+                    :pp-enabled-extension-names ,exts
+                    :p-enabled-features ,features)))
+
+(defmacro with-device ((var  physical-device
+                        &key (queue-family-index 0)
+                          (priorities ''(1.0))
+                          layers exts
+                          (features '(get-physical-device-features physical-device)))
+                         &body body)
+  `(let ((,var (create-device ,physical-device
+                              :queue-family-index ,queue-family-index
+                              :priorities ,priorities
+                              :layers ,layers
+                              :exts ,exts
+                              :features ,features)))
+     (unwind-protect
+          ,@body
+       (when ,var
+         (%vk:destroy-device ,var (null-pointer))))))
+
+
+#++
+(defun create-device (physical-device &key (queue-family-index 0)
+                                        (priorities '(1.0))
+                                        layers exts
+                                        (features (get-physical-device-features physical-device)))
+  (%vk::with-vk-structs ((dci
+                          %vk:device-create-info
+                          `(:flags 0
+                            :p-queue-create-infos ((:flags 0
+                                                    :queue-family-index
+                                                    ,queue-family-index
+                                                    :p-queue-priorities
+                                                    ,priorities))
+                            :pp-enabled-layer-names ,layers
+                            :pp-enabled-extension-names ,exts
+                            :p-enabled-features ,features)))
+    (with-foreign-object (p :pointer)
+      (%vk:create-device physical-device dci (null-pointer) p)
+      (let ((device (mem-ref p :pointer)))
+        (unless (null-pointer-p device) device)))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (defun enumerate-physical-devices (instance)
   (with-foreign-object (p-count :uint32)
@@ -140,13 +298,6 @@
   (with-foreign-object (p '%vk:bool32)
     (%vk:get-physical-device-surface-support-khr physical-device queue-family-index p)
     (mem-ref p '%vk:bool32)))
-
-
-#++
-(defun get-physical-device-mir-presentation-support-khr (physical-device queue-family-index)
-  (with-foreign-object (p '%vk::mir-connection)
-    (%vk:get-physical-device-mir-presentation-support-khr device queue-family-index p)
-    (mem-ref p '%vk::mir-connection)))
 
 
 (defun get-image-subresource-layout (device image subresource)

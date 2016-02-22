@@ -26,6 +26,22 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 
 (in-package #:cl-vulkan-bindings)
 
+(defparameter *extension-names*
+  (alexandria:plist-hash-table
+    '(:nv-extension-1 "VK_NV_extension_1"
+     :nv-extension-0 "VK_NV_extension_0"
+     :ext-debug-report "VK_EXT_debug_report"
+     :khr-win32-surface "VK_KHR_win32_surface"
+     :khr-android-surface "VK_KHR_android_surface"
+     :khr-mir-surface "VK_KHR_mir_surface"
+     :khr-wayland-surface "VK_KHR_wayland_surface"
+     :khr-xcb-surface "VK_KHR_xcb_surface"
+     :khr-xlib-surface "VK_KHR_xlib_surface"
+     :khr-display-swapchain "VK_KHR_display_swapchain"
+     :khr-display "VK_KHR_display"
+     :khr-swapchain "VK_KHR_swapchain"
+     :khr-surface "VK_KHR_surface")))
+
 (defctype sample-mask :uint32)
 
 (defctype bool32 :uint32)
