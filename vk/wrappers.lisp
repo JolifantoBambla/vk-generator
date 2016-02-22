@@ -73,24 +73,24 @@
               (deref (find-symbol (format nil "DEREF-~a" type) %vk))
               (object (when .object (list .object))))
          (assert vkfun () "~s not found?" fun)
-        (print (if counted
-              `(defun ,fun (,@object ,@args)
-                 (let ((count 0))
-                   (with-foreign-object (c :uint32)
-                     (setf (mem-ref c :uint32) 0)
-                     (,vkfun ,@object ,@args c (null-pointer))
-                     (setf count (mem-ref c :uint32))
-                     (with-foreign-object (p '(:struct ,type) count)
-                       (,vkfun ,@object ,@args c p)
-                       (loop for i below count
-                             collect (,deref
-                                      (inc-pointer p
-                                                   (* i (foreign-type-size
-                                                         '(:struct ,type))))))))))
-              `(defun ,fun (,@object ,@args)
-                 (with-foreign-object (p '(:struct ,type))
-                   (,vkfun ,@object ,@args p)
-                   (,deref p)))))))
+         (if counted
+             `(defun ,fun (,@object ,@args)
+                (let ((count 0))
+                  (with-foreign-object (c :uint32)
+                    (setf (mem-ref c :uint32) 0)
+                    (,vkfun ,@object ,@args c (null-pointer))
+                    (setf count (mem-ref c :uint32))
+                    (with-foreign-object (p '(:struct ,type) count)
+                      (,vkfun ,@object ,@args c p)
+                      (loop for i below count
+                            collect (,deref
+                                     (inc-pointer p
+                                                  (* i (foreign-type-size
+                                                        '(:struct ,type))))))))))
+             `(defun ,fun (,@object ,@args)
+                (with-foreign-object (p '(:struct ,type))
+                  (,vkfun ,@object ,@args p)
+                  (,deref p))))))
      (getters (object &body defs)
        (cons 'progn
              (loop for def in defs
