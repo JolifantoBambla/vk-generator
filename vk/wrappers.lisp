@@ -51,7 +51,8 @@
                                 :app ,app :engine ,engine)))
      (unwind-protect
           (progn ,@body)
-       (%vk:destroy-instance ,var (null-pointer)))))
+       (when ,var
+         (%vk:destroy-instance ,var (null-pointer))))))
 
 (defun enumerate-physical-devices (instance)
   (with-foreign-object (p-count :uint32)
