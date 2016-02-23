@@ -1344,17 +1344,17 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct sparse-memory-bind
   (:resource-offset device-size)
   (:size device-size)
-  (:memory device-memory)#|optional (true)|#
+  (:memory device-memory)#|optional (true) opaque t|#
   (:memory-offset device-size)
   (:flags sparse-memory-bind-flags)#|optional (true)|#)
 
 (defcstruct sparse-buffer-memory-bind-info
-  (:buffer buffer)
+  (:buffer buffer)#|opaque t|#
   (:bind-count :uint32)
   (:p-binds (:pointer (:struct sparse-memory-bind)))#|len (bind-count)|#)
 
 (defcstruct sparse-image-opaque-memory-bind-info
-  (:image image)
+  (:image image)#|opaque t|#
   (:bind-count :uint32)
   (:p-binds (:pointer (:struct sparse-memory-bind)))#|len (bind-count)|#)
 
@@ -1377,12 +1377,12 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:subresource (:struct image-subresource))
   (:offset (:struct offset-3d))
   (:extent (:struct extent-3d))
-  (:memory device-memory)#|optional (true)|#
+  (:memory device-memory)#|optional (true) opaque t|#
   (:memory-offset device-size)
   (:flags sparse-memory-bind-flags)#|optional (true)|#)
 
 (defcstruct sparse-image-memory-bind-info
-  (:image image)
+  (:image image)#|opaque t|#
   (:bind-count :uint32)
   (:p-binds (:pointer (:struct sparse-image-memory-bind)))#|len (bind-count)|#)
 
@@ -1390,7 +1390,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:s-type structure-type)#|must-be bind-sparse-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:wait-semaphore-count :uint32)#|optional (true)|#
-  (:p-wait-semaphores (:pointer semaphore))#|len (wait-semaphore-count)|#
+  (:p-wait-semaphores (:pointer semaphore))#|len (wait-semaphore-count) opaque t|#
   (:buffer-bind-count :uint32)#|optional (true)|#
   (:p-buffer-binds (:pointer (:struct sparse-buffer-memory-bind-info)))#|len (buffer-bind-count)|#
   (:image-opaque-bind-count :uint32)#|optional (true)|#
@@ -1399,7 +1399,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:image-bind-count :uint32)#|optional (true)|#
   (:p-image-binds (:pointer (:struct sparse-image-memory-bind-info)))#|len (image-bind-count)|#
   (:signal-semaphore-count :uint32)#|optional (true)|#
-  (:p-signal-semaphores (:pointer semaphore))#|len (signal-semaphore-count)|#)
+  (:p-signal-semaphores (:pointer semaphore))#|len (signal-semaphore-count) opaque t|#)
 
 (defcstruct buffer-copy
   (:src-offset device-size)
@@ -1437,7 +1437,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:dst-access-mask access-flags)#|optional (true)|#
   (:src-queue-family-index :uint32)
   (:dst-queue-family-index :uint32)
-  (:buffer buffer)
+  (:buffer buffer)#|opaque t|#
   (:offset device-size)
   (:size device-size))
 
@@ -1445,7 +1445,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:s-type structure-type)#|must-be buffer-view-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags buffer-view-create-flags)#|optional (true)|#
-  (:buffer buffer)
+  (:buffer buffer)#|opaque t|#
   (:format format)
   (:offset device-size)
   (:range device-size))
@@ -1501,16 +1501,16 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct command-buffer-allocate-info
   (:s-type structure-type)#|must-be command-buffer-allocate-info|#
   (:p-next (:pointer :void))#|opaque t|#
-  (:command-pool command-pool)
+  (:command-pool command-pool)#|opaque t|#
   (:level command-buffer-level)
   (:command-buffer-count :uint32))
 
 (defcstruct command-buffer-inheritance-info
   (:s-type structure-type)#|must-be command-buffer-inheritance-info|#
   (:p-next (:pointer :void))#|opaque t|#
-  (:render-pass render-pass)#|optional (true)|#
+  (:render-pass render-pass)#|optional (true) opaque t|#
   (:subpass :uint32)
-  (:framebuffer framebuffer)#|optional (true)|#
+  (:framebuffer framebuffer)#|optional (true) opaque t|#
   (:occlusion-query-enable bool32)
   (:query-flags query-control-flags)#|optional (true)|#
   (:pipeline-statistics query-pipeline-statistic-flags)#|optional (true)|#)
@@ -1524,9 +1524,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct command-buffer-inheritance-info
   (:s-type structure-type)#|must-be command-buffer-inheritance-info|#
   (:p-next (:pointer :void))#|opaque t|#
-  (:render-pass render-pass)#|optional (true)|#
+  (:render-pass render-pass)#|optional (true) opaque t|#
   (:subpass :uint32)
-  (:framebuffer framebuffer)#|optional (true)|#
+  (:framebuffer framebuffer)#|optional (true) opaque t|#
   (:occlusion-query-enable bool32)
   (:query-flags query-control-flags)#|optional (true)|#
   (:pipeline-statistics query-pipeline-statistic-flags)#|optional (true)|#)
@@ -1559,7 +1559,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-next (:pointer :void))#|opaque t|#
   (:flags pipeline-shader-stage-create-flags)#|optional (true)|#
   (:stage shader-stage-flag-bits)
-  (:module shader-module)
+  (:module shader-module)#|opaque t|#
   (:p-name (:pointer :char))#|len (null-terminated)|#
   (:p-specialization-info (:pointer (:struct specialization-info)))#|optional (true)|#)
 
@@ -1568,17 +1568,17 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-next (:pointer :void))#|opaque t|#
   (:flags pipeline-create-flags)#|optional (true)|#
   (:stage (:struct pipeline-shader-stage-create-info))
-  (:layout pipeline-layout)
-  (:base-pipeline-handle pipeline)#|optional (true)|#
+  (:layout pipeline-layout)#|opaque t|#
+  (:base-pipeline-handle pipeline)#|optional (true) opaque t|#
   (:base-pipeline-index :int32))
 
 (defcstruct copy-descriptor-set
   (:s-type structure-type)#|must-be copy-descriptor-set|#
   (:p-next (:pointer :void))#|opaque t|#
-  (:src-set descriptor-set)
+  (:src-set descriptor-set)#|opaque t|#
   (:src-binding :uint32)
   (:src-array-element :uint32)
-  (:dst-set descriptor-set)
+  (:dst-set descriptor-set)#|opaque t|#
   (:dst-binding :uint32)
   (:dst-array-element :uint32)
   (:descriptor-count :uint32))
@@ -1591,13 +1591,13 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-user-data (:pointer :void))#|optional (true) opaque t|#)
 
 (defcstruct descriptor-buffer-info
-  (:buffer buffer)
+  (:buffer buffer)#|opaque t|#
   (:offset device-size)
   (:range device-size))
 
 (defcstruct descriptor-image-info
-  (:sampler sampler)
-  (:image-view image-view)
+  (:sampler sampler)#|opaque t|#
+  (:image-view image-view)#|opaque t|#
   (:image-layout image-layout))
 
 (defcstruct descriptor-pool-size
@@ -1619,23 +1619,23 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct descriptor-set-allocate-info
   (:s-type structure-type)#|must-be descriptor-set-allocate-info|#
   (:p-next (:pointer :void))#|opaque t|#
-  (:descriptor-pool descriptor-pool)
+  (:descriptor-pool descriptor-pool)#|opaque t|#
   (:descriptor-set-count :uint32)
-  (:p-set-layouts (:pointer descriptor-set-layout))#|len (descriptor-set-count)|#)
+  (:p-set-layouts (:pointer descriptor-set-layout))#|len (descriptor-set-count) opaque t|#)
 
 (defcstruct descriptor-set-layout-binding
   (:binding :uint32)
   (:descriptor-type descriptor-type)
   (:descriptor-count :uint32)#|optional (true)|#
   (:stage-flags shader-stage-flags)
-  (:p-immutable-samplers (:pointer sampler))#|optional (true) len (descriptor-count)|#)
+  (:p-immutable-samplers (:pointer sampler))#|optional (true) len (descriptor-count) opaque t|#)
 
 (defcstruct descriptor-set-layout-binding
   (:binding :uint32)
   (:descriptor-type descriptor-type)
   (:descriptor-count :uint32)#|optional (true)|#
   (:stage-flags shader-stage-flags)
-  (:p-immutable-samplers (:pointer sampler))#|optional (true) len (descriptor-count)|#)
+  (:p-immutable-samplers (:pointer sampler))#|optional (true) len (descriptor-count) opaque t|#)
 
 (defcstruct descriptor-set-layout-create-info
   (:s-type structure-type)#|must-be descriptor-set-layout-create-info|#
@@ -1751,7 +1751,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:refresh-rate :uint32))
 
 (defcstruct display-mode-properties-khr
-  (:display-mode display-mode-khr)
+  (:display-mode display-mode-khr)#|opaque t|#
   (:parameters (:struct display-mode-parameters-khr)))
 
 (defcstruct display-plane-capabilities-khr
@@ -1766,7 +1766,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:max-dst-extent (:struct extent-2d)))
 
 (defcstruct display-plane-properties-khr
-  (:current-display display-khr)
+  (:current-display display-khr)#|opaque t|#
   (:current-stack-index :uint32))
 
 (defcstruct display-present-info-khr
@@ -1777,7 +1777,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:persistent bool32))
 
 (defcstruct display-properties-khr
-  (:display display-khr)
+  (:display display-khr)#|opaque t|#
   (:display-name (:pointer :char))#|len (null-terminated)|#
   (:physical-dimensions (:struct extent-2d))
   (:physical-resolution (:struct extent-2d))
@@ -1789,7 +1789,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:s-type structure-type)#|must-be display-surface-create-info-khr|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags display-surface-create-flags-khr)#|optional (true)|#
-  (:display-mode display-mode-khr)
+  (:display-mode display-mode-khr)#|opaque t|#
   (:plane-index :uint32)
   (:plane-stack-index :uint32)
   (:transform surface-transform-flag-bits-khr)
@@ -1842,9 +1842,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:s-type structure-type)#|must-be framebuffer-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags framebuffer-create-flags)#|optional (true)|#
-  (:render-pass render-pass)
+  (:render-pass render-pass)#|opaque t|#
   (:attachment-count :uint32)#|optional (true)|#
-  (:p-attachments (:pointer image-view))#|len (attachment-count)|#
+  (:p-attachments (:pointer image-view))#|len (attachment-count) opaque t|#
   (:width :uint32)
   (:height :uint32)
   (:layers :uint32))
@@ -2000,10 +2000,10 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-color-blend-state (:pointer
                          (:struct pipeline-color-blend-state-create-info)))#|optional (true)|#
   (:p-dynamic-state (:pointer (:struct pipeline-dynamic-state-create-info)))#|optional (true)|#
-  (:layout pipeline-layout)
-  (:render-pass render-pass)
+  (:layout pipeline-layout)#|opaque t|#
+  (:render-pass render-pass)#|opaque t|#
   (:subpass :uint32)
-  (:base-pipeline-handle pipeline)#|optional (true)|#
+  (:base-pipeline-handle pipeline)#|optional (true) opaque t|#
   (:base-pipeline-index :int32))
 
 (defcstruct image-blit
@@ -2059,7 +2059,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:new-layout image-layout)
   (:src-queue-family-index :uint32)
   (:dst-queue-family-index :uint32)
-  (:image image)
+  (:image image)#|opaque t|#
   (:subresource-range (:struct image-subresource-range)))
 
 (defcstruct image-resolve
@@ -2097,7 +2097,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:s-type structure-type)#|must-be image-view-create-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags image-view-create-flags)#|optional (true)|#
-  (:image image)
+  (:image image)#|opaque t|#
   (:view-type image-view-type)
   (:format format)
   (:components (:struct component-mapping))
@@ -2133,7 +2133,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct mapped-memory-range
   (:s-type structure-type)#|must-be mapped-memory-range|#
   (:p-next (:pointer :void))#|opaque t|#
-  (:memory device-memory)
+  (:memory device-memory)#|opaque t|#
   (:offset device-size)
   (:size device-size))
 
@@ -2555,7 +2555,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-next (:pointer :void))#|opaque t|#
   (:flags pipeline-layout-create-flags)#|optional (true)|#
   (:set-layout-count :uint32)#|optional (true)|#
-  (:p-set-layouts (:pointer descriptor-set-layout))#|len (set-layout-count)|#
+  (:p-set-layouts (:pointer descriptor-set-layout))#|len (set-layout-count) opaque t|#
   (:push-constant-range-count :uint32)#|optional (true)|#
   (:p-push-constant-ranges (:pointer (:struct push-constant-range)))#|len (push-constant-range-count)|#)
 
@@ -2590,7 +2590,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-next (:pointer :void))#|opaque t|#
   (:flags pipeline-shader-stage-create-flags)#|optional (true)|#
   (:stage shader-stage-flag-bits)
-  (:module shader-module)
+  (:module shader-module)#|opaque t|#
   (:p-name (:pointer :char))#|len (null-terminated)|#
   (:p-specialization-info (:pointer (:struct specialization-info)))#|optional (true)|#)
 
@@ -2625,9 +2625,9 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:s-type structure-type)#|must-be present-info-khr|#
   (:p-next (:pointer :void))#|opaque t|#
   (:wait-semaphore-count :uint32)
-  (:p-wait-semaphores (:pointer semaphore))#|optional (true) len (wait-semaphore-count)|#
+  (:p-wait-semaphores (:pointer semaphore))#|optional (true) len (wait-semaphore-count) opaque t|#
   (:swapchain-count :uint32)
-  (:p-swapchains (:pointer swapchain-khr))#|len (swapchain-count)|#
+  (:p-swapchains (:pointer swapchain-khr))#|len (swapchain-count) opaque t|#
   (:p-image-indices (:pointer :uint32))#|len (swapchain-count)|#
   (:p-results (:pointer result))#|optional (true) len (swapchain-count)|#)
 
@@ -2661,8 +2661,8 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
 (defcstruct render-pass-begin-info
   (:s-type structure-type)#|must-be render-pass-begin-info|#
   (:p-next (:pointer :void))#|opaque t|#
-  (:render-pass render-pass)
-  (:framebuffer framebuffer)
+  (:render-pass render-pass)#|opaque t|#
+  (:framebuffer framebuffer)#|opaque t|#
   (:render-area (:struct rect-2d))
   (:clear-value-count :uint32)#|optional (true)|#
   (:p-clear-values (:pointer (:union clear-value)))#|len (clear-value-count)|#)
@@ -2747,7 +2747,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:p-code (:pointer :uint32))#|len (codesize/4)|#)
 
 (defcstruct sparse-buffer-memory-bind-info
-  (:buffer buffer)
+  (:buffer buffer)#|opaque t|#
   (:bind-count :uint32)
   (:p-binds (:pointer (:struct sparse-memory-bind)))#|len (bind-count)|#)
 
@@ -2760,12 +2760,12 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:subresource (:struct image-subresource))
   (:offset (:struct offset-3d))
   (:extent (:struct extent-3d))
-  (:memory device-memory)#|optional (true)|#
+  (:memory device-memory)#|optional (true) opaque t|#
   (:memory-offset device-size)
   (:flags sparse-memory-bind-flags)#|optional (true)|#)
 
 (defcstruct sparse-image-memory-bind-info
-  (:image image)
+  (:image image)#|opaque t|#
   (:bind-count :uint32)
   (:p-binds (:pointer (:struct sparse-image-memory-bind)))#|len (bind-count)|#)
 
@@ -2782,14 +2782,14 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:image-mip-tail-stride device-size))
 
 (defcstruct sparse-image-opaque-memory-bind-info
-  (:image image)
+  (:image image)#|opaque t|#
   (:bind-count :uint32)
   (:p-binds (:pointer (:struct sparse-memory-bind)))#|len (bind-count)|#)
 
 (defcstruct sparse-memory-bind
   (:resource-offset device-size)
   (:size device-size)
-  (:memory device-memory)#|optional (true)|#
+  (:memory device-memory)#|optional (true) opaque t|#
   (:memory-offset device-size)
   (:flags sparse-memory-bind-flags)#|optional (true)|#)
 
@@ -2817,12 +2817,12 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:s-type structure-type)#|must-be submit-info|#
   (:p-next (:pointer :void))#|opaque t|#
   (:wait-semaphore-count :uint32)#|optional (true)|#
-  (:p-wait-semaphores (:pointer semaphore))#|len (wait-semaphore-count)|#
+  (:p-wait-semaphores (:pointer semaphore))#|len (wait-semaphore-count) opaque t|#
   (:p-wait-dst-stage-mask (:pointer pipeline-stage-flags))#|len (wait-semaphore-count)|#
   (:command-buffer-count :uint32)#|optional (true)|#
-  (:p-command-buffers (:pointer command-buffer))#|len (command-buffer-count)|#
+  (:p-command-buffers (:pointer command-buffer))#|len (command-buffer-count) opaque t|#
   (:signal-semaphore-count :uint32)#|optional (true)|#
-  (:p-signal-semaphores (:pointer semaphore))#|len (signal-semaphore-count)|#)
+  (:p-signal-semaphores (:pointer semaphore))#|len (signal-semaphore-count) opaque t|#)
 
 (defcstruct subpass-dependency
   (:src-subpass :uint32)
@@ -2872,7 +2872,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:s-type structure-type)#|must-be swapchain-create-info-khr|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags swapchain-create-flags-khr)#|optional (true)|#
-  (:surface surface-khr)
+  (:surface surface-khr)#|opaque t|#
   (:min-image-count :uint32)
   (:image-format format)
   (:image-color-space color-space-khr)
@@ -2886,7 +2886,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:composite-alpha composite-alpha-flag-bits-khr)
   (:present-mode present-mode-khr)
   (:clipped bool32)
-  (:old-swapchain swapchain-khr)#|optional (true)|#)
+  (:old-swapchain swapchain-khr)#|optional (true) opaque t|#)
 
 (defcstruct vertex-input-attribute-description
   (:location :uint32)
@@ -2922,26 +2922,26 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:hwnd hwnd))
 
 (defcstruct descriptor-image-info
-  (:sampler sampler)
-  (:image-view image-view)
+  (:sampler sampler)#|opaque t|#
+  (:image-view image-view)#|opaque t|#
   (:image-layout image-layout))
 
 (defcstruct descriptor-buffer-info
-  (:buffer buffer)
+  (:buffer buffer)#|opaque t|#
   (:offset device-size)
   (:range device-size))
 
 (defcstruct write-descriptor-set
   (:s-type structure-type)#|must-be write-descriptor-set|#
   (:p-next (:pointer :void))#|opaque t|#
-  (:dst-set descriptor-set)
+  (:dst-set descriptor-set)#|opaque t|#
   (:dst-binding :uint32)
   (:dst-array-element :uint32)
   (:descriptor-count :uint32)
   (:descriptor-type descriptor-type)
   (:p-image-info (:pointer (:struct descriptor-image-info)))#|len (descriptor-count)|#
   (:p-buffer-info (:pointer (:struct descriptor-buffer-info)))#|len (descriptor-count)|#
-  (:p-texel-buffer-view (:pointer buffer-view))#|len (descriptor-count)|#)
+  (:p-texel-buffer-view (:pointer buffer-view))#|len (descriptor-count) opaque t|#)
 
 (defcstruct xcb-surface-create-info-khr
   (:s-type structure-type)#|must-be xcb-surface-create-info-khr|#

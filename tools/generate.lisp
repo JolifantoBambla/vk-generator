@@ -75,6 +75,7 @@
     "xcb_visualid_t" :uint32
     "window" :ulong
     "visual-id" :ulong))
+(defvar *handle-types*)
 
 (defparameter *vendor-ids* '("KHR" "EXT")) ;; todo: read from file
 (defparameter *special-words* '("Bool32" "Win32"
@@ -212,6 +213,7 @@
             (setf (getf (cddr desc) :must-be) (gethash k *fix-must-be* k))))))
     (when (or (find type *opaque-types* :test 'string-equal)
               (find type *opaque-struct-types* :test 'string-equal)
+              (gethash .type *handle-types*)
               (eql type :void))
       (format t "  opaque!~%")
       (setf (getf (cddr desc) :opaque) t))
@@ -288,6 +290,7 @@
        (funcs (make-hash-table :test 'equal))
        (function-apis (make-hash-table :test 'equal))
        (extension-names (make-hash-table :test 'equal))
+       (*handle-types* (make-hash-table :test 'equal))
        #++(old-bindings (load-bindings vk-dir))
        #++(old-enums (load-enums vk-dir)))
   (flet ((get-type (name)
@@ -329,6 +332,11 @@
         (when (gethash name *api-constants*)
           (assert (= value (gethash name *api-constants*))))
         (setf (gethash name *api-constants*) value)))
+
+    ;; extract handle types so we can mark them as pointers for translators
+    (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[(@category=\"handle\")]" vk.xml))
+      (let ((name (xps (xpath:evaluate "name" node))))
+        (setf (gethash name *handle-types*) t)))
 
     ;; extract types
     ;; todo:? VK_DEFINE_HANDLE VK_DEFINE_NON_DISPATCHABLE_HANDLE

@@ -257,6 +257,10 @@
                    "supplied count ~s = ~s doesn't match calculated count ~s.~% (Specifying a count is optional, so it should probably be skipped unless a mismatch would indicate some error in the calling code.)"
                    ,name value
                    (foreign-slot-value ,p ',struct-type ,name)))))
+        ;; void*, handles and pointers to OS structs/etc
+        (opaque
+         (list `(setf (foreign-slot-value ,p ',struct-type ,name)
+                      (or ,(get-value name) (null-pointer)))))
         ;; simple type
         ((and (or (symbolp type)
                   (typep type '(cons (eql :union))))
@@ -268,10 +272,6 @@
          (list `(,(get-writer-name (second type))
                  ,(slot-pointer name)
                  ,(get-value name))))
-        ;; void* and pointers to OS structs/etc
-        (opaque
-         (list `(setf (foreign-slot-value ,p ',struct-type ,name)
-                      (or ,(get-value name) (null-pointer)))))
         ;; c-string pointer
         ((and (equal type '(:pointer :char))
               (equal len '(:null-terminated)))
@@ -405,7 +405,7 @@
          (*allocated-objects* nil))
      (with-foreign-objects ((,var '(:struct ,type))
                             ,@(loop for (var type) in more-bindings
-                                    collect (list var `(:struct ,type))))
+                                    collect (list var `'(:struct ,type))))
        (unwind-protect
             (progn
               (,(gethash type *translators*) ,var ,value)
