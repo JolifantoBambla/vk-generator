@@ -127,6 +127,11 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:color-attachment :uint32 nil)
   (:clear-value (:union clear-value) nil))
 
+(def-translator clear-color-value (deref-clear-color-value :fill fill-clear-color-value)
+  (:float-32 :float 4)
+  (:int-32 :int32 4)
+  (:uint-32 :uint32 4))
+
 (def-translator clear-depth-stencil-value (deref-clear-depth-stencil-value :fill fill-clear-depth-stencil-value)
   (:depth :float nil)
   (:stencil :uint32 nil))
@@ -135,6 +140,10 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:rect (:struct rect-2d) nil)
   (:base-array-layer :uint32 nil)
   (:layer-count :uint32 nil))
+
+(def-translator clear-value (deref-clear-value :fill fill-clear-value)
+  (:color (:union clear-color-value) nil)
+  (:depth-stencil (:struct clear-depth-stencil-value) nil))
 
 (def-translator command-buffer-allocate-info (deref-command-buffer-allocate-info :fill fill-command-buffer-allocate-info)
   (:s-type structure-type nil :must-be :command-buffer-allocate-info)
@@ -192,7 +201,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:descriptor-count :uint32 nil))
 
 (def-translator debug-report-callback-create-info-ext (deref-debug-report-callback-create-info-ext :fill fill-debug-report-callback-create-info-ext)
-  (:s-type structure-type nil :must-be :debug-report-callback-create-info)
+  (:s-type structure-type nil :must-be :debug-report-create-info-ext)
   (:p-next (:pointer :void) nil :opaque t)
   (:flags debug-report-flags-ext nil)
   (:pfn-callback pfn-debug-report-callback-ext nil)

@@ -36,6 +36,20 @@
 (defmacro defvkfun ((cname lname) result-type &body body)
   `(defcfun (,cname ,lname :library vulkan) ,result-type ,@body))
 
+(defvar *instance*)
+(defvar *instance-extensions*)
+
+(defmacro defvkextfun ((cname lname) result-type &body args)
+  `(defun ,lname (,@ (mapcar 'car args))
+     (assert *instance*)
+     (foreign-funcall-pointer
+      (or (gethash ',lname *instance-extensions*)
+          (setf (gethash ',lname *instance-extensions*)
+                (get-instance-proc-addr *instance* ,cname)))
+      nil
+      ,@(loop for arg in args
+              collect (second arg) collect (first arg))
+      ,result-type)))
 
 (if (= 8 (foreign-type-size :pointer))
     (defctype size-t :uint64)
@@ -193,9 +207,9 @@
 (defvar *allocated-strings*)
 (defvar *allocated-objects*)
 
-(defun generate-member-filler (struct-name member p val
+(defun generate-member-filler (struct-type member p val
                                &key is-count
-                               &aux (struct-type (list :struct struct-name)))
+                               &aux (struct-name (second struct-type)))
   (destructuring-bind (name type count
                        &key len optional opaque must-be
                        &aux (struct (and (consp type)
@@ -249,16 +263,47 @@
         ;; return a check to make sure caller didn't send a value that
         ;; doesn't match
         (is-count
-         (list nil ;; no code to set value
-               `(alexandria:when-let (value ,(get-value name))
-                  (assert
-                   (= value (foreign-slot-value ,p ',struct-type ,name))
-                   ()
-                   "supplied count ~s = ~s doesn't match calculated count ~s.~% (Specifying a count is optional, so it should probably be skipped unless a mismatch would indicate some error in the calling code.)"
-                   ,name value
-                   (foreign-slot-value ,p ',struct-type ,name)))))
+         (list
+          ;; is-count is a list of names of members that use this
+          ;; count either NAME or (:OPTIONAL NAME). generate code to
+          ;; make sure they are same size (or empty if optional)
+          ;; and store it
+          (flet ((icn (a)
+                   (if (consp a)
+                       (second a)
+                       a)))
+            `(let ((l (length ,(get-value (icn (car is-count))))))
+               ,@ (loop for .n in (cdr is-count)
+                        for n = (icn n)
+                        for optional = (consp n)
+                        when optional
+                          collect
+                        `(alexandria:when-let (l2 ,(get-value n))
+                           (assert (= l (length l2))
+                                   ()
+                                   "lengths of members ~s with shared count ~s don't match: ~s"
+                                   ',is-count ,name
+                                   (list ,@(loop for i in is-count
+                                                 collect (get-value (icn i))))))
+                        else collect `(assert (= l (length ,(get-value n)))
+                                              ()
+                                              "lengths of members ~s with shared count ~s don't match: ~s"
+                                              ',is-count ,name
+                                              (list ,@(loop for i in is-count
+                                                            collect (get-value (icn i))))))
+               (alexandria:when-let (value ,(get-value name))
+                 (assert
+                  (= value (foreign-slot-value ,p ',struct-type ,name))
+                  ()
+                  "supplied count ~s = ~s doesn't match calculated count ~s.~% (Specifying a count is optional, so it should probably be skipped unless a mismatch would indicate some error in the calling code.)"
+                  ,name value
+                  (foreign-slot-value ,p ',struct-type ,name)))
+               ,(len-writer (list name) 'l)))
+          nil ;; no post checks (todo: see if we still need those at all?)
+               ))
         ;; void*, handles and pointers to OS structs/etc
-        (opaque
+        ((and opaque (or (not len)
+                         (equalp type '(:pointer :void))))
          (list `(setf (foreign-slot-value ,p ',struct-type ,name)
                       (or ,(get-value name) (null-pointer)))))
         ;; simple type
@@ -325,13 +370,13 @@
               (consp type)
               (eql (first type) :pointer)
               ;; pointer to array of simple type
-              (or (symbolp (second type))
-                  ;; or array of struct/union
-                  (typep (second type) '(cons (member
-                                               :struct :union)))
-                  ;; or array of (pointer to) c-string
-                  (and (equal (second type) '(:pointer :char))
-                       (eql (second len) :null-terminated))))
+              (or  (symbolp (second type))
+                   ;; or array of struct/union
+                   (typep (second type) '(cons (member
+                                                :struct :union)))
+                   ;; or array of (pointer to) c-string
+                   (and (equal (second type) '(:pointer :char))
+                        (eql (second len) :null-terminated))))
          (let ((atype (if (consp type)
                           (second type)
                           type))
@@ -345,7 +390,7 @@
                (when (plusp vlen)
                  (push ,var *allocated-objects*)
                  #++(format t "allocated ~s * ~s-> ~s~%" ',type vlen ,var))
-               ,(len-writer len 'vlen)
+               ;;,(len-writer len 'vlen)
                (setf (foreign-slot-value ,p ',struct-type ,name)
                      ,var)
                (loop with c = vlen
@@ -360,10 +405,10 @@
                         ;; strings
                         ((equal atype '(:pointer :char))
                          `(progn ;;format t ".allocated ~s / ~s ->~s~%"
-                                 ;; ,name v
-                                  (car (push (setf (mem-aref ,var ',atype i)
-                                                   (foreign-string-alloc v))
-                                             *allocated-strings*))))
+                            ;; ,name v
+                            (car (push (setf (mem-aref ,var ',atype i)
+                                             (foreign-string-alloc v))
+                                       *allocated-strings*))))
                         ;; structs
                         ((eq (car atype) :struct)
                          `(,(get-writer-name (second atype))
@@ -379,18 +424,25 @@
     ;; find any members used to store size of another member, so we know
     ;; not to set them from input (and possibly error if they are set
     ;; in input and don't match?)
-    (loop for (nil nil nil . attribs) in members
+    (loop for (name nil nil . attribs) in members
           for len = (getf attribs :len)
+          for optional = (getf attribs :optional)
           when len
-            do (loop for l in len
-                     when (string= l "codesize/4")
-                       do (setf (gethash :code-size size-members) t)
-                     do (setf (gethash l size-members) t)))
+            do (assert (<= (length (remove :null-terminated len))
+                           1))
+               (loop for l in len
+                        when (string= l "codesize/4")
+                          do (setf (gethash :code-size size-members)
+                                   (list name))
+                        do (push (if optional
+                                     (list :optional name)
+                                     name)
+                                 (gethash l size-members nil))))
 
     `(defun ,function-name (.p .val)
        ,@(loop for member in members
                for (fill check)
-                 = (generate-member-filler struct-name member
+                 = (generate-member-filler `(:struct ,struct-name) member
                                            '.p '.val
                                            :is-count (gethash (first member)
                                                               size-members))
@@ -398,37 +450,51 @@
                collect check into checks
                finally (return (remove 'nil (append fills checks)))))))
 
+(defun generate-union-filler (struct-name function-name members)
+  `(defun ,function-name (.p .val)
+     (ecase (car .val)
+       ,@ (loop for member in members
+                collect (list* (car member)
+                              (generate-member-filler `(:union ,struct-name)
+                                                      member
+                                                      '.p '(second .val)))))))
 (defparameter *translators* (make-hash-table))
 
 (defmacro with-vk-structs (((var type value) &rest more-bindings) &body body)
-  `(let ((*allocated-strings* nil)
-         (*allocated-objects* nil))
-     (with-foreign-objects ((,var '(:struct ,type))
-                            ,@(loop for (var type) in more-bindings
-                                    collect (list var `'(:struct ,type))))
-       (unwind-protect
-            (progn
-              (,(gethash type *translators*) ,var ,value)
-              ,@(loop for (var type VALUE) in more-bindings
-                      collect `(,(gethash type *translators*) ,var ,value))
-              ,@body)
-         (loop for i in *allocated-strings*
-               do #++(format t "~&free string ~s~%" i)
-                  (foreign-string-free i))
-         (loop for i in *allocated-objects*
-               do #++(format t "~&free object ~s~%" i)
-                  (foreign-free i))))))
+  (destructuring-bind (struct-type filler)
+      (gethash type *translators*)
+   `(let ((*allocated-strings* nil)
+          (*allocated-objects* nil))
+      (with-foreign-objects ((,var ',struct-type)
+                             ,@(loop for (var type) in more-bindings
+                                     collect (list var `',struct-type)))
+        (unwind-protect
+             (progn
+               (,filler ,var ,value)
+               ,@(loop for (var type VALUE) in more-bindings
+                       collect `(,filler ,var ,value))
+               ,@body)
+          (loop for i in *allocated-strings*
+                do #++(format t "~&free string ~s~%" i)
+                   (foreign-string-free i))
+          (loop for i in *allocated-objects*
+                do #++(format t "~&free object ~s~%" i)
+                   (foreign-free i)))))))
 
 (defmacro def-translator (struct-name (reader &key fill) &body members)
   (let ((struct-type
           (cond
             ((ignore-errors (foreign-type-size `(:struct ,struct-name)))
              `(:struct ,struct-name))
-            (t (error "type ~s doesn't seem to be struct?"
+            ((ignore-errors (foreign-type-size `(:union ,struct-name)))
+             `(:union ,struct-name))
+            (t (error "type ~s doesn't seem to be struct or union?"
                       struct-name)))))
    `(progn
       ,(generate-reader struct-type reader members)
       ,@(when fill
-          (list `(setf (gethash ',struct-name *translators*) ',fill)
-                (generate-filler struct-name fill members))))))
-
+          (list `(setf (gethash ',struct-name *translators*)
+                       (list ',struct-type ',fill))
+                (if (eq (car struct-type) :union)
+                    (generate-union-filler struct-name fill members)
+                    (generate-filler struct-name fill members)))))))

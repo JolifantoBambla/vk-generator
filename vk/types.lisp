@@ -1584,7 +1584,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:descriptor-count :uint32))
 
 (defcstruct debug-report-callback-create-info-ext
-  (:s-type structure-type)#|must-be debug-report-callback-create-info|#
+  (:s-type structure-type)#|must-be debug-report-create-info-ext|#
   (:p-next (:pointer :void))#|opaque t|#
   (:flags debug-report-flags-ext)
   (:pfn-callback pfn-debug-report-callback-ext)

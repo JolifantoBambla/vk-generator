@@ -89,7 +89,9 @@
 (defparameter *fix-must-be*
   (alexandria:alist-hash-table
    '((:pipeline-iinput-assembly-state-create-info
-      . :pipeline-input-assembly-state-create-info))))
+      . :pipeline-input-assembly-state-create-info)
+     (:debug-report-callback-create-info
+      . :debug-report-create-info-ext))))
 ;; not sure if we should remove the type prefixes in struct members or
 ;; not?
 ;;(defparameter *type-prefixes* '("s-" "p-" "pfn-" "pp-"))
@@ -577,7 +579,18 @@
                         :ext (format nil "~a" ext))
                   (cdr (last (getf extend :enum))))))
         (format t "ext: ~s ~s ~s ~s ~s~%" value name extends offset dir)))
-
+    ;; and also mark which functions are from extensions
+    (xpath:do-node-set (node (xpath:evaluate "/registry/extensions/extension/require/command" vk.xml))
+      (let* ((ext (xps (xpath:evaluate "../../@name" node)))
+             (name (xps (xpath:evaluate "@name" node)))
+             (attribs (attrib-names node)))
+        (assert (not (set-difference attribs
+                                     '("name")
+                                     :test 'string=)))
+        (assert (gethash name funcs))
+        (setf (getf (cddr (gethash name funcs)) :ext)
+              ext)
+        (format t "extf: ~s ~s~%" name ext)))
 
     (setf types (nreverse types))
 
@@ -772,7 +785,7 @@
             for errors = (getf (cddr attribs) :errors)
             for queues = (getf (cddr attribs) :queues)
             for cbl = (getf (cddr attribs) :command-buffer-level)
-            for ext = (getf (cddr attribs) :extension)
+            for ext = (getf (cddr attribs) :ext)
             do (format out "(~a (~s ~(~a) ~a~)"
                        (if ext *ext-definer* *core-definer*)
                        name
@@ -818,7 +831,7 @@
                                            (lambda (x)
                                              (and (consp (cdr x))
                                                   (member (second x)
-                                                          '(:struct))))
+                                                          '(:struct :union))))
                                            types)
                                           'string< :key 'car)
             for members = (getf (cddr attribs) :members)
