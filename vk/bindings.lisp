@@ -272,10 +272,14 @@
                    (if (consp a)
                        (second a)
                        a)))
+            ;; make sure optional fields are last...
+            (setf is-count
+                  (append (remove-if 'consp is-count)
+                          (remove-if-not 'consp is-count)))
             `(let ((l (length ,(get-value (icn (car is-count))))))
                ,@ (loop for .n in (cdr is-count)
-                        for n = (icn n)
-                        for optional = (consp n)
+                        for n = (icn .n)
+                        for optional = (consp .n)
                         when optional
                           collect
                         `(alexandria:when-let (l2 ,(get-value n))
@@ -461,18 +465,20 @@
 (defparameter *translators* (make-hash-table))
 
 (defmacro with-vk-structs (((var type value) &rest more-bindings) &body body)
-  (destructuring-bind (struct-type filler)
-      (gethash type *translators*)
+  (flet ((struct-type (type)
+           (first (gethash type *translators*)))
+         (filler (type)
+           (second (gethash type *translators*))))
    `(let ((*allocated-strings* nil)
           (*allocated-objects* nil))
-      (with-foreign-objects ((,var ',struct-type)
+      (with-foreign-objects ((,var ',(struct-type type))
                              ,@(loop for (var type) in more-bindings
-                                     collect (list var `',struct-type)))
+                                     collect (list var `',(struct-type type))))
         (unwind-protect
              (progn
-               (,filler ,var ,value)
+               (,(filler type) ,var ,value)
                ,@(loop for (var type VALUE) in more-bindings
-                       collect `(,filler ,var ,value))
+                       collect `(,(filler type) ,var ,value))
                ,@body)
           (loop for i in *allocated-strings*
                 do #++(format t "~&free string ~s~%" i)
