@@ -233,17 +233,24 @@
   (declare (ignore puserdata/const))
   (when *debug-report-callback*
     (funcall *debug-report-callback*
-             flags objecttype object location playerprefix
-             messagecode pmessage/const))
+             flags objecttype object location messagecode
+             playerprefix pmessage/const))
   ;; return valid value for %vk:bool32 (fixme: find out which value)
   0)
 
 (defun default-debug-report-callback (flags object-type object location
                                       message-code player-prefix message)
+  (declare (ignorable flags object-type object location
+                      message-code player-prefix message))
+  (unless (member :information flags) ;;todo: make this configurable
+    (format t "~&~a:~s ~s~%"
+            player-prefix flags message)
+    #++(format t "code=~s, object=~s/~x, location=~s"
+               message-code object object-type location))
   (when (member :error flags)
     (cerror "continue"
-            "vulkan validation error ~s:~% ~s.~% prefix=~s, object=~s/~x, location=~s"
-           message-code message player-prefix object-type object location)))
+            "vulkan validation error ~s:~% ~s.~% code=~s, object=~s/~x, location=~s"
+           player-prefix message message-code object-type object location)))
 
 (defmacro with-debug-report ((instance &key (callback ''default-debug-report-callback))
                              &body body)
