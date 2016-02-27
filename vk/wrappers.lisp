@@ -353,6 +353,10 @@
   (defun create-fence (device &key signaled)
     (%create-fence device `(:flags ,(if signaled '(:signaled) 0)))))
 
+(with-with (with-semaphore (%vk:destroy-semaphore device))
+  (defun create-semaphore (device)
+    (%create-semaphore device `(:flags 0))))
+
 
 (with-with (with-command-pool (%vk:destroy-command-pool device))
   (defun create-command-pool (device &key (queue-family 0)
