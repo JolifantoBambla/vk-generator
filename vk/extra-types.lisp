@@ -48,3 +48,23 @@
                 (gethash enum *result-comments*)
                 v (or enum "??")))
         (or enum v))))
+
+
+;; override the default so we can convert to/from T/NIL
+(define-foreign-type bool32 ()
+  ()
+  (:actual-type :uint32)
+  (:simple-parser bool32))
+
+(defmethod translate-from-foreign (v (type bool32))
+  (not (zerop v)))
+(defmethod translate-to-foreign (v (type bool32))
+  (if v 1 0))
+(defmethod expand-to-foreign (v (type bool32))
+  (if (constantp v)
+      (if (eval v) 1 0)
+      `(if ,v 1 0)))
+(defmethod expand-from-foreign (v (type bool32))
+  (if (constantp v)
+      (not (zerop (eval v)))
+      `(not (zerop ,v))))

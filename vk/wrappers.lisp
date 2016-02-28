@@ -236,7 +236,7 @@
              flags objecttype object location messagecode
              playerprefix pmessage/const))
   ;; return valid value for %vk:bool32 (fixme: find out which value)
-  0)
+  t)
 
 (defun default-debug-report-callback (flags object-type object location
                                       message-code player-prefix message)
@@ -327,7 +327,7 @@
                                  (pre-transform :identity)
                                  (composite-alpha :opaque)
                                  (present-mode :fifo-khr) ;; vsync
-                                 (clipped 1)
+                                 (clipped t)
                                  (old-swapchain nil))
     (%create-swapchain-khr device
                            `(:p-next ,(null-pointer)
@@ -382,7 +382,7 @@
                                   (;:render-pass nil;; render-pass
                                    :subpass 0
                                    ;:framebuffer nil;; framebuffer
-                                   :occlusion-query-enable 0
+                                   :occlusion-query-enable nli
                                    ;; query-control-flags
                                    :query-flags 0
                                    ;; query-pipeline-statistic-flags
