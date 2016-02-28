@@ -14,4 +14,9 @@
    #:get-physical-device-xcb-presentation-support-khr
    )
   (:export
-   #:with-instance))
+   #:with-instance
+   #:enumerate-physical-devices
+   #:get-physical-device-properties
+   #:get-physical-device-queue-family-properties
+   #:get-physical-device-memory-properties
+   #:with-device))
