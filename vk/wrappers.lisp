@@ -188,8 +188,11 @@
 (with-with (with-instance (%vk:destroy-instance)
              :special-binding %vk::*instance*
              :extra-bindings ((%vk::*instance-extensions* (make-hash-table))))
-  (defun create-instance (&key exts layers (app "cl-vulkan test")
-                            (engine "cl-vulkan"))
+  (defun create-instance (&key exts layers
+                            (app "cl-vulkan test")
+                            (app-version 0)
+                            (engine "cl-vulkan")
+                            (engine-version 1))
     (setf exts (loop for x in exts
                      when (keywordp x)
                        collect (gethash x %vk::*extension-names* x)
@@ -201,9 +204,9 @@
                          :p-application-info ( ;:s-type :application-info
                                               :p-next nil
                                               :p-application-name ,app
-                                              :application-version 0
+                                              :application-version ,app-version
                                               :p-engine-name ,engine
-                                              :engine-version 0
+                                              :engine-version ,engine-version
                                               :api-version ,*api-version*)
                                         ;:enabled-layer-count ,(length layers)
                          :pp-enabled-layer-names ,layers
