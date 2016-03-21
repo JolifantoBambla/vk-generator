@@ -19,4 +19,10 @@
    #:get-physical-device-properties
    #:get-physical-device-queue-family-properties
    #:get-physical-device-memory-properties
-   #:with-device))
+   #:with-device
+   #:get-physical-device-features
+   #:decode-version
+   #:enumerate-instance-layer-properties
+   #:enumerate-instance-extension-properties
+   #:with-debug-report
+   #:get-physical-device-surface-support-khr))

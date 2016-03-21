@@ -5,11 +5,16 @@
           (ash minor 12)
           patch))
 
+(defun decode-version (v)
+  (list (ldb (byte 12 22) v)
+        (ldb (byte 10 12) v)
+        (ldb (byte 12 0) v)))
 (defparameter *api-version* (api-version 1 0 3))
 
 (defparameter *debug-report-callback* nil)
 (defparameter *debug-report-callback-handle* nil)
 
+#++
 (defmacro with-foreign-string-arrays (((pointer-var lisp-var)
                                        &rest more-var-defs)
                                       &body body)
@@ -38,6 +43,7 @@
                                       collect (if (consp a) (second a) a)))
                    (%vk::with-vk-structs (,@structs)
                      (with-foreign-object (,p :pointer)
+                       (setf (mem-ref ,p :pointer) (null-pointer))
                        (,(intern (string-trim "%"(string fun))
                                  (find-package :%vk))
                         ,@(loop for a in args
@@ -143,8 +149,8 @@
 
 (defmacro with-with ((with-name destroy
                        &key (allocator t)
-                       special-binding
-                       extra-bindings)
+                       pre-bindings
+                       post-bindings)
                      &body defun)
   (let* ((name (second (first defun)))
          (fn-args (third (first defun)))
@@ -169,14 +175,17 @@
      `(progn
         ,@defun
         (defmacro ,with-name ((var ,@macro-args) &body body)
-          `(let* ((,var (,',name ,,@call-args))
-                  ,@(when ',special-binding
-                      `((,',special-binding ,var)))
-                  ,@',extra-bindings)
-             (unwind-protect
-                  (progn
-                    ,@body)
-               (when ,var (,@(list ',(car destroy) ,@ (cdr destroy)) ,var ,@',(when allocator `((null-pointer))))))))))))
+          (flet ((pre-bindings ()
+                   ,pre-bindings)
+                 (post-bindings ()
+                   ,post-bindings))
+           `(let* (,@(pre-bindings)
+                   (,var (,',name ,,@call-args))
+                   ,@(post-bindings))
+              (unwind-protect
+                   (progn
+                     ,@body)
+                (when ,var (,@(list ',(car destroy) ,@ (cdr destroy)) ,var ,@',(when allocator `((null-pointer)))))))))))))
 
 (defmacro without-fp-traps (&body body)
   #+(and sbcl (or x86 x86-64))
@@ -185,18 +194,75 @@
   #-(and sbcl (or x86 x86-64))
   `(progn ,@body))
 
+;; todo: add option to warn when optional layer/ext aren't found?
+(defun check-layers (layers)
+  (let ((available (mapcar (lambda (a)
+                             (getf a :layer-name))
+                           (vk:enumerate-instance-layer-properties))))
+    (loop for .layer in layers
+          for layer = (if (consp .layer) (car .layer) .layer)
+          for optional = (when (consp .layer) (getf (cdr .layer) :optional))
+          for found = (position layer available :test 'string=)
+          when (and (not found) (not optional))
+            do (error "required layer ~s not found.~%available: ~s" layer
+                      available)
+          when found
+            collect layer)))
+
+(defun check-extensions (extensions layers)
+  ;; we need to check all the layers we will activate, since the
+  ;; extension might be from one of them...
+  (let ((available
+          (loop for l in (cons (null-pointer) layers)
+                append (mapcar (lambda (a)
+                                 (getf a :extension-name))
+                               (enumerate-instance-extension-properties l)))))
+    (loop for .ext in extensions
+          for ext = (if (consp .ext) (car .ext) .ext)
+          for optional = (when (consp .ext) (getf (cdr .ext) :optional))
+          for found = (position ext available :test 'string=)
+          when (and (not found) (not optional))
+            ;; todo: enumerate extensions from layers we don't activate so
+            ;; we can give a more specific message if the desired extension
+            ;; if from one of those.
+            do (error "required extension ~s not found. Available: ~s" ext
+                      available)
+          when found
+            collect ext
+          else do (format t "missing extension ~s? / ~s~%" ext available))))
+
+
 (with-with (with-instance (%vk:destroy-instance)
-             :special-binding %vk::*instance*
-             :extra-bindings ((%vk::*instance-extensions* (make-hash-table))))
+             :pre-bindings
+             `((%vk::*instance-extensions* (make-hash-table))
+               (%vk::*instance-params* (print (list :layers nil :exts nil))))
+             :post-bindings
+             `((%vk::*instance* ,var)))
+  ;; EXTS and LAYERS are lists of names or (name &key optional)
+  ;; extension names can be string or keyword for known extensions,
+  ;; layer names are strings
   (defun create-instance (&key exts layers
                             (app "cl-vulkan test")
                             (app-version 0)
                             (engine "cl-vulkan")
                             (engine-version 1))
-    (setf exts (loop for x in exts
-                     when (keywordp x)
-                       collect (gethash x %vk::*extension-names* x)
-                     else collect x))
+    (setf layers (check-layers layers))
+    (setf exts (check-extensions
+                (loop for x in exts
+                      when (keywordp x)
+                        collect (gethash x %vk::*extension-names* x)
+                      else when (typep x '(cons keyword))
+                             collect (list* (gethash (car x)
+                                                     %vk::*extension-names*
+                                                     (car x))
+                                            (cdr x))
+                      else collect x)
+                layers))
+    (when (boundp '%vk::*instance-params*)
+      (setf (getf %vk::*instance-params* :exts) exts)
+      (setf (getf %vk::*instance-params* :layers) layers)
+      (print %vk::*instance-params*))
+    (format t "creating instance with~% layers ~s~% exts ~s~%" layers exts)
     (without-fp-traps
      (%create-instance `(               ;:s-type :instance-create-info
                          :p-next nil
@@ -238,8 +304,10 @@
     (funcall *debug-report-callback*
              flags objecttype object location messagecode
              playerprefix pmessage/const))
-  ;; return valid value for %vk:bool32 (fixme: find out which value)
-  t)
+  ;; if callback returns T, the calling API function will fail with
+  ;; :error-validation-failed-ext. Better to just error here if we
+  ;; want that though, so return NIL
+  nil)
 
 (defun default-debug-report-callback (flags object-type object location
                                       message-code player-prefix message)
@@ -259,35 +327,96 @@
                              &body body)
   (let ((cb (gensym "CALLBACK-HANDLE")))
    `(let ((*debug-report-callback* ,callback)
-          (,cb (%create-debug-report-callback-ext
-                ,instance `(:flags (:information
-                                   :warning :performance-warning
-                                   :error :debug)
-                           :pfn-callback ,(cffi:callback %debug-report-callback)))))
+          (,cb (when (position "VK_EXT_debug_report"
+                               (getf (print %vk::*instance-params*) :exts)
+                               :test 'string=)
+                 (%create-debug-report-callback-ext
+                         ,instance `(:flags (:information
+                                             :warning :performance-warning
+                                             :error :debug)
+                                     :pfn-callback ,(cffi:callback %debug-report-callback))))))
       (unwind-protect
            (progn ,@body)
-        (%vk:destroy-debug-report-callback-ext ,instance ,cb (null-pointer))))))
+        (when ,cb
+          (%vk:destroy-debug-report-callback-ext ,instance ,cb (null-pointer)))))))
+
+
+;; todo: add option to warn when optional layer/ext aren't found?
+(defun check-device-layers (physical-device layers)
+  (let ((available (mapcar (lambda (a)
+                             (getf a :layer-name))
+                           (enumerate-device-layer-properties physical-device))))
+    (loop for .layer in layers
+          for layer = (if (consp .layer) (car .layer) .layer)
+          for optional = (when (consp .layer) (getf (cdr .layer) :optional))
+          for found = (position layer available :test 'string=)
+          when (and (not found) (not optional))
+            do (error "required device layer ~s not found.~%available: ~s" layer
+                      available)
+          when found
+            collect layer)))
+
+(defun check-device-extensions (physical-device extensions layers)
+  ;; we need to check all the layers we will activate, since the
+  ;; extension might be from one of them...
+  (let ((available
+          (loop for l in (cons (null-pointer) layers)
+                append (mapcar (lambda (a)
+                                 (getf a :extension-name))
+                               (enumerate-device-extension-properties
+                                physical-device l)))))
+    (loop for .ext in extensions
+          for ext = (if (consp .ext) (car .ext) .ext)
+          for optional = (when (consp .ext) (getf (cdr .ext) :optional))
+          for found = (position ext available :test 'string=)
+          when (and (not found) (not optional))
+            ;; todo: enumerate extensions from layers we don't activate so
+            ;; we can give a more specific message if the desired extension
+            ;; if from one of those.
+            do (error "required device extension ~s not found. Available: ~s" ext
+                      available)
+          when found
+            collect ext)))
+
+
 
 (with-with (with-device (%vk:destroy-device))
- (defun create-device (physical-device &key (queue-family-index 0)
-                                         (priorities '(1.0))
-                                         layers exts
-                                         (features (get-physical-device-features physical-device)))
-   (setf exts (loop for x in exts
-                    when (keywordp x)
-                      collect (gethash x %vk::*extension-names* x)
-                    else collect x))
-   (without-fp-traps
-    (%create-device physical-device
-                    `(:flags 0
-                      :p-queue-create-infos ((:flags 0
-                                              :queue-family-index
-                                              ,queue-family-index
-                                              :p-queue-priorities
-                                              ,priorities))
-                      :pp-enabled-layer-names ,layers
-                      :pp-enabled-extension-names ,exts
-                      :p-enabled-features ,features)))))
+  (defun create-device (physical-device &key (queue-family-index 0)
+                                          (priorities '(0.0))
+                                          layers exts
+                                          features)
+    (setf layers (check-device-layers physical-device layers))
+    (setf exts (check-device-extensions
+                physical-device (loop for x in exts
+                       when (keywordp x)
+                         collect (gethash x %vk::*extension-names* x)
+                       else collect x)
+                layers))
+    ;; todo: verify numbers are between 0.0 and 1.0 inclusive
+    (if (consp queue-family-index)
+        ;; if using multiple queue families, priorities must be an
+        ;; equal length list of lists of numbers
+        (assert (and (= (length queue-family-index)
+                        (length priorities))
+                     (every (lambda (a) (every 'realp a)) priorities)))
+        ;; if we have 1 index, priorities must be a list of numbers from 0-1
+        (assert (and (plusp (length priorities))
+                     (every 'realp priorities))))
+    (without-fp-traps
+      (%create-device physical-device
+                      (print `(:flags 0
+                         :p-queue-create-infos
+                         ,(loop for i in (alexandria:ensure-list
+                                          queue-family-index)
+                                for p in (if (consp queue-family-index)
+                                             priorities
+                                             (list priorities))
+                                collect `(:flags 0
+                                          :queue-family-index ,i
+                                          :p-queue-priorities ,p))
+                         :pp-enabled-layer-names ,layers
+                         :pp-enabled-extension-names ,exts
+                         :p-enabled-features ,features))))))
 
 #++
 (defmacro with-device ((var  physical-device
@@ -382,10 +511,10 @@
                                 '(:flags ,(or (alexandria:ensure-list begin-flags)
                                            0)
                                   :p-inheritance-info
-                                  (;:render-pass nil;; render-pass
+                                  (   ;:render-pass nil;; render-pass
                                    :subpass 0
-                                   ;:framebuffer nil;; framebuffer
-                                   :occlusion-query-enable nli
+                                        ;:framebuffer nil;; framebuffer
+                                   :occlusion-query-enable nil
                                    ;; query-control-flags
                                    :query-flags 0
                                    ;; query-pipeline-statistic-flags
@@ -401,7 +530,10 @@
 
 
 
-
+;; fixme: handle case where amount of objects changes between when we
+;; query count and when we query actual values.
+;; (possibly for example in enumerate-instance-layer/extension-properties
+;;  if someone installs more at that exact instant)
 (defun enumerate-physical-devices (instance)
   (with-foreign-object (p-count :uint32)
     (setf (mem-ref p-count :uint32) 0)
@@ -482,7 +614,8 @@
            (get-physical-device-queue-family-properties (:count %vk:queue-family-properties))
            (get-physical-device-sparse-image-format-properties (:count %vk:sparse-image-format-properties) format type samples usage tiiling)
            (get-physical-device-surface-capabilities-khr %vk:surface-capabilities-khr surface)
-           (get-physical-device-surface-formats-khr (:count %vk:surface-format-khr) surface)))
+           (get-physical-device-surface-formats-khr (:count %vk:surface-format-khr) surface)
+           (get-physical-device-surface-present-modes-khr (:count %vk:present-mode-khr) surface)))
 
 #++
 (defun get-device-memory-commitment (device memory)
@@ -495,9 +628,9 @@
     (%vk:get-device-queue device queue-family-index queue-index p)
     (mem-ref p '%vk:queue)))
 
-(defun get-physical-device-surface-support-khr (physical-device queue-family-index)
+(defun get-physical-device-surface-support-khr (physical-device queue-family-index surface)
   (with-foreign-object (p '%vk:bool32)
-    (%vk:get-physical-device-surface-support-khr physical-device queue-family-index p)
+    (%vk:get-physical-device-surface-support-khr physical-device queue-family-index surface p)
     (mem-ref p '%vk:bool32)))
 
 

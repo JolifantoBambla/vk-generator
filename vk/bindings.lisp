@@ -36,8 +36,9 @@
 (defmacro defvkfun ((cname lname) result-type &body body)
   `(defcfun (,cname ,lname :library vulkan) ,result-type ,@body))
 
-(defvar *instance*)
-(defvar *instance-extensions*)
+(defvar *instance*) ;; instance pointer
+(defvar *instance-params*) ;; plist of :layer, :exts, ?
+(defvar *instance-extensions*) ;; extension function pointers
 
 (defmacro defvkextfun ((cname lname) result-type &body args)
   `(defun ,lname (,@ (mapcar 'car args))
