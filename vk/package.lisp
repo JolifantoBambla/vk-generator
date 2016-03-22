@@ -25,4 +25,11 @@
    #:enumerate-instance-layer-properties
    #:enumerate-instance-extension-properties
    #:with-debug-report
-   #:get-physical-device-surface-support-khr))
+   #:get-physical-device-surface-support-khr
+   #:get-physical-device-mir-presentation-support-khr
+   #:get-physical-device-wayland-presentation-support-khr
+   #:get-physical-device-win32-presentation-support-khr
+   #:get-physical-device-xlib-presentation-support-khr
+   #:get-physical-device-xcb-presentation-support-khr
+   #:with-win32-surface-khr
+   #:get-physical-device-surface-formats-khr))
