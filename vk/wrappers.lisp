@@ -313,7 +313,7 @@
                                       message-code player-prefix message)
   (declare (ignorable flags object-type object location
                       message-code player-prefix message))
-  (unless (member :information flags) ;;todo: make this configurable
+  (progn ;unless (member :information flags) ;;todo: make this configurable
     (format t "~&~a:~s ~s~%"
             player-prefix flags message)
     #++(format t "code=~s, object=~s/~x, location=~s"
@@ -454,7 +454,7 @@
                                                 :depth-stencil-attachment))
                                  ;; sharing-mode
                                  (image-sharing-mode :exclusive)
-                                 (queue-family-indices '(0))
+                                 (queue-family-indices '())
                                  ;; surface-transform-flag-bits-khr
                                  (pre-transform :identity)
                                  (composite-alpha :opaque)
