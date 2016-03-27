@@ -33,4 +33,5 @@
    #:get-physical-device-xcb-presentation-support-khr
    #:with-win32-surface-khr
    #:get-physical-device-surface-formats-khr
-   #:with-swapchain))
+   #:with-swapchain
+   #:get-physical-device-surface-present-modes-khr))
