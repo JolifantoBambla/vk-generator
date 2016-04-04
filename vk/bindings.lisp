@@ -193,16 +193,18 @@
                                        `(mem-aref a :string i))
                                       ;; structs
                                       (t
-                                       `(,(get-reader-name (second atype))
-                                         (inc-pointer a
-                                                      (* i ,(foreign-type-size
-                                                             atype))))))))))
+                                       `(progn
+                                          (assert (not (null-pointer-p a)))
+                                          (,(get-reader-name (second atype))
+                                          (inc-pointer a
+                                                       (* i ,(foreign-type-size
+                                                              atype)))))))))))
                    ;; todo
                    (t (error "not done yet? ~s ~s ~s ~s ~s" name type count len optional)))))))
     (let ((forms (mapcan #'make-reader members)))
       `(defun ,function-name (p)
          (unless (null-pointer-p p)
-           (list ,@forms))))))
+           (list :pointer p ,@forms))))))
 
 
 (defvar *allocated-strings*)
@@ -320,8 +322,8 @@
         ;; single struct
         ((and struct (not (or len count)))
          (list `(,(get-writer-name (second type))
-                 ,(slot-pointer name)
-                 ,(get-value name))))
+                   ,(slot-pointer name)
+                   ,(get-value name))))
         ;; c-string pointer
         ((and (equal type '(:pointer :char))
               (equal len '(:null-terminated)))
@@ -361,15 +363,22 @@
               (typep type '(cons (eql :pointer)
                             (cons
                              (cons (member :struct))))))
-         (let ((var (gensym (string name))))
-           (list `(let ((,var (foreign-alloc ',(second type))))
-                    (push ,var *allocated-objects*)
-                    #++(format t "allocated ~s -> ~s~%" ',(second type) ,var)
-                    (,(get-writer-name (second (second type)))
-                     ,var
-                     ,(get-value name))
-                    (setf (foreign-slot-value ,p ',struct-type ,name)
-                          ,var)))))
+         (let* ((var (gensym (string name)))
+                (val (gensym "VALUE"))
+                (fill `(let ((,var (foreign-alloc ',(second type))))
+                         (push ,var *allocated-objects*)
+                         (,(get-writer-name (second (second type)))
+                          ,var
+                          ,val)
+                         (setf (foreign-slot-value ,p ',struct-type ,name)
+                               ,var))))
+           (list `(let ((,val ,(get-value name)))
+                    ,(if optional
+                         `(if ,val
+                              ,fill
+                              (setf (foreign-slot-value ,p ',struct-type ,name)
+                                    (null-pointer)))
+                         fill)))))
         ;; pointer to counted array
         ((and len
               (consp type)
@@ -390,7 +399,7 @@
             `(let* ((vval ,(get-value name))
                     (vlen (length vval))
                     (,var (if (plusp vlen)
-                              (foreign-alloc ',type :count vlen)
+                              (foreign-alloc ',(second type) :count vlen)
                               (null-pointer))))
                (when (plusp vlen)
                  (push ,var *allocated-objects*)
@@ -453,7 +462,12 @@
                                                               size-members))
                collect fill into fills
                collect check into checks
-               finally (return (remove 'nil (append fills checks)))))))
+               finally (return (remove 'nil (append fills checks))))
+       (format t "~&filled ~s @ ~s:~% @@ ~s~% -> ~s~%"
+               ',struct-name .p
+               .val
+               (,(intern (format nil "~a~a" 'deref- struct-name) :%vk) .p))
+)))
 
 (defun generate-union-filler (struct-name function-name members)
   `(defun ,function-name (.p .val)
@@ -469,7 +483,9 @@
   (flet ((struct-type (type)
            (first (gethash type *translators*)))
          (filler (type)
-           (second (gethash type *translators*))))
+           (second (gethash type *translators*)))
+         (reader (type)
+           (intern (format nil "~a~a" 'deref- type) :%vk)))
    `(let ((*allocated-strings* nil)
           (*allocated-objects* nil))
       (with-foreign-objects ((,var ',(struct-type type))
@@ -480,6 +496,11 @@
                (,(filler type) ,var ,value)
                ,@(loop for (var type VALUE) in more-bindings
                        collect `(,(filler type) ,var ,value))
+               ,@ (loop for (var type) in (list* (list var type value)
+                                                more-bindings)
+                        collect `(format t "with ~s:~% == ~s~%"
+                                         ',type
+                                         (,(reader type) ,var)))
                ,@body)
           (loop for i in *allocated-strings*
                 do #++(format t "~&free string ~s~%" i)
