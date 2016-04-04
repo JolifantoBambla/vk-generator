@@ -26,6 +26,78 @@
 
 (in-package #:cl-vulkan-bindings)
 
+;;; used for positive non-zero returns
+(defun %print-vk-cond (condition stream type)
+  (format stream "cl-vulkan ~a: ~a~%  (~s = ~s)"
+          type
+          (message condition)
+          (raw-value condition)
+          (or (enum condition) "??")))
+(defun print-vk-condition (c s) (%print-vk-cond c s "warning"))
+(defun print-vk-error (c s) (%print-vk-cond c s "error"))
+
+(define-condition vk-condition (condition)
+  ((enum :reader enum :initarg :enum)
+   (value :reader raw-value :initarg :value)
+   (message :reader message :initarg :message))
+  (:report print-vk-condition))
+
+;;; used for negative non-zero returns
+(define-condition vk-error (vk-condition error)
+  ()
+  (:report print-vk-error))
+
+
+
+(defmacro %define-conditions (parent &body r)
+  `(progn
+     ,@ (loop for c in r
+              for k = (find-symbol (symbol-name c) (find-package :keyword))
+              for v = (foreign-enum-value 'result k)
+              for message = (gethash k *result-comments*)
+              collect `(define-condition ,c (,parent)
+                         ()
+                         (:default-initargs :enum ,k :value ,v :message ,message)))))
+
+(%define-conditions vk-condition
+  not-ready
+  timeout
+  event-set
+  event-reset
+  incomplete
+  suboptimal-khr)
+
+(%define-conditions vk-error
+  error-out-of-host-memory
+  error-out-of-device-memory
+  error-initialization-failed
+  error-device-lost
+  error-memory-map-failed
+  error-layer-not-present
+  error-extension-not-present
+  error-feature-not-present
+  error-incompatible-driver
+  error-too-many-objects
+  error-format-not-supported
+  error-surface-lost-khr
+  error-native-window-in-use-khr
+  error-out-of-date-khr
+  error-incompatible-display-khr
+  error-validation-failed-ext
+  nv-extension-0-error
+  nv-extension-1-error)
+
+;;; make sure all of the error/condition types got defined, since we
+;;; defined them manually.
+(loop for k in (foreign-enum-keyword-list 'result)
+      for ctype = (or (find-symbol (symbol-name k)) t)
+      for v = (foreign-enum-value 'result k)
+      for type = (cond ((plusp v) 'vk-condition)
+                       ((minusp v) 'vk-error)
+                       (t))
+      do (assert (subtypep ctype type)
+                 () "no condition defined for result ~s?~% (~s isn't a subtype of ~s)" k ctype type))
+
 
 (define-foreign-type checked-result ()
   ()
@@ -33,21 +105,24 @@
   (:simple-parser checked-result))
 
 
+(defmacro %vk-error/warn (result)
+  ;; only used once, so assuming V has no side effects
+  `(case ,result
+     (0 :success)
+     ,@(loop for k in (foreign-enum-keyword-list 'result)
+             for ctype = (or (find-symbol (symbol-name k)) t)
+             for v = (foreign-enum-value 'result k)
+             unless (zerop v)
+               collect `(,v (,(if (plusp v) 'warn 'error)
+                             ',ctype)
+                            ,k))
+     (t (if (plusp ,result)
+            (warn "unknown vk result ~s?" ,result)
+            (error "unknown vk error ~s?" ,result)))))
+
 (defmethod translate-from-foreign (v (type checked-result))
   ;; todo: expand-from-foreign/-dyn
-  (if (zerop v) ;; optimize common case
-      :success
-      (let ((enum (foreign-enum-keyword 'result v :errorp nil)))
-        (when (< v 0)
-          (error "cl-vulkan error: ~a (~s = ~a)"
-                 (gethash enum *result-comments*)
-                 v (or enum "??")))
-        ;; these should possibly be conditions instead?
-        (when (> v 0)
-          (warn "cl-vulkan warning: ~a (~s = ~a)"
-                (gethash enum *result-comments*)
-                v (or enum "??")))
-        (or enum v))))
+  (%vk-error/warn v))
 
 
 ;; override the default so we can convert to/from T/NIL
