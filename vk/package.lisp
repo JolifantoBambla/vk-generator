@@ -34,4 +34,5 @@
    #:with-win32-surface-khr
    #:get-physical-device-surface-formats-khr
    #:with-swapchain
-   #:get-physical-device-surface-present-modes-khr))
+   #:get-physical-device-surface-present-modes-khr
+   #:create-command-pool))
