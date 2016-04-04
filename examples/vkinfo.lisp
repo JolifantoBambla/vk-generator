@@ -13,10 +13,6 @@
             for props = (get-physical-device-properties device)
             do (format t "device ~d: ~a~%"
                        i (getf props :device-name))
-            #+os-windows
-             (format t "presentation support: ~s~%"
-                     (loop for f below (length (get-physical-device-queue-family-properties device))
-                             collect (get-physical-device-win32-presentation-support-khr device f)))
                (format t "device layers: ~s~%"
                        (enumerate-device-layer-properties device))
                (format t "device extensions: ~s~%"
