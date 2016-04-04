@@ -262,7 +262,7 @@ MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
   (:enabled-extension-count :uint32 nil :optional (:true))
   (:pp-enabled-extension-names (:pointer (:pointer :char)) nil :optional (:true) :len (:enabled-extension-count
                                                                                        :null-terminated))
-  (:p-enabled-features (:pointer (:struct physical-device-features)) nil))
+  (:p-enabled-features (:pointer (:struct physical-device-features)) nil :optional (:true)))
 
 (def-translator device-queue-create-info (deref-device-queue-create-info :fill fill-device-queue-create-info)
   (:s-type structure-type nil :must-be :device-queue-create-info)
