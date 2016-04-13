@@ -3,6 +3,32 @@
   (:nicknames :vk)
   (:import-from
    #:%vk
+   #:not-ready
+   #:timeout
+   #:event-set
+   #:event-reset
+   #:incomplete
+   #:suboptimal-khr
+   #:error-out-of-host-memory
+   #:error-out-of-device-memory
+   #:error-initialization-failed
+   #:error-device-lost
+   #:error-memory-map-failed
+   #:error-layer-not-present
+   #:error-extension-not-present
+   #:error-feature-not-present
+   #:error-incompatible-driver
+   #:error-too-many-objects
+   #:error-format-not-supported
+   #:error-surface-lost-khr
+   #:error-native-window-in-use-khr
+   #:error-out-of-date-khr
+   #:error-incompatible-display-khr
+   #:error-validation-failed-ext
+   #:nv-extension-0-error
+   #:nv-extension-1-error
+
+   #:device-wait-idle
    #:get-device-proc-addr
    #:get-event-status
    #:get-fence-status
@@ -11,9 +37,34 @@
    #:get-physical-device-wayland-presentation-support-khr
    #:get-physical-device-win32-presentation-support-khr
    #:get-physical-device-xlib-presentation-support-khr
-   #:get-physical-device-xcb-presentation-support-khr
-   )
+   #:get-physical-device-xcb-presentation-support-khr)
   (:export
+   #:not-ready
+   #:timeout
+   #:event-set
+   #:event-reset
+   #:incomplete
+   #:suboptimal-khr
+
+   #:error-out-of-host-memory
+   #:error-out-of-device-memory
+   #:error-initialization-failed
+   #:error-device-lost
+   #:error-memory-map-failed
+   #:error-layer-not-present
+   #:error-extension-not-present
+   #:error-feature-not-present
+   #:error-incompatible-driver
+   #:error-too-many-objects
+   #:error-format-not-supported
+   #:error-surface-lost-khr
+   #:error-native-window-in-use-khr
+   #:error-out-of-date-khr
+   #:error-incompatible-display-khr
+   #:error-validation-failed-ext
+   #:nv-extension-0-error
+   #:nv-extension-1-error
+
    #:with-instance
    #:enumerate-physical-devices
    #:get-physical-device-properties
@@ -35,4 +86,11 @@
    #:get-physical-device-surface-formats-khr
    #:with-swapchain
    #:get-physical-device-surface-present-modes-khr
-   #:create-command-pool))
+   #:create-command-pool
+   #:create-swapchain-khr
+   #:destroy-swapchain-khr
+   #:get-swapchain-images-khr
+   #:acquire-next-image-khr
+   #:allocate-command-buffers
+   #:device-wait-idle
+   #:destroy-command-pool))
