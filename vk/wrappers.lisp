@@ -92,6 +92,18 @@
   (define-creator %create-xcb-surface-khr instance (xsci xcb-surface-create-info-khr))
   (define-creator %create-xlib-surface-khr instance (xsci xlib-surface-create-info-khr)))
 
+(macrolet ((define-destroy (fun &body args)
+             `(defun ,fun (,@args)
+                (,(intern (string-trim "%"(string fun))
+                          (find-package :%vk))
+                 ,@args
+                 ;; no allocator support for now...
+                 (null-pointer)))))
+  (define-destroy destroy-swapchain-khr device swapchain)
+  (define-destroy destroy-command-pool device pool))
+
+
+
 (defun %allocate-command-buffers (device comand-buffer-allocate-info)
   (%vk::with-vk-structs ((ai %vk:command-buffer-allocate-info
                         comand-buffer-allocate-info))
