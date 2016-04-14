@@ -479,35 +479,63 @@
                                                       '.p '(second .val)))))))
 (defparameter *translators* (make-hash-table))
 
-(defmacro with-vk-structs (((var type value) &rest more-bindings) &body body)
+(defmacro with-vk-structs (((var type value &optional count)
+                            &rest more-bindings) &body body)
   (flet ((struct-type (type)
            (first (gethash type *translators*)))
          (filler (type)
            (second (gethash type *translators*)))
          (reader (type)
            (intern (format nil "~a~a" 'deref- type) :%vk)))
-   `(let ((*allocated-strings* nil)
-          (*allocated-objects* nil))
-      (with-foreign-objects ((,var ',(struct-type type))
-                             ,@(loop for (var type) in more-bindings
-                                     collect (list var `',(struct-type type))))
-        (unwind-protect
-             (progn
-               (,(filler type) ,var ,value)
-               ,@(loop for (var type VALUE) in more-bindings
-                       collect `(,(filler type) ,var ,value))
-               ,@ (loop for (var type) in (list* (list var type value)
-                                                more-bindings)
-                        collect `(format t "with ~s:~% == ~s~%"
-                                         ',type
-                                         (,(reader type) ,var)))
-               ,@body)
-          (loop for i in *allocated-strings*
-                do #++(format t "~&free string ~s~%" i)
-                   (foreign-string-free i))
-          (loop for i in *allocated-objects*
-                do #++(format t "~&free object ~s~%" i)
-                   (foreign-free i)))))))
+    (alexandria:with-gensyms (tmp i)
+     `(let ((*allocated-strings* nil)
+            (*allocated-objects* nil))
+        ;; todo: think more about the API for alloctating arrays
+        ;; possibly should add a var for storing the count to avoid
+        ;; recalculating it when using :auto? or maybe drop auto completely
+        ;; and trust caller to get it right?
+        (with-foreign-objects ((,var ',(struct-type type)
+                                     ,@ (when count
+                                          ;; not sure if we can safely
+                                          ;; allocate 0 objects
+                                          (if (member count '(:auto t))
+                                              `((min 1 (length ,value)))
+                                              `((min 1 ,count)))))
+                               ,@(loop
+                                   for (var type value count) in more-bindings
+                                   collect
+                                   (list* var `',(struct-type type)
+                                          (when count
+                                            (if (member count '(:auto t))
+                                                `((min 1 (length ,value)))
+                                                `((min 1 ,count)))))))
+          (unwind-protect
+               (progn
+                 (,(filler type) ,var ,value)
+                 ,@(loop for (var type VALUE count) in more-bindings
+                         if count
+                           do (assert (symbolp value))
+                           and collect
+                         `(loop with ,value = ,value ;;rebind so we can POP it
+                                for ,i below ,(if (member count '(:auto t))
+                                                  `(length ,value)
+                                                  count)
+                                for ,tmp = (pop ,value))
+                         else collect `(,(filler type) ,var ,value))
+                 ,@ (loop for (var type nil count)
+                            in (list* (list var type value count)
+                                      more-bindings)
+                          unless count ;; skipping for now...
+                            collect `(format t "with ~s:~% == ~s~%"
+                                             ',type
+                                             (,(reader type) ,var)))
+                 ,@body)
+            (loop for i in *allocated-strings*
+                  do #++(format t "~&free string ~s~%" i)
+                     (foreign-string-free i))
+            (loop for i in *allocated-objects*
+                  do #++(format t "~&free object ~s~%" i)
+                     (foreign-free i))))))))
 
 (defmacro def-translator (struct-name (reader &key fill) &body members)
   (let ((struct-type
