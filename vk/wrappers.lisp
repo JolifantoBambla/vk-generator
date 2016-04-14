@@ -100,7 +100,8 @@
                  ;; no allocator support for now...
                  (null-pointer)))))
   (define-destroy destroy-swapchain-khr device swapchain)
-  (define-destroy destroy-command-pool device pool))
+  (define-destroy destroy-command-pool device pool)
+  (define-destroy destroy-image-view device image-view))
 
 
 
@@ -538,7 +539,22 @@
 
 
 
-
+(defun create-image-view (device image
+                          &key flags
+                            (view-type :2d)
+                            (format)
+                            (components '(:r :r :g :g :b :b :a :a))
+                            (subresource-range '(:aspect-mask :color
+                                                 :base-mip-level 0
+                                                 :level-count 1
+                                                 :base-array-layer 0
+                                                 :layer-count 1)))
+  (%create-image-view device `(:image ,image
+                               :format ,format
+                               :flags ,flags
+                               :view-type ,view-type
+                               :components ,components
+                               :subresource-range ,subresource-range)))
 
 
 
@@ -707,3 +723,38 @@
   (wrap-counted-args cmd-clear-color-image command-buffer image image-layout
                      (color (:union %vk:clear-color-value) :pointer)
                      (ranges (:struct %vk:image-subresource-range))))
+
+
+;; not sure about full version of this, API would be messier, and probably
+;; if submitting a bunch at once mattered, we'd also want to pre-allocate
+;; and reuse the foreign struct anyway
+(defun queue-submit1 (queue buffer &key wait-semaphores wait-dst-stage-mask
+                                     signal-semaphores
+                                     fence)
+  "simplified queue submit that only accepts a single command
+buffer (or single batch of command buffers with same waits/signals)"
+  (%vk::with-vk-structs ((vsi %vk:submit-info
+                              `(:wait-semaphores ,wait-semaphores
+                                :wait-dst-stage-mask ,wait-dst-stage-mask
+                                :signal-semaphores ,signal-semaphores
+                                :buffers ,(alexandria:ensure-list buffer))))
+    (%vk:queue-submit queue 1 vsi
+                      (or fence (cffi:null-pointer)))))
+
+(defun cmd-pipeline-barrier (command-buffer
+                             src-stage-mask dst-stage-mask
+                             &key dependency-flags
+                               memory-barriers
+                               buffer-memory-barriers
+                               image-memory-barriers)
+  (let ((lmb (length memory-barriers))
+        (lbmb (length buffer-memory-barriers))
+        (limb (length image-memory-barriers)))
+    (%vk::with-vk-structs ((mb %vk:memory-barrier memory-barriers lmb)
+                           (bmb %vk:buffer-memory-barrier buffer-memory-barriers lbmb)
+                           (imb %vk:image-memory-barrier image-memory-barriers limb))
+      (%vk:cmd-pipeline-barrier command-buffer src-stage-mask dst-stage-mask
+                                dependency-flags
+                                lmb mb
+                                lbmb bmb
+                                limb imb))))
