@@ -37,7 +37,8 @@
    #:get-physical-device-wayland-presentation-support-khr
    #:get-physical-device-win32-presentation-support-khr
    #:get-physical-device-xlib-presentation-support-khr
-   #:get-physical-device-xcb-presentation-support-khr)
+   #:get-physical-device-xcb-presentation-support-khr
+   #:queue-wait-idle)
   (:export
    #:not-ready
    #:timeout
@@ -93,4 +94,11 @@
    #:acquire-next-image-khr
    #:allocate-command-buffers
    #:device-wait-idle
-   #:destroy-command-pool))
+   #:destroy-command-pool
+   #:destroy-image-view
+   #:with-command-buffers
+   #:with-commands
+   #:create-image-view
+   #:queue-submit1
+   #:queue-wait-idle
+   #:cmd-pipeline-barrier))
