@@ -157,8 +157,7 @@
                 :filter (setf exts (loop for x in exts
                                          when (keywordp x)
                                            collect (gethash x %vk::*extension-names* x)
-                                         else collect x))
-                ))
+                                         else collect x))))
 
 (defmacro with-with ((with-name destroy
                        &key (allocator t)
@@ -531,8 +530,7 @@
                                    ;; query-control-flags
                                    :query-flags 0
                                    ;; query-pipeline-statistic-flags
-                                   :pipeline-statistics 0))
-                                ))
+                                   :pipeline-statistics 0))))
       (%vk:begin-command-buffer ,command-buffer bi)
        ,@body
        (%vk:end-command-buffer ,command-buffer))))
@@ -585,8 +583,7 @@
          (flet ((ref (p)
                       (if deref
                           `(,deref ,p)
-                          `(mem-ref ,p ',type))
-                      ))
+                          `(mem-ref ,p ',type))))
            (assert vkfun () "~s not found?" fun)
            (if counted
                (print `(defun ,fun (,@object ,@args)
@@ -708,8 +705,7 @@
                                             ,setter)
                                          `(loop for ,o in ,(first a)
                                                   for ,i from 0
-                                                  do ,setter))
-                       )
+                                                  do ,setter)))
                (,(find-symbol (string name) (find-package :%vk))
                 ,@(loop for a in args
                         for p in pointers
