@@ -61,30 +61,35 @@
                                  "uint32_t" :uint32
                                  "uint64_t" :uint64
                                  "int32_t" :int32
+                                 "int" :int
                                  "size_t" size-t)
                                :test 'equal))
 (defparameter *opaque-types*
   '("a-native-window" "mir-connection" "mir-surface"
     "xcb_connection_t" "display"))
 (defparameter *opaque-struct-types*
-  '("wl_display" "wl_surface"))
+  '("wl_display" "wl_surface" "SECURITY_ATTRIBUTES"))
 (defparameter *misc-os-types*
   '("hinstance" (:pointer :void)
     "hwnd" (:pointer :void)
+    "HANDLE" (:pointer :void)
+    "DWORD" :uint32
+    "LPCWSTR" (:pointer :void)
+    "RROutput" :ulong
     "xcb_window_t" :uint32
     "xcb_visualid_t" :uint32
     "window" :ulong
     "visual-id" :ulong))
 (defvar *handle-types*)
 
-(defparameter *vendor-ids* '("KHR" "EXT")) ;; todo: read from file
+(defparameter *vendor-ids* '("KHX"))
 (defparameter *special-words* '("Bool32" "Win32"
                                 "16" "32" "64"
                                 "3d" "2d" "1d"
                                 "3D" "2D" "1D"
                                 "ID" "UUID"
-                                "HINSTANCE" "HWND"
-                                "ETC2" "ASTC" "ASTC_" "LDR" "BC"))
+                                "HINSTANCE" "HWND" "HANDLE" "DWORD" "LPCWSTR" "SECURITY_ATTRIBUTES"
+                                "ETC2" "ASTC" "ASTC_" "LDR" "BC" "RR"))
 
 (defparameter *fix-must-be*
   (alexandria:alist-hash-table
@@ -109,14 +114,15 @@
     ((and (alexandria:ends-with #\f str)
           (ignore-errors (parse-number:parse-number str :end (1- (length str))))))
     ((multiple-value-bind (m matches)
-         (ppcre:scan-to-strings "\\(~0U(LL)?\\)" str)
+         (ppcre:scan-to-strings "\\(~0U(LL)?(-1)?\\)" str)
        (when m
          ;; fixme: is this right on all platforms? (or any for that matter?)
-         (if (aref matches 0)
-             (ldb (byte 64 0) -1)
-             (if (= 4 (cffi:foreign-type-size :uint))
-                 (ldb (byte 32 0) -1)
-                 (ldb (byte 64 0) -1))))))
+         (let ((off (if (aref matches 1) -2 -1)))
+           (if (aref matches 0)
+              (ldb (byte 64 0) off)
+              (if (= 4 (cffi:foreign-type-size :uint))
+                  (ldb (byte 32 0) off)
+                  (ldb (byte 64 0) off)))))))
     (t
      (error "~s" str))))
 
@@ -139,6 +145,7 @@
 (defun parse-arg-type (node gt &key stringify)
   (let* ((type-node (xpath:evaluate "type" node))
          (.type (xps type-node))
+         (values (xps (xpath:evaluate "@values" node)))
          (len (xps (xpath:evaluate "@len" node)))
          (optional (xps (xpath:evaluate "@optional" node)))
          (name (cffi:translate-camelcase-name
@@ -152,9 +159,9 @@
          (following (xps (xpath:evaluate "following-sibling::comment()" node)))
          (desc))
     (assert (not (set-difference (attrib-names node)
-                                 '("len" "optional"
+                                 '("len" "optional" "values"
                                    ;; todo:
-                                   "noautovalidity" "externsync")
+                                   "noautovalidity" "externsync" "validextensionstructs")
                                  :test 'string=)))
     ;; just hard coding the const/pointer stuff for
     ;; now. adjust as the spec changes...
@@ -201,18 +208,11 @@
        (setf (second desc) :string))
       #++((string= len "null-terminated")
        (error "unhandled len=~s" len)))
-    (ppcre:register-groups-bind (must x)
-        ("([Mm]ust be|[Ss]hould be) ([A-Z0-9_]+)" following)
-      (declare (ignore must)) ;; not sure if there is a difference
-                              ;; between "must be" and "should be"?
-      (when x
-        ;; fixme: handle "Must be" for other types?
-        ;; need to figure out how much to remove from name first,
-        ;; possibly store string -> symbol mapping somewhere?
-        (when (alexandria:starts-with-subseq "VK_STRUCTURE_TYPE_" x)
-          (let ((k (make-keyword
-                    (substitute #\- #\_ (subseq x (length "VK_STRUCTURE_TYPE_"))))))
-            (setf (getf (cddr desc) :must-be) (gethash k *fix-must-be* k))))))
+    (cond
+      ((and values (alexandria:starts-with-subseq "VK_STRUCTURE_TYPE_" values))
+       (let ((k (make-keyword
+                 (substitute #\- #\_ (subseq values (length "VK_STRUCTURE_TYPE_"))))))
+         (setf (getf (cddr desc) :must-be) (gethash k *fix-must-be* k)))))
     (when (or (find type *opaque-types* :test 'string-equal)
               (find type *opaque-struct-types* :test 'string-equal)
               (gethash .type *handle-types*)
@@ -317,7 +317,10 @@
                                   (nth-value 1 (ppcre::scan-to-strings "\\((\\d+),\\W*(\\d+),\\W*(\\d+)\\)" api)))))
 
     ;; TODO:? extract vendorids
-    ;; TODO:? extract tags
+    ;; extract tags
+    (xpath:do-node-set (node (xpath:evaluate "/registry/tags/tag" vk.xml))
+      (let ((name (xps (xpath:evaluate "@name" node))))
+        (push name *vendor-ids*)))
 
     ;; extra pass to find struct/unions so we can mark them correctly
     ;; in member types
@@ -443,7 +446,7 @@
                            :returned-only ,returnedonly
                            ,@(when comment (list :comment comment))))))
             (t
-             (error "unknown type category ~s for name ~s~%"
+             (format t "unknown type category ~s for name ~s~%"
                     category (or name @name)))))))
 
 ;;; enums*
@@ -500,11 +503,14 @@
              (queues (xps (xpath:evaluate "@queues" node)))
              (cmdbufferlevel (xps (xpath:evaluate "@cmdbufferlevel" node)))
              (renderpass (xps (xpath:evaluate "@renderpass" node)))
+             (pipeline (xps (xpath:evaluate "@pipeline" node)))
              (attribs (attrib-names node)))
         ;; make sure nobody added any attributes we might care about
         (assert (not (set-difference attribs
                                      '("successcodes" "errorcodes" "queues"
-                                       "cmdbufferlevel" "renderpass")
+                                       "cmdbufferlevel" "renderpass"
+                                       ;; todo:
+                                       "pipeline" "comment")
                                      :test 'string=)))
         (let ((params
                 (loop for p in .params
@@ -556,10 +562,13 @@
              (name (make-const-keyword .name))
              (extends (xps (xpath:evaluate "@extends" node)))
              (offset (xps (xpath:evaluate "@offset" node)))
+             (bitpos (xps (xpath:evaluate "@bitpos" node)))
              (dir (xps (xpath:evaluate "@dir" node)))
              (attribs (attrib-names node)))
         (assert (not (set-difference attribs
-                                     '("value" "name" "extends" "offset" "dir")
+                                     '("value" "name" "extends" "offset" "dir" "bitpos"
+                                       ;; todo:
+                                       "comment")
                                      :test 'string=)))
         (when (and (not extends)
                    (alexandria:ends-with-subseq "_EXTENSION_NAME" .name))
@@ -568,17 +577,23 @@
                 (ppcre:regex-replace-all "&quot;" value "")))
         (when extends
           (let ((extend (get-type extends)))
-            (assert (and offset (not value)))
-            (push (list .name (*
-                               (if (equalp dir "-")
-                                   -1
-                                   1)
-                               (+ *ext-base*
-                                  (* *ext-block-size* (1- ext-number))
-                                  (parse-integer offset)))
-                        :ext (format nil "~a" ext))
-                  (cdr (last (getf extend :enum))))))
-        (format t "ext: ~s ~s ~s ~s ~s~%" value name extends offset dir)))
+            (assert (or (and offset (not value) (not bitpos))
+                        ;; see comment in vk.xml; should be a special case
+                        (and (string= .name "VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE") (not offset) value (not bitpos))
+                        (and (not offset) (not value) bitpos)))
+            (setf (getf extend :enum)
+                  (append (getf extend :enum)
+                          (list (list .name (*
+                                             (if (equalp dir "-")
+                                                 -1
+                                                 1)
+                                             (or (and offset (+ *ext-base*
+                                                                (* *ext-block-size* (1- ext-number))
+                                                                (parse-integer offset)))
+                                                 (and value (parse-integer value))
+                                                 (and bitpos (ash 1 (parse-integer bitpos)))))
+                                      :ext (format nil "~a" ext)))))))
+        (format t "ext: ~s ~s ~s ~s ~s~%" value name extends (or offset value bitpos) dir)))
     ;; and also mark which functions are from extensions
     (xpath:do-node-set (node (xpath:evaluate "/registry/extensions/extension/require/command" vk.xml))
       (let* ((ext (xps (xpath:evaluate "../../@name" node)))
@@ -652,7 +667,7 @@
                                      (get-type requires))))
             for prefix = "VK_"
             for fixed-name = (string (fix-type-name name))
-            do (format out "(defbitfield (~(~a~[ ~a~]~))" fixed-name
+            do (format out "(defbitfield (~(~a~@[ ~a~]~))" fixed-name
                        (when (stringp base-type) (fix-type-name base-type)))
                ;; possibly shouldn't strip prefix from things like
                ;; VK_QUERY_RESULT_64_BIT or VK_SAMPLE_COUNT_1_BIT where
@@ -701,18 +716,18 @@
                      (let ((l (loop for (k) in bits
                                     minimize (or (mismatch expand k) 0))))
                        (when (> l (length prefix))
-                         (setf prefix expand)))
-                     (let* ((p (loop for v in *vendor-ids*
-                                       thereis (search v fixed-name)))
-                            (n (format nil "VK_~a"
-                                       (substitute #\_ #\-
-                                                   (if p
-                                                       (subseq fixed-name 0 p)
-                                                       fixed-name))))
-                            (l (loop for (k) in bits
-                                     minimize (or (mismatch n k) 0))))
-                       (when (> l (length prefix))
-                         (setf prefix expand)))))
+                         (setf prefix (subseq expand 0 l)))))
+                   (let* ((p (loop for v in *vendor-ids*
+                                     thereis (search v fixed-name)))
+                          (n (format nil "VK_~a"
+                                     (substitute #\_ #\-
+                                                 (if p
+                                                     (subseq fixed-name 0 (- p 1))
+                                                     fixed-name))))
+                          (l (loop for (k) in bits
+                                   minimize (or (mismatch n k) 0))))
+                     (when (> l (length prefix))
+                       (setf prefix (subseq n 0 l)))))
                  (loop for ((k . v) . more) on bits
                        for comment = (getf (cdr v) :comment)
                        for ext = (getf (cdr v) :ext)

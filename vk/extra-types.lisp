@@ -79,13 +79,16 @@
   error-incompatible-driver
   error-too-many-objects
   error-format-not-supported
+  error-fragmented-pool
   error-surface-lost-khr
   error-native-window-in-use-khr
   error-out-of-date-khr
   error-incompatible-display-khr
   error-validation-failed-ext
-  nv-extension-0-error
-  nv-extension-1-error)
+  error-invalid-shader-nv
+  nv-extension-1-error
+  error-out-of-pool-memory-khr
+  error-invalid-external-handle-khx)
 
 ;;; make sure all of the error/condition types got defined, since we
 ;;; defined them manually.
