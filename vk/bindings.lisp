@@ -74,9 +74,9 @@
                   (ignore-errors (cffi:foreign-bitfield-symbol-list (car len)))))))
              (if (stringp (car len))
                  (cond
-                   ((string= (car len) "codesize/4")
+                   ((string= (car len) "latexmath:[codesize \\over 4]")
                     `(floor (foreign-slot-value p ',struct-type :code-size) 4))
-                   ((string= (car len) "latexmath:[$\\lceil{\\mathit{rasterizationsamples} \\over 32}\\rceil$]")
+                   ((string= (car len) "latexmath:[\\lceil{\\mathit{rasterizationsamples} \\over 32}\\rceil]")
                     ;; slot is an enum (which happens to mean same
                     ;; thing as its numeric value) so read as number
                     ;; so we can use it to calculate length
@@ -348,7 +348,7 @@
                                          ,(slot-pointer name)
                                          '(:array ,type ,count)))
                 ;; not used?
-                #++((typep type '(cons (eql :struct)))
+                ((typep type '(cons (eql :struct)))
                  `(loop with s = ,(foreign-type-size type)
                         for i below ,count
                         for v in val
