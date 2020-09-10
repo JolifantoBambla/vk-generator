@@ -357,6 +357,7 @@
       (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[not(apientry) and not(@category=\"include\") and not(@category=\"define\")]" vk.xml))
         (let ((name (xps (xpath:evaluate "name" node)))
               (@name (xps (xpath:evaluate "@name" node)))
+              (alias (xps (xpath:evaluate "@alias" node)))
               (type (xps (xpath:evaluate "type" node)))
               (type* (mapcar 'xpath:string-value (xpath:all-nodes (xpath:evaluate "type" node))))
               (category (xps (xpath:evaluate "@category" node)))
@@ -392,11 +393,13 @@
                ;; (not sure if we will need definitions for these or not?)
                (unless (gethash @name *vk-platform*)
                  (format t "Unknown platform type ~s from ~s (~s)?~%" @name requires name)))
+              (alias
+               (error "ALIAS NOT HANDLED YET: ~s is alias for ~s and has category ~a~%" @name alias category))
               ((string= category "basetype")
-               ;; type alias
+               ;; basetypes
                (assert (and name type))
                (format t "new base type ~s -> ~s~%" name type)
-               (set-type (list :alias (or (gethash type *vk-platform*)
+               (set-type (list :basetype (or (gethash type *vk-platform*)
                                           (fix-type-name type)))))
               ((string= category "bitmask")
                (format t "new bitmask ~s -> ~s~%  ~s~%" name type
@@ -636,11 +639,11 @@
                                "^VK-" (substitute #\- #\_ k) "")
                       collect v))
 
-        ;; type aliases
+        ;; basetypes
         (loop for (name . attribs) in (remove-if-not
                                        (lambda (x)
                                          (and (consp (cdr x))
-                                              (eql (second x) :alias)))
+                                              (eql (second x) :basetype)))
                                        types)
               do (format out "~((defctype ~a ~s)~)~%~%"
                          (fix-type-name name) (second attribs)))
