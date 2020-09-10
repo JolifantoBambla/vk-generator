@@ -53,14 +53,14 @@
     "v1.0-core-20160906"
     "v1.0-core-20160916"
     "v1.0-core-20160923"
-    "v1.0-core-20160930"
+    "v1.0-core-20160930" ;; adds the "returnedonly=false" attribute to WSI output structures
     "v1.0-core-20161007"
     "v1.0-core-20161014"
     "v1.0-core-20161025"
     "v1.0.33-core"
     "v1.0.34-core"
     "v1.0.35-core"
-    "v1.0.36-core"
+    "v1.0.36-core" ;; adds "pipeline type" attribute for commands
     "v1.0.38-core"
     "v1.0.39-core"
     "v1.0.40-core"
@@ -77,12 +77,12 @@
     "v1.0.51-core"
     "v1.0.53-core"
     "v1.0.54-core" ;; this is the last supported version
-    "v1.0.55-core"
+    "v1.0.55-core" ;; "validextensionstructs" (in <member>) replaced by "structextends" (in <type>); replace comments with <comment> and "comment" attributes
     "v1.0.56-core"
     "v1.0.57-core"
     "v1.0.58-core"
     "v1.0.59-core"
-    "v1.0.60-core"
+    "v1.0.60-core" ;; ads an "extension" attribute to <require>
     "v1.0.61-core"
     "v1.0.62-core"
     "v1.0.63-core"
@@ -113,7 +113,7 @@
     "v1.1.118"
     "v1.1.119"
     "v1.1.120"
-    "v1.1.121"
+    "v1.1.121" ;; adds a "sortorder" attribute to <fetaure> and <extension>
     "v1.1.122"
     "v1.1.123"
     "v1.1.124"
@@ -125,7 +125,7 @@
     "v1.1.130"
     "v1.1.70"
     "v1.1.71"
-    "v1.1.72" ;; from tag v1.1.72 (number 122) xml is located in "xml/vk.xml"
+    "v1.1.72" ;; from tag v1.1.72 (number 122) xml is located in "xml/vk.xml", ALSO: "noautovalidity=true" is implied by "structextends" and no longer used
     "v1.1.73"
     "v1.1.74"
     "v1.1.75"
@@ -164,7 +164,7 @@
     "v1.2.139"
     "v1.2.140"
     "v1.2.141"
-    "v1.2.142"
+    "v1.2.142" ;; introduces "selector" and "selection" for unions
     "v1.2.143"
     "v1.2.144"
     "v1.2.145"
