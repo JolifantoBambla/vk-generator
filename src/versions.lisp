@@ -2,6 +2,7 @@
 
 (in-package :vk-generator/versions)
 
+;; NOTE: this is ordered - do not change
 (defparameter *versions*
   '("v1.0-core-20160216"     ;; until tag v1.1.72 xml is located in "src/spec/vk.xml"
     "v1.0-core+wsi-20160216"
@@ -76,22 +77,52 @@
     "v1.0.50-core"
     "v1.0.51-core"
     "v1.0.53-core"
-    "v1.0.54-core" ;; this is the last supported version
+    "v1.0.54-core"
     "v1.0.55-core" ;; "validextensionstructs" (in <member>) replaced by "structextends" (in <type>); replace comments with <comment> and "comment" attributes
     "v1.0.56-core"
     "v1.0.57-core"
     "v1.0.58-core"
     "v1.0.59-core"
-    "v1.0.60-core" ;; ads an "extension" attribute to <require>
-    "v1.0.61-core"
+    "v1.0.60-core" ;; adds an "extension" attribute to <require> - looks like <require> attributes are not checked
+    "v1.0.61-core" ;; adds an "altlen" attribute to <member>
     "v1.0.62-core"
     "v1.0.63-core"
     "v1.0.64-core"
     "v1.0.65-core"
-    "v1.0.66-core"
+    "v1.0.66-core" ;; add an API constant with value "(~0U-2)"
     "v1.0.67-core"
     "v1.0.68-core"
-    "v1.0.69-core"
+    "v1.0.69-core" ;; this is the last supported version
+    "v1.1.70" ;; adds "alias" attribute which means that from now on each type may have an alias
+    "v1.1.71"
+    "v1.1.72" ;; from tag v1.1.72 (number 91) xml is located in "xml/vk.xml", ALSO: "noautovalidity=true" is implied by "structextends" and no longer used
+    "v1.1.73"
+    "v1.1.74"
+    "v1.1.75"
+    "v1.1.76"
+    "v1.1.77"
+    "v1.1.78"
+    "v1.1.79"
+    "v1.1.80"
+    "v1.1.81"
+    "v1.1.82"
+    "v1.1.83"
+    "v1.1.84"
+    "v1.1.85"
+    "v1.1.86"
+    "v1.1.87"
+    "v1.1.88"
+    "v1.1.89"
+    "v1.1.90"
+    "v1.1.91"
+    "v1.1.92"
+    "v1.1.93"
+    "v1.1.94"
+    "v1.1.95"
+    "v1.1.96"
+    "v1.1.97"
+    "v1.1.98"
+    "v1.1.99"    
     "v1.1.100"
     "v1.1.101"
     "v1.1.102"
@@ -122,37 +153,7 @@
     "v1.1.127"
     "v1.1.128"
     "v1.1.129"
-    "v1.1.130"
-    "v1.1.70"
-    "v1.1.71"
-    "v1.1.72" ;; from tag v1.1.72 (number 122) xml is located in "xml/vk.xml", ALSO: "noautovalidity=true" is implied by "structextends" and no longer used
-    "v1.1.73"
-    "v1.1.74"
-    "v1.1.75"
-    "v1.1.76"
-    "v1.1.77"
-    "v1.1.78"
-    "v1.1.79"
-    "v1.1.80"
-    "v1.1.81"
-    "v1.1.82"
-    "v1.1.83"
-    "v1.1.84"
-    "v1.1.85"
-    "v1.1.86"
-    "v1.1.87"
-    "v1.1.88"
-    "v1.1.89"
-    "v1.1.90"
-    "v1.1.91"
-    "v1.1.92"
-    "v1.1.93"
-    "v1.1.94"
-    "v1.1.95"
-    "v1.1.96"
-    "v1.1.97"
-    "v1.1.98"
-    "v1.1.99"
+    "v1.1.130"    
     "v1.2.131"
     "v1.2.132"
     "v1.2.133"
@@ -180,6 +181,7 @@
 (defun get-xml-path (version)
   (let ((version-index (position version *versions* :test #'string=)))
     (unless version-index (format t "Unknown version: ~a, trying anyway ..." version))
-    (if (or (not version-index) (< (position version *versions* :test #'string=) 122))
+    (if (or (not version-index) (< (position version *versions* :test #'string=) 91))
         (make-pathname :directory '(:relative "src" "spec"))
         (make-pathname :directory '(:relative "xml")))))
+

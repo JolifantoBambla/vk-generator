@@ -28,10 +28,6 @@
 
 (in-package :vk-generator/generate)
 
-(defvar *base-dir* (make-pathname :directory (pathname-directory
-                                              (or *compile-file-pathname*
-                                                  *load-pathname*))))
-
 (defparameter *in-package-name* "cl-vulkan-bindings")
 (defparameter *package-nicknames* "#:%vk")
 (defparameter *core-definer* "defvkfun")
@@ -109,11 +105,19 @@
     ((ignore-errors (parse-integer str)))
     ((and (alexandria:ends-with #\f str)
           (ignore-errors (parse-number:parse-number str :end (1- (length str))))))
+    ;; todo: test and clean up
     ((multiple-value-bind (m matches)
-         (ppcre:scan-to-strings "\\(~0U(LL)?(-1)?\\)" str)
+         (ppcre:scan-to-strings "\\(~0U(LL)?(-1)?(-2)?\\)" str)
        (when m
          ;; fixme: is this right on all platforms? (or any for that matter?)
-         (let ((off (if (aref matches 1) -2 -1)))
+         ;; (at least on my machine)
+         ;; (~0U)   should be e.g.  VK_REMAINING_MIP_LEVELS: 4294967295
+         ;; (~0ULL) should be e.g.  VK_WHOLE_SIZE: 18446744073709551615
+         ;; (~0U-1) should be e.g.  VK_QUEUE_FAMILY_EXTERNAL_KHR: 4294967294
+         ;; (~0U-2) should be e.g.  VK_QUEUE_FAMILY_FOREIGN_EXT: 4294967293
+         (let ((off (cond ((aref matches 1) -2)
+                          ((aref matches 2) -3)
+                          (t -1))))
            (if (aref matches 0)
               (ldb (byte 64 0) off)
               (if (= 4 (cffi:foreign-type-size :uint))
@@ -155,9 +159,20 @@
          (following (xps (xpath:evaluate "following-sibling::comment()" node)))
          (desc))
     (assert (not (set-difference (attrib-names node)
+                                 ;; todo: provide different sets based on version-tag
                                  '("len" "optional" "values"
-                                   ;; todo:
-                                   "noautovalidity" "externsync" "validextensionstructs")
+                                   ;; todo:the following attributes are not handled yet
+                                   "externsync"
+
+                                   ;; this is deprecated in version v1.1.72 because it's implied by "structextends" in <type>
+                                   "noautovalidity"
+                                   
+                                   ;; deprecated in version v1.0.55-core
+                                   "validextensionstructs"
+
+                                   ;; v1.0.61-core adds
+                                   "altlen"
+                                   )
                                  :test 'string=)))
     ;; just hard coding the const/pointer stuff for
     ;; now. adjust as the spec changes...
@@ -352,10 +367,16 @@
               (attribs (attrib-names node)))
           ;; make sure nobody added any attributes we might care about
           (assert (not (set-difference attribs
+                                       ;; todo: provide set per version-tag
                                        '("name" "category" "parent" "requires"
                                          "comment"
-                                         ;; todo:
-                                         "returnedonly")
+                                         ;; todo: the attributes below are not handled yet
+                                         "returnedonly"
+                                         ;; todo: only from v1.0.55-core
+                                         "structextends"
+                                         ;; todo: only from v1.1.70
+                                         "alias"
+                                         )
                                        :test 'string=)))
           (flet ((set-type (value)
                    (let ((name (or name @name)))
