@@ -97,13 +97,13 @@
     "v1.1.71" ;; adds "const struct *" and "struct **", adds AHardwareBuffer
     "v1.1.72" ;; from tag v1.1.72 (number 91) xml is located in "xml/vk.xml", ALSO: "noautovalidity=true" is implied by "structextends" and no longer used
     "v1.1.73"
-    "v1.1.74" ;; this is the last supported version 
-    "v1.1.75" ;; adds VkBaseInStruct and VkBaseOutStruct - not handled yet - causes call-stack-exhausted - I guess the problem is that their pNext is also VkBaseInStruct or VkBaseOutStruct
+    "v1.1.74" 
+    "v1.1.75" ;; adds generic VkBaseInStruct and VkBaseOutStruct which have members of the same generic type - requires fix for infinite recursion
     "v1.1.76"
     "v1.1.77"
     "v1.1.78"
     "v1.1.79"
-    "v1.1.80" ;; fails with call-stack-exhausted
+    "v1.1.80"
     "v1.1.81"
     "v1.1.82"
     "v1.1.83"
@@ -116,7 +116,7 @@
     "v1.1.90"
     "v1.1.91"
     "v1.1.92"
-    "v1.1.93" ;; fails
+    "v1.1.93"
     "v1.1.94"
     "v1.1.95"
     "v1.1.96"
@@ -146,14 +146,14 @@
     "v1.1.120"
     "v1.1.121" ;; adds a "sortorder" attribute to <fetaure> and <extension>
     "v1.1.122"
-    "v1.1.123"
-    "v1.1.124"
+    "v1.1.123" ;; this is the last supported version
+    "v1.1.124" ;; adds empty enum! fails at step "add new bitmask VkSemaphoreCreateFlagBits" - assert (get-type name)
     "v1.1.125"
     "v1.1.126"
     "v1.1.127"
     "v1.1.128"
     "v1.1.129"
-    "v1.1.130"    
+    "v1.1.130" ;; fails    
     "v1.2.131"
     "v1.2.132"
     "v1.2.133"

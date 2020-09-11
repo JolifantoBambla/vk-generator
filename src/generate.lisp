@@ -49,11 +49,13 @@
   (alexandria:plist-hash-table '("void" :void
                                  "char" :char
                                  "float" :float
+                                 "double" :double ;; added this after v1.1.119 failed (not sure which version added this)
                                  "uint8_t" :uint8
-                                 "uint16_t" :uint16 ;; added this after v1.1.93 failed
+                                 "uint16_t" :uint16 ;; added this after v1.1.93 failed (not sure which version added this)
                                  "uint32_t" :uint32
                                  "uint64_t" :uint64
                                  "int32_t" :int32
+                                 "int64_t" :int64 ;; added this after v1.1.119 failed (not sure which version added this)
                                  "int" :int
                                  "size_t" size-t)
                                :test 'equal))
@@ -509,12 +511,17 @@
                 for value = (numeric-value (xps (xpath:evaluate "@value" enum)))
                 for bitpos = (numeric-value (xps (xpath:evaluate "@bitpos" enum)))
                 for comment2 = (xps (xpath:evaluate "@comment" enum))
+                ;; since v1.1.83
+                for alias = (xps (xpath:evaluate "@alias" enum))
                 unless (string= name "API Constants")
-                  do (assert (not (and bitpos value)))
-                     (assert (or bitpos value))
-                     (push `(,name2 ,(or value (ash 1 bitpos))
-                                    ,@(when comment2 (list :comment comment2)))
-                           (second enum-type)))
+                  do (if alias
+                         (warn "ALIAS NOT YET HANDLED: ~s is an alias for ~s" name2 alias)
+                         (progn
+                           (assert (not (and bitpos value)))
+                           (assert (or bitpos value))
+                           (push `(,name2 ,(or value (ash 1 bitpos))
+                                          ,@(when comment2 (list :comment comment2)))
+                                 (second enum-type)))))
           (when (second enum-type)
             (setf (second enum-type)
                   (nreverse (second enum-type))))
@@ -836,6 +843,10 @@
                                        (not (gethash name dumped)))
                               (let* ((attribs (get-type/f name))
                                      (members (getf (cddr attribs) :members)))
+                                ;; todo: test if this still works
+                                ;; set dumped true already here to prevent infinite recursion - necessary since v1.1.75
+                                (setf (gethash name dumped) t)
+
                                 (loop for (nil mt) in members
                                       do (dump mt))
                                 (format out "(defc~(~a~) ~(~a~)" (first attribs)
@@ -844,7 +855,8 @@
                                         "~{~%  ~1{(:~(~a ~s~@[ :count ~a~])~^#|~@{~a~^ ~}|#~)~}~}"
                                         members)
                                 (format out "~:[)~;~]~%~%" nil)
-                                (setf (gethash name dumped) t))))))
+                                ;; (setf (gethash name dumped) t) used to be here
+                                )))))
                    (dump name))))
 
       ;; write functions file
