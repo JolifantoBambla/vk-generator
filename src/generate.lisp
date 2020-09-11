@@ -362,10 +362,14 @@
       ;; and extract "API constants" enum first too for member array sizes
       (xpath:do-node-set (enum (xpath:evaluate "/registry/enums[(@name=\"API Constants\")]/enum" vk.xml))
         (let ((name (xps (xpath:evaluate "@name" enum)))
-              (value (numeric-value (xps (xpath:evaluate "@value" enum)))))
-          (when (gethash name *api-constants*)
-            (assert (= value (gethash name *api-constants*))))
-          (setf (gethash name *api-constants*) value)))
+              (value (numeric-value (xps (xpath:evaluate "@value" enum))))
+              (alias (xps (xpath:evaluate "@alias" enum))))
+          (if alias
+              (warn "ALIAS NOT HANDLED YET: ~s is alias for ~s~%" name alias)
+              (progn
+                (when (gethash name *api-constants*)
+                  (assert (= value (gethash name *api-constants*))))
+                (setf (gethash name *api-constants*) value)))))
 
       ;; extract handle types so we can mark them as pointers for translators
       (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[(@category=\"handle\")]" vk.xml))
@@ -440,7 +444,7 @@
                  (set-type (list dispatch type))))
               ((string= category "enum")
                (assert (not (or requires type name parent)))
-               (format t "new enum type ~s~%" @name)
+               (format t "new enum type ~s ~s~%" @name type)
                (set-type (list :enum type)))
               ((string= category "funcpointer")
                (format t "new function pointer type ~s ~s~%" name type*)
@@ -504,7 +508,14 @@
                                          "type" "expand" "comment")
                                        :test 'string=)))
           (unless (string= name "API Constants")
-            (assert (get-type name)))
+            ;; v1.1.124 adds VkSemaphoreCreateFlagBits enum type which is missing in enum section and must be created here
+            (if (and (not enum-type)
+                     (string= name "VkSemaphoreCreateFlagBits"))
+                (progn
+                  (push (cons name (list :enum nil)) types)
+                  (format t "new enum type ~s~%" name)
+                  (setf enum-type (get-type name)))
+                (assert (get-type name))))
           (assert (not (second enum-type)))
           (loop for enum in enums
                 for name2 = (xps (xpath:evaluate "@name" enum))

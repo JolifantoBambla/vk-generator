@@ -146,14 +146,14 @@
     "v1.1.120"
     "v1.1.121" ;; adds a "sortorder" attribute to <fetaure> and <extension>
     "v1.1.122"
-    "v1.1.123" ;; this is the last supported version
-    "v1.1.124" ;; adds empty enum! fails at step "add new bitmask VkSemaphoreCreateFlagBits" - assert (get-type name)
+    "v1.1.123"
+    "v1.1.124" ;; adds empty enum "VkSemaphoreCreateFlagBits"
     "v1.1.125"
     "v1.1.126"
     "v1.1.127"
     "v1.1.128"
     "v1.1.129"
-    "v1.1.130" ;; fails    
+    "v1.1.130"
     "v1.2.131"
     "v1.2.132"
     "v1.2.133"
@@ -162,8 +162,8 @@
     "v1.2.136"
     "v1.2.137"
     "v1.2.138"
-    "v1.2.139"
-    "v1.2.140"
+    "v1.2.139" ;; this is the last supported version
+    "v1.2.140" ;; this changes the category of types like ANativeWindow from "define" to "basetype"
     "v1.2.141"
     "v1.2.142" ;; introduces "selector" and "selection" for unions
     "v1.2.143"
