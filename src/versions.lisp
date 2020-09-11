@@ -92,18 +92,18 @@
     "v1.0.66-core" ;; add an API constant with value "(~0U-2)"
     "v1.0.67-core"
     "v1.0.68-core"
-    "v1.0.69-core" ;; this is the last supported version
-    "v1.1.70" ;; adds "alias" attribute which means that from now on each type may have an alias
-    "v1.1.71"
+    "v1.0.69-core"
+    "v1.1.70" ;; adds "alias" attribute which means that from now on each type may have an alias - alias not handled yet!
+    "v1.1.71" ;; adds "const struct *" and "struct **", adds AHardwareBuffer
     "v1.1.72" ;; from tag v1.1.72 (number 91) xml is located in "xml/vk.xml", ALSO: "noautovalidity=true" is implied by "structextends" and no longer used
     "v1.1.73"
-    "v1.1.74"
-    "v1.1.75"
+    "v1.1.74" ;; this is the last supported version 
+    "v1.1.75" ;; adds VkBaseInStruct and VkBaseOutStruct - not handled yet - causes call-stack-exhausted
     "v1.1.76"
     "v1.1.77"
     "v1.1.78"
     "v1.1.79"
-    "v1.1.80"
+    "v1.1.80" ;; fails with call-stack-exhausted
     "v1.1.81"
     "v1.1.82"
     "v1.1.83"
@@ -116,7 +116,7 @@
     "v1.1.90"
     "v1.1.91"
     "v1.1.92"
-    "v1.1.93"
+    "v1.1.93" ;; fails
     "v1.1.94"
     "v1.1.95"
     "v1.1.96"

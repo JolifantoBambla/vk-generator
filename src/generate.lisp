@@ -50,6 +50,7 @@
                                  "char" :char
                                  "float" :float
                                  "uint8_t" :uint8
+                                 "uint16_t" :uint16 ;; added this after v1.1.93 failed
                                  "uint32_t" :uint32
                                  "uint64_t" :uint64
                                  "int32_t" :int32
@@ -57,8 +58,12 @@
                                  "size_t" size-t)
                                :test 'equal))
 (defparameter *opaque-types*
-  '("a-native-window" "mir-connection" "mir-surface"
-    "xcb_connection_t" "display"))
+  '("a-native-window"
+    "a-hardware-buffer" ;; added in v1.1.71
+    "mir-connection"
+    "mir-surface"
+    "xcb_connection_t"
+    "display"))
 (defparameter *opaque-struct-types*
   '("wl_display" "wl_surface" "SECURITY_ATTRIBUTES"))
 (defparameter *misc-os-types*
@@ -177,7 +182,10 @@
     ;; just hard coding the const/pointer stuff for
     ;; now. adjust as the spec changes...
     (when prefix
-      (assert (member prefix '("struct" "const") :test 'string=)))
+      (assert (member prefix '("struct" "const"
+                               ;; todo: only from v1.1.71
+                               "const struct")
+                      :test 'string=)))
     (when suffix
       (assert (member suffix '("*" "**" "* const*") :test 'string=)))
     ;; fixme: do something with the const? (generate comment if nothing else)
@@ -196,9 +204,17 @@
                   (string= prefix "const"))
               (not suffix))
          (setf desc (list name (struct-type))))
+        ;; todo: "const struct *" was added in v1.1.70 - I guess it should be handled like "struct *", but it should be tested
+        ((and (string= prefix "const struct")
+              (string= suffix "*"))
+         (setf desc `(,name (:pointer (:struct ,type)))))
         ((and (string= prefix "struct")
               (string= suffix "*"))
          (setf desc `(,name (:pointer (:struct ,type)))))
+        ;; todo "struct **" was added in v1.1.71 - test this
+        ((and (string= prefix "struct")
+              (string= suffix "**"))
+         (setf desc `(,name (:pointer (:pointer (:struct ,type))))))
         ((and (or (not prefix)
                   (string= prefix "const"))
               (string= suffix "*"))
@@ -278,6 +294,7 @@
                                                prefix *vendor-ids*)
                                        name "")))
 
+;; todo: split this up into parser-functions & writer-functions
 (defun generate-vk-package (vk-xml-pathname out-dir)
   ;; read from data files
   (let* ((vk-dir out-dir)
@@ -301,6 +318,8 @@
          (function-apis (make-hash-table :test 'equal))
          (extension-names (make-hash-table :test 'equal))
          (*handle-types* (make-hash-table :test 'equal))
+         ;; todo: handle aliases - for now alias names are stored here so processing can be skipped for them further down
+         (alias-names nil)
          #++(old-bindings (load-bindings vk-dir))
          #++(old-enums (load-enums vk-dir)))
     (flet ((get-type (name)
@@ -394,7 +413,8 @@
                (unless (gethash @name *vk-platform*)
                  (format t "Unknown platform type ~s from ~s (~s)?~%" @name requires name)))
               (alias
-               (error "ALIAS NOT HANDLED YET: ~s is alias for ~s and has category ~a~%" @name alias category))
+               (push @name alias-names)
+               (warn "ALIAS NOT HANDLED YET: ~s is alias for ~s and has category ~a~%" @name alias category))
               ((string= category "basetype")
                ;; basetypes
                (assert (and name type))
@@ -514,6 +534,8 @@
       (xpath:do-node-set (node (xpath:evaluate "/registry/commands/command" vk.xml))
         (let* ((name (xps (xpath:evaluate "proto/name" node)))
                (type (xps (xpath:evaluate "proto/type" node)))
+               (alias (xps (xpath:evaluate "@alias" node)))
+               (@name (xps (xpath:evaluate "@name" node)))
                #++(proto (xpath:evaluate "proto" node))
                (.params (xpath:all-nodes (xpath:evaluate "param" node)))
                (successcodes (xps (xpath:evaluate "@successcodes" node)))
@@ -528,41 +550,48 @@
                                        '("successcodes" "errorcodes" "queues"
                                          "cmdbufferlevel" "renderpass"
                                          ;; todo:
-                                         "pipeline" "comment")
+                                         "pipeline" "comment"
+                                         ;; todo: only from v1.1.70
+                                         "alias" "name"
+                                         )
                                        :test 'string=)))
-          (let ((params
-                  (loop for p in .params
-                        for optional = (xps (xpath:evaluate "@optional" p))
-                        for externsync = (xps (xpath:evaluate "@externsync" p))
-                        for len = (xps (xpath:evaluate "@len" p))
-                        for noautovalidity = (xps (xpath:evaluate "@noautovalidity" p))
-                        for desc = (parse-arg-type p (lambda (a)
-                                                       (gethash a structs))
-                                                   :stringify t)
-                        for attribs = (attrib-names p)
-                        do
-                           (assert (not (set-difference attribs
-                                                        '("optional" "externsync"
-                                                          "len" "noautovalidity")
-                                                        :test 'string=)))
-                        collect `(,desc
-                                  ,@(when optional (list :optional optional))
-                                  ,@(when len (list :len len))
-                                  ,@(when noautovalidity (list :noautovalidity noautovalidity))
-                                  ,@(when externsync (list :externsync externsync))))))
-            (flet ((kw-list (x &key (translate #'make-keyword))
-                     (mapcar translate
-                             (split-sequence:split-sequence #\, x :remove-empty-subseqs t))))
-              (setf (gethash name funcs)
-                    (list (or (gethash type *vk-platform*) type)
-                          params
-                          :success (kw-list successcodes
-                                            :translate 'make-const-keyword)
-                          :errors (kw-list errorcodes
-                                           :translate 'make-const-keyword)
-                          :queues (kw-list queues)
-                          :command-buffer-level (kw-list cmdbufferlevel)
-                          :renderpass (kw-list renderpass)))))))
+          (if alias
+              (progn
+                (push @name alias-names)
+                (warn "ALIAS NOT HANDLED YET: ~s is alias for ~s~%" @name alias))
+              (let ((params
+                      (loop for p in .params
+                            for optional = (xps (xpath:evaluate "@optional" p))
+                            for externsync = (xps (xpath:evaluate "@externsync" p))
+                            for len = (xps (xpath:evaluate "@len" p))
+                            for noautovalidity = (xps (xpath:evaluate "@noautovalidity" p))
+                            for desc = (parse-arg-type p (lambda (a)
+                                                           (gethash a structs))
+                                                       :stringify t)
+                            for attribs = (attrib-names p)
+                            do
+                               (assert (not (set-difference attribs
+                                                            '("optional" "externsync"
+                                                              "len" "noautovalidity")
+                                                            :test 'string=)))
+                            collect `(,desc
+                                      ,@(when optional (list :optional optional))
+                                      ,@(when len (list :len len))
+                                      ,@(when noautovalidity (list :noautovalidity noautovalidity))
+                                      ,@(when externsync (list :externsync externsync))))))
+                (flet ((kw-list (x &key (translate #'make-keyword))
+                         (mapcar translate
+                                 (split-sequence:split-sequence #\, x :remove-empty-subseqs t))))
+                  (setf (gethash name funcs)
+                        (list (or (gethash type *vk-platform*) type)
+                              params
+                              :success (kw-list successcodes
+                                                :translate 'make-const-keyword)
+                              :errors (kw-list errorcodes
+                                               :translate 'make-const-keyword)
+                              :queues (kw-list queues)
+                              :command-buffer-level (kw-list cmdbufferlevel)
+                              :renderpass (kw-list renderpass))))))))
 
 ;;; TODO: feature
 ;;; extensions
@@ -578,6 +607,7 @@
                (value (xps (xpath:evaluate "@value" node)))
                (.name (xps (xpath:evaluate "@name" node)))
                (name (make-const-keyword .name))
+               (alias (xps (xpath:evaluate "@alias" node)))
                (extends (xps (xpath:evaluate "@extends" node)))
                (offset (xps (xpath:evaluate "@offset" node)))
                (bitpos (xps (xpath:evaluate "@bitpos" node)))
@@ -586,44 +616,56 @@
           (assert (not (set-difference attribs
                                        '("value" "name" "extends" "offset" "dir" "bitpos"
                                          ;; todo:
-                                         "comment")
+                                         "comment"
+                                         ;; todo: only from v1.1.70
+                                         "extnumber" "alias"
+                                         )
                                        :test 'string=)))
-          (when (and (not extends)
-                     (alexandria:ends-with-subseq "_EXTENSION_NAME" .name))
-            ;; todo: do something with the version/ext name enums
-            (setf (gethash ext extension-names)
-                  (ppcre:regex-replace-all "&quot;" value "")))
-          (when extends
-            (let ((extend (get-type extends)))
-              (assert (or (and offset (not value) (not bitpos))
-                          ;; see comment in vk.xml; should be a special case
-                          (and (string= .name "VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE") (not offset) value (not bitpos))
-                          (and (not offset) (not value) bitpos)))
-              (setf (getf extend :enum)
-                    (append (getf extend :enum)
-                            (list (list .name (*
-                                               (if (equalp dir "-")
-                                                   -1
-                                                   1)
-                                               (or (and offset (+ *ext-base*
-                                                                  (* *ext-block-size* (1- ext-number))
-                                                                  (parse-integer offset)))
-                                                   (and value (parse-integer value))
-                                                   (and bitpos (ash 1 (parse-integer bitpos)))))
-                                        :ext (format nil "~a" ext)))))))
-          (format t "ext: ~s ~s ~s ~s ~s~%" value name extends (or offset value bitpos) dir)))
+          (if alias
+              (progn
+                (push .name alias-names)
+                (warn "ALIAS NOT HANDLED YET: ~s is alias for ~s~%" .name alias))
+              (progn
+                (when (and (not extends)
+                           (alexandria:ends-with-subseq "_EXTENSION_NAME" .name))
+                  ;; todo: do something with the version/ext name enums
+                  (setf (gethash ext extension-names)
+                        (ppcre:regex-replace-all "&quot;" value "")))
+                (when extends
+                  (let ((extend (get-type extends)))
+                    (assert (or (and offset (not value) (not bitpos))
+                                ;; this was a special case for (string= .name "VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAM_TO_EDGE") until version v1.1.70
+                                (and (not offset) value (not bitpos))
+                                (and (not offset) (not value) bitpos)))
+                    (setf (getf extend :enum)
+                          (append (getf extend :enum)
+                                  (list (list .name (*
+                                                     (if (equalp dir "-")
+                                                         -1
+                                                         1)
+                                                     (or (and offset (+ *ext-base*
+                                                                        (* *ext-block-size* (1- ext-number))
+                                                                        (parse-integer offset)))
+                                                         (and value (parse-integer value))
+                                                         (and bitpos (ash 1 (parse-integer bitpos)))))
+                                              :ext (format nil "~a" ext)))))))
+                (format t "ext: ~s ~s ~s ~s ~s~%" value name extends (or offset value bitpos) dir)))))
+
       ;; and also mark which functions are from extensions
       (xpath:do-node-set (node (xpath:evaluate "/registry/extensions/extension/require/command" vk.xml))
         (let* ((ext (xps (xpath:evaluate "../../@name" node)))
                (name (xps (xpath:evaluate "@name" node)))
                (attribs (attrib-names node)))
-          (assert (not (set-difference attribs
-                                       '("name")
-                                       :test 'string=)))
-          (assert (gethash name funcs))
-          (setf (getf (cddr (gethash name funcs)) :ext)
-                ext)
-          (format t "extf: ~s ~s~%" name ext)))
+          (if (find name alias-names :test #'string=)
+              (warn "ALIAS NOT HANDLED YET: ~s is an alias~%" name) 
+              (progn
+                (assert (not (set-difference attribs
+                                             '("name")
+                                             :test 'string=)))
+                (assert (gethash name funcs))
+                (setf (getf (cddr (gethash name funcs)) :ext)
+                      ext)
+                (format t "extf: ~s ~s~%" name ext)))))
 
       (setf types (nreverse types))
  
