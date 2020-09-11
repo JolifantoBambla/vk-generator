@@ -98,7 +98,7 @@
     "v1.1.72" ;; from tag v1.1.72 (number 91) xml is located in "xml/vk.xml", ALSO: "noautovalidity=true" is implied by "structextends" and no longer used
     "v1.1.73"
     "v1.1.74" ;; this is the last supported version 
-    "v1.1.75" ;; adds VkBaseInStruct and VkBaseOutStruct - not handled yet - causes call-stack-exhausted
+    "v1.1.75" ;; adds VkBaseInStruct and VkBaseOutStruct - not handled yet - causes call-stack-exhausted - I guess the problem is that their pNext is also VkBaseInStruct or VkBaseOutStruct
     "v1.1.76"
     "v1.1.77"
     "v1.1.78"
