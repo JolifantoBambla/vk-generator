@@ -179,6 +179,9 @@
 
                                    ;; v1.0.61-core adds
                                    "altlen"
+
+                                   ;; v1.2.142 adds
+                                   "selection" "selector"
                                    )
                                  :test 'string=)))
     ;; just hard coding the const/pointer stuff for
@@ -390,7 +393,9 @@
               (requires (xps (xpath:evaluate "@requires" node)))
               (comment (xps (xpath:evaluate "@comment" node)))
               (returnedonly (xps (xpath:evaluate "@returnedonly" node)))
-              (attribs (attrib-names node)))
+              (attribs (attrib-names node))
+              ;; required since v1.2.140 which changes some "define" types to "basetype" types with prefix "struct"
+              (prefix (xps (xpath:evaluate "type/preceding-sibling::text()" node))))
           ;; make sure nobody added any attributes we might care about
           (assert (not (set-difference attribs
                                        ;; todo: provide set per version-tag
@@ -402,6 +407,8 @@
                                          "structextends"
                                          ;; todo: only from v1.1.70
                                          "alias"
+                                         ;; todo: only from v1.2.140
+                                         "allowduplicate"
                                          )
                                        :test 'string=)))
           (flet ((set-type (value)
@@ -421,6 +428,9 @@
               (alias
                (push @name alias-names)
                (warn "ALIAS NOT HANDLED YET: ~s is alias for ~s and has category ~a~%" @name alias category))
+              ((and (string= category "basetype")
+                    (not (string= prefix "typedef")))
+               (format t "Skipping opaque type: ~s~%" name))
               ((string= category "basetype")
                ;; basetypes
                (assert (and name type))

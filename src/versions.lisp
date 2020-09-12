@@ -162,8 +162,8 @@
     "v1.2.136"
     "v1.2.137"
     "v1.2.138"
-    "v1.2.139" ;; this is the last supported version
-    "v1.2.140" ;; this changes the category of types like ANativeWindow from "define" to "basetype"
+    "v1.2.139"
+    "v1.2.140" ;; this changes the category of types like ANativeWindow from "define" to "basetype"; this introduces "allowduplicate" attribute for types in pNext-chain
     "v1.2.141"
     "v1.2.142" ;; introduces "selector" and "selection" for unions
     "v1.2.143"
@@ -176,7 +176,7 @@
     "v1.2.150"
     "v1.2.151"
     "v1.2.152"
-    "v1.2.153"))
+    "v1.2.153")) ;; all versions supported
 
 (defun get-xml-path (version)
   (let ((version-index (position version *versions* :test #'string=)))
