@@ -26,8 +26,14 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/parser/xps)
+
+(in-package :vk-generator/parser/xml-utils)
+
 
 (defun xps (node)
   (let ((s (string-trim '(#\space #\tab) (xpath:string-value node))))
     (unless (string= s "") s)))
+
+(defun attrib-names (node)
+  (mapcar 'cxml-stp:local-name (cxml-stp:list-attributes node)))
+

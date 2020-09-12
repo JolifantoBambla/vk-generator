@@ -43,8 +43,6 @@
 
 (defparameter *api-constants* (make-hash-table :test 'equal))
 
-(defparameter *foo* nil)
-
 (defparameter *vk-platform*
   (alexandria:plist-hash-table '("void" :void
                                  "char" :char
@@ -82,56 +80,10 @@
 (defvar *handle-types*)
 
 (defparameter *vendor-ids* '("KHX"))
-(defparameter *special-words* '("Bool32" "Win32"
-                                "16" "32" "64"
-                                "3d" "2d" "1d"
-                                "3D" "2D" "1D"
-                                "ID" "UUID"
-                                "HINSTANCE" "HWND" "HANDLE" "DWORD" "LPCWSTR" "SECURITY_ATTRIBUTES"
-                                "ETC2" "ASTC" "ASTC_" "LDR" "BC" "RR"))
 
-(defparameter *fix-must-be*
-  (alexandria:alist-hash-table
-   '((:pipeline-iinput-assembly-state-create-info
-      . :pipeline-input-assembly-state-create-info)
-     (:debug-report-callback-create-info
-      . :debug-report-create-info-ext))))
 ;; not sure if we should remove the type prefixes in struct members or
 ;; not?
 ;;(defparameter *type-prefixes* '("s-" "p-" "pfn-" "pp-"))
-
-(defun xps (node)
-  (let ((s (string-trim '(#\space #\tab) (xpath:string-value node))))
-    (unless (string= s "") s)))
-
-(defun numeric-value (str)
-  (cond
-    ((not str) nil)
-    ((alexandria:starts-with-subseq "0x" str)
-     (parse-integer str :start 2 :radix 16))
-    ((ignore-errors (parse-integer str)))
-    ((and (alexandria:ends-with #\f str)
-          (ignore-errors (parse-number:parse-number str :end (1- (length str))))))
-    ;; todo: test and clean up
-    ((multiple-value-bind (m matches)
-         (ppcre:scan-to-strings "\\(~0U(LL)?(-1)?(-2)?\\)" str)
-       (when m
-         ;; fixme: is this right on all platforms? (or any for that matter?)
-         ;; (at least on my machine)
-         ;; (~0U)   should be e.g.  VK_REMAINING_MIP_LEVELS: 4294967295
-         ;; (~0ULL) should be e.g.  VK_WHOLE_SIZE: 18446744073709551615
-         ;; (~0U-1) should be e.g.  VK_QUEUE_FAMILY_EXTERNAL_KHR: 4294967294
-         ;; (~0U-2) should be e.g.  VK_QUEUE_FAMILY_FOREIGN_EXT: 4294967293
-         (let ((off (cond ((aref matches 1) -2)
-                          ((aref matches 2) -3)
-                          (t -1))))
-           (if (aref matches 0)
-              (ldb (byte 64 0) off)
-              (if (= 4 (cffi:foreign-type-size :uint))
-                  (ldb (byte 32 0) off)
-                  (ldb (byte 64 0) off)))))))
-    (t
-     (error "~s" str))))
 
 (defun fix-type-name (name)
   (if (not (stringp name))
@@ -280,9 +232,6 @@
       (when x
         (setf (caddr desc) (parse-integer x))))
     desc))
-
-(defun attrib-names (node)
-  (mapcar 'cxml-stp:local-name (cxml-stp:list-attributes node)))
 
 (defun make-keyword (name)
   (alexandria:make-keyword (string-upcase name)))

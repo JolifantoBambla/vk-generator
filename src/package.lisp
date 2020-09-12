@@ -14,9 +14,30 @@
            :extract-vk-xml
            :fetch-vk-xml))
 
-(uiop:define-package :vk-generator/generate
+;;; PARSER
+
+(uiop:define-package :vk-generator/parser/constants
     (:use :cl)
+  (:export :*special-words*
+           :*fix-must-be*))
+
+(uiop:define-package :vk-generator/parser/xml-utils
+    (:use :cl)
+  (:export :xps
+           :attrib-names))
+
+(uiop:define-package :vk-generator/parser/numeric-value
+    (:use :cl)
+  (:export :numeric-value))
+
+(uiop:define-package :vk-generator/generate
+    (:use :cl
+          :vk-generator/parser/constants
+          :vk-generator/parser/xml-utils
+          :vk-generator/parser/numeric-value)
   (:export :generate-vk-package))
+
+
 
 (uiop:define-package :vk-generator/make-vk
     (:use :cl
@@ -24,6 +45,8 @@
           :vk-generator/fetch-vk-xml
           :vk-generator/generate)
   (:export :make-vk))
+
+;;; VK-GENERATOR
 
 (uiop:define-package :vk-generator
     (:use :cl
