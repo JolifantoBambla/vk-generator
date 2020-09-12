@@ -233,14 +233,6 @@
         (setf (caddr desc) (parse-integer x))))
     desc))
 
-(defun make-keyword (name)
-  (alexandria:make-keyword (string-upcase name)))
-
-(defun make-const-keyword (name)
-  (let ((start (if (alexandria:starts-with-subseq "VK_" name) 3 0)))
-    (alexandria:make-keyword
-     (subseq (substitute #\- #\_ name) start))))
-
 (defun fix-bit-name (name &key (prefix "VK_"))
   ;; fixme: cache compiled regex instead of rebuilding from string on every call
   (substitute #\- #\_

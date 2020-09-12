@@ -21,6 +21,11 @@
   (:export :*special-words*
            :*fix-must-be*))
 
+(uiop:define-package :vk-generator/parser/make-keyword
+    (:use :cl)
+  (:export :make-keyword
+           :make-const-keyword))
+
 (uiop:define-package :vk-generator/parser/xml-utils
     (:use :cl)
   (:export :xps
@@ -38,6 +43,7 @@
 (uiop:define-package :vk-generator/generate
     (:use :cl
           :vk-generator/parser/constants
+          :vk-generator/parser/make-keyword
           :vk-generator/parser/xml-utils
           :vk-generator/parser/numeric-value
           :vk-generator/parser/extract-vendor-ids)

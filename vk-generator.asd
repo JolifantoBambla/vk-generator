@@ -21,6 +21,7 @@
                              (:file "versions")
                              (:file "fetch-vk-xml")
                              (:file "parser/constants")
+                             (:file "parser/make-keyword")
                              (:file "parser/numeric-value")
                              (:file "parser/xml-utils")
                              (:file "parser/extract-vendor-ids")
