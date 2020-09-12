@@ -275,7 +275,8 @@
          ;; todo: handle aliases - for now alias names are stored here so processing can be skipped for them further down
          (alias-names nil)
          #++(old-bindings (load-bindings vk-dir))
-         #++(old-enums (load-enums vk-dir)))
+         #++(old-enums (load-enums vk-dir))
+         (vendor-ids (extract-vendor-ids vk.xml))) ;; extract tags / vendor-ids
     (flet ((get-type (name)
              (cdr (assoc name types :test 'string=)))
            (get-type/f (name)
@@ -297,11 +298,8 @@
         (setf *vk-api-version* (map 'list 'parse-integer
                                     (nth-value 1 (ppcre::scan-to-strings "\\((\\d+),\\W*(\\d+),\\W*(\\d+)\\)" api)))))
 
-      ;; TODO:? extract vendorids
-      ;; extract tags
-      (xpath:do-node-set (node (xpath:evaluate "/registry/tags/tag" vk.xml))
-        (let ((name (xps (xpath:evaluate "@name" node))))
-          (push name *vendor-ids*)))
+      ;; todo: remove this and only work with vendor-ids
+      (setf *vendor-ids* vendor-ids)
 
       ;; extra pass to find struct/unions so we can mark them correctly
       ;; in member types

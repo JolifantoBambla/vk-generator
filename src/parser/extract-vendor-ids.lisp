@@ -28,9 +28,9 @@
 
 (in-package :vk-generator/parser/extract-vendor-ids)
 
-(defun (vk.xml)
+(defun extract-vendor-ids (vk.xml)
   (let ((vendor-ids '("KHX")))
     (xpath:do-node-set (node (xpath:evaluate "/registry/tags/tag" vk.xml))
            (let ((name (xps (xpath:evaluate "@name" node))))
-             (push name vendor-ids))))
-    vendor-ids)
+             (push name vendor-ids)))
+    vendor-ids))

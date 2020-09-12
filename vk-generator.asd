@@ -23,6 +23,7 @@
                              (:file "parser/constants")
                              (:file "parser/numeric-value")
                              (:file "parser/xml-utils")
+                             (:file "parser/extract-vendor-ids")
                              (:file "generate")
                              (:file "make-vk"))))
   :description "Creates the package vk which provides Vulkan bindings for Common Lisp")

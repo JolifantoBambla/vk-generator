@@ -30,11 +30,17 @@
     (:use :cl)
   (:export :numeric-value))
 
+(uiop:define-package :vk-generator/parser/extract-vendor-ids
+    (:use :cl
+          :vk-generator/parser/xml-utils)
+  (:export :extract-vendor-ids))
+
 (uiop:define-package :vk-generator/generate
     (:use :cl
           :vk-generator/parser/constants
           :vk-generator/parser/xml-utils
-          :vk-generator/parser/numeric-value)
+          :vk-generator/parser/numeric-value
+          :vk-generator/parser/extract-vendor-ids)
   (:export :generate-vk-package))
 
 
