@@ -1,6 +1,6 @@
 (uiop:define-package :vk-generator/versions
     (:use :cl)
-  (:export :versions
+  (:export :*versions*
            :get-xml-path))
 
 (uiop:define-package :vk-generator/fetch-vk-xml
