@@ -93,7 +93,9 @@ See GET-XML-PATH
        stream))))
 
 (defun ensure-vk-xml (version &key
-                               (vulkan-docs-dir #P"/tmp/")
+                                (vulkan-docs-dir
+                                 #+win32 #P"\\temp\\" ; test if this is really the right path on windows...
+                                 #-win32 #P"/tmp/")
                                (vk-xml-dir nil vk-xml-dir-supplied-p)
                                (force-download nil))
   (declare (type string version))

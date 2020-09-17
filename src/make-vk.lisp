@@ -6,7 +6,9 @@
 (defun make-vk (&key
                   (version (car (last *versions*)))
                   (package-dir (first ql:*local-project-directories*) package-dir-supplied-p)
-                  (download-dir #P"/tmp/") ;; todo: make this cross-platform - there's probably a lib for that somewhere
+                  (download-dir
+                   #+win32 #P"\\temp\\" ; test if this is really the right path on windows..
+                   #-win32 #P"/tmp/")
                   (force-download nil))
   (declare (type string version))
   (declare (type pathname package-dir))
