@@ -19,7 +19,7 @@
                 :serial t
                 :components ((:file "package")
                              (:file "versions")
-                             (:file "fetch-vk-xml")
+                             (:file "ensure-vk-xml")
                              (:file "generate")
                              (:file "make-vk"))))
   :description "Creates the package vk which provides Vulkan bindings for Common Lisp")
