@@ -19,7 +19,7 @@
                 :serial t
                 :components ((:file "package")
                              (:file "versions")
-                             (:file "fetch-vk-xml")
+                             (:file "ensure-vk-xml")
                              (:file "parser/constants")
                              (:file "parser/make-keyword")
                              (:file "parser/numeric-value")
