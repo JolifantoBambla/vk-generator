@@ -19,7 +19,11 @@
 (uiop:define-package :vk-generator/parser/constants
     (:use :cl)
   (:export :*special-words*
-           :*fix-must-be*))
+           :*vk-platform*
+           :*opaque-types*
+           :*opaque-struct-types*
+           :*fix-must-be*
+           :*misc-os-types*))
 
 (uiop:define-package :vk-generator/parser/make-keyword
     (:use :cl)

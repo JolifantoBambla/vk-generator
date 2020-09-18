@@ -37,9 +37,50 @@
                                 "HINSTANCE" "HWND" "HANDLE" "DWORD" "LPCWSTR" "SECURITY_ATTRIBUTES"
                                 "ETC2" "ASTC" "ASTC_" "LDR" "BC" "RR"))
 
+(defparameter *vk-platform*
+  (alexandria:plist-hash-table '("void" :void
+                                 "char" :char
+                                 "float" :float
+                                 "double" :double ;; added this after v1.1.119 failed (not sure which version added this)
+                                 "uint8_t" :uint8
+                                 "uint16_t" :uint16 ;; added this after v1.1.93 failed (not sure which version added this)
+                                 "uint32_t" :uint32
+                                 "uint64_t" :uint64
+                                 "int32_t" :int32
+                                 "int64_t" :int64 ;; added this after v1.1.119 failed (not sure which version added this)
+                                 "int" :int
+                                 "size_t" size-t)
+                               :test 'equal))
+
+(defparameter *opaque-types*
+  '("a-native-window"
+    "a-hardware-buffer" ;; added in v1.1.71
+    "mir-connection"
+    "mir-surface"
+    "xcb_connection_t"
+    "display"))
+
+
+(defparameter *opaque-struct-types*
+  '("wl_display"
+    "wl_surface"
+    "SECURITY_ATTRIBUTES"))
+
 (defparameter *fix-must-be*
   (alexandria:alist-hash-table
    '((:pipeline-iinput-assembly-state-create-info
       . :pipeline-input-assembly-state-create-info)
      (:debug-report-callback-create-info
       . :debug-report-create-info-ext))))
+
+(defparameter *misc-os-types*
+  '("hinstance" (:pointer :void)
+    "hwnd" (:pointer :void)
+    "HANDLE" (:pointer :void)
+    "DWORD" :uint32
+    "LPCWSTR" (:pointer :void)
+    "RROutput" :ulong
+    "xcb_window_t" :uint32
+    "xcb_visualid_t" :uint32
+    "window" :ulong
+    "visual-id" :ulong))
