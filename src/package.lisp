@@ -59,6 +59,12 @@
           :vk-generator/parser/make-keyword)
   (:export :parse-arg-type))
 
+(uiop:define-package :vk-generator/write-types-file
+    (:use :cl
+          :vk-generator/parser/constants
+          :vk-generator/parser/fix-name)
+  (:export :write-types-file))
+
 (uiop:define-package :vk-generator/generate
     (:use :cl
           :vk-generator/parser/constants
@@ -67,7 +73,8 @@
           :vk-generator/parser/numeric-value
           :vk-generator/parser/extract-vendor-ids
           :vk-generator/parser/fix-name
-          :vk-generator/parser/parse-arg-type)
+          :vk-generator/parser/parse-arg-type
+          :vk-generator/write-types-file)
   (:export :generate-vk-package))
 
 

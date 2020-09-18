@@ -30,6 +30,7 @@
                              (:file "parser/extract-vendor-ids")
                              (:file "parser/parse-arg-type")
                              (:file "parser/fix-name")
+                             (:file "write-types-file")
                              (:file "generate")
                              (:file "make-vk")))))
 
