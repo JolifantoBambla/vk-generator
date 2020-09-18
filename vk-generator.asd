@@ -2,10 +2,13 @@
 
 (defsystem vk-generator
   :version "0.0.0"
-  :author "Lukas Herzberger"
-  :mailto "my@email.com"
   :licence "MIT"
-  :homepage "https://github.com"
+  :author "Lukas Herzberger"
+  :maintainer "Lukas Herzberger"
+  :homepage "https://github.com/lHerzberger/vk-generator"
+  :bug-tracker "https://github.com/lHerzberger/vk-generator/issues"
+  :source-control (:git "https://github.com/lHerzberger/vk-generator.git")
+  :description "A tool to generate Vulkan bindings for Common Lisp from the XML API Registry."
   :depends-on (#:alexandria
                #:cffi
                #:cl-ppcre
@@ -26,6 +29,5 @@
                              (:file "parser/xml-utils")
                              (:file "parser/extract-vendor-ids")
                              (:file "generate")
-                             (:file "make-vk"))))
-  :description "Creates the package vk which provides Vulkan bindings for Common Lisp")
+                             (:file "make-vk")))))
 
