@@ -26,11 +26,10 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-
 (in-package :vk-generator/parser/parse-arg-type)
 
 
-(defun parse-arg-type (node gt &key stringify)
+(defun parse-arg-type (node gt vendor-ids api-constants handle-types &key stringify)
   (let* ((type-node (xpath:evaluate "type" node))
          (.type (xps type-node))
          (values (xps (xpath:evaluate "@values" node)))
@@ -39,7 +38,7 @@
          (name (cffi:translate-camelcase-name
                 (xps (xpath:evaluate "name" node))
                 :special-words *special-words*))
-         (type (or (gethash .type *vk-platform*) (fix-type-name .type)))
+         (type (or (gethash .type *vk-platform*) (fix-type-name .type vendor-ids)))
          (prefix (xps (xpath:evaluate "type/preceding-sibling::text()" node)))
          (suffix (xps (xpath:evaluate "type/following-sibling::text()" node)))
          (namesuf (xps (xpath:evaluate "name/following-sibling::text()" node)))
@@ -47,7 +46,7 @@
          (following (xps (xpath:evaluate "following-sibling::comment()" node)))
          (desc))
     (assert (not (set-difference (attrib-names node)
-                                 ;; todo: provide different sets based on version-tag
+                                                                  ;; todo: provide different sets based on version-tag
                                  '("len" "optional" "values"
                                    ;; todo:the following attributes are not handled yet
                                    "externsync"
@@ -75,7 +74,7 @@
     (when suffix
       (assert (member suffix '("*" "**" "* const*") :test 'string=)))
     ;; fixme: do something with the const? (generate comment if nothing else)
-    (when gt
+        (when gt
       (format t "@@@~s/~s (~s ~s)~%  -> ~s~%"
               name .type prefix suffix
               (funcall gt type)))
@@ -105,7 +104,7 @@
                   (string= prefix "const"))
               (string= suffix "*"))
          (setf desc `(,name (:pointer ,(struct-type)))))
-        ((and (string= prefix "const")
+               ((and (string= prefix "const")
               (string= suffix "* const*"))
          (setf desc `(,name (:pointer (:pointer ,(struct-type))))))
         ((and (not prefix)
@@ -128,11 +127,11 @@
          (setf (getf (cddr desc) :must-be) (gethash k *fix-must-be* k)))))
     (when (or (find type *opaque-types* :test 'string-equal)
               (find type *opaque-struct-types* :test 'string-equal)
-              (gethash .type *handle-types*)
+              (gethash .type handle-types)
               (eql type :void))
       (format t "  opaque!~%")
       (setf (getf (cddr desc) :opaque) t))
-    (when len
+        (when len
       (setf (getf (cddr desc) :len)
             (mapcar (lambda (a)
                       (cond
@@ -153,13 +152,11 @@
             (mapcar 'make-keyword
                     (split-sequence:split-sequence #\, optional))))
     (when enum
-      (assert (gethash enum *api-constants*)))
+      (assert (gethash enum api-constants)))
     (if enum
-        (push (gethash enum *api-constants*) (cddr desc))
+        (push (gethash enum api-constants) (cddr desc))
         (push nil (cddr desc)))
     (ppcre:register-groups-bind (x) ("\\[(\\d+)\\]" namesuf)
       (when x
         (setf (caddr desc) (parse-integer x))))
     desc))
-
-

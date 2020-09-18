@@ -51,6 +51,14 @@
            :fix-function-name
            :fix-bit-name))
 
+(uiop:define-package :vk-generator/parser/parse-arg-type
+    (:use :cl
+          :vk-generator/parser/constants
+          :vk-generator/parser/fix-name
+          :vk-generator/parser/xml-utils
+          :vk-generator/parser/make-keyword)
+  (:export :parse-arg-type))
+
 (uiop:define-package :vk-generator/generate
     (:use :cl
           :vk-generator/parser/constants
@@ -58,7 +66,8 @@
           :vk-generator/parser/xml-utils
           :vk-generator/parser/numeric-value
           :vk-generator/parser/extract-vendor-ids
-          :vk-generator/parser/fix-name)
+          :vk-generator/parser/fix-name
+          :vk-generator/parser/parse-arg-type)
   (:export :generate-vk-package))
 
 
