@@ -28,6 +28,7 @@
                              (:file "parser/numeric-value")
                              (:file "parser/xml-utils")
                              (:file "parser/extract-vendor-ids")
+                             (:file "parser/fix-name")
                              (:file "generate")
                              (:file "make-vk")))))
 

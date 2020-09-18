@@ -40,13 +40,21 @@
           :vk-generator/parser/xml-utils)
   (:export :extract-vendor-ids))
 
+(uiop:define-package :vk-generator/parser/fix-name
+    (:use :cl
+     :vk-generator/parser/constants)
+  (:export :fix-type-name
+           :fix-function-name
+           :fix-bit-name))
+
 (uiop:define-package :vk-generator/generate
     (:use :cl
           :vk-generator/parser/constants
           :vk-generator/parser/make-keyword
           :vk-generator/parser/xml-utils
           :vk-generator/parser/numeric-value
-          :vk-generator/parser/extract-vendor-ids)
+          :vk-generator/parser/extract-vendor-ids
+          :vk-generator/parser/fix-name)
   (:export :generate-vk-package))
 
 

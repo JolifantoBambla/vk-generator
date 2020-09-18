@@ -79,29 +79,11 @@
     "visual-id" :ulong))
 (defvar *handle-types*)
 
-(defparameter *vendor-ids* '("KHX"))
-
 ;; not sure if we should remove the type prefixes in struct members or
 ;; not?
 ;;(defparameter *type-prefixes* '("s-" "p-" "pfn-" "pp-"))
 
-(defun fix-type-name (name)
-  (if (not (stringp name))
-      name
-      (let* ((start (if (alexandria:starts-with-subseq "Vk" name) 2 0)))
-        (when (zerop start)
-          (setf name (ppcre:regex-replace-all "PFN_vk" name "Pfn")))
-        (cffi:translate-camelcase-name (subseq name start)
-                                       :special-words (append *special-words*
-                                                              *vendor-ids*)))))
-
-(defun fix-function-name (name)
-  (let* ((start (if (alexandria:starts-with-subseq "vk" name) 2 0)))
-    (cffi:translate-camelcase-name (subseq name start)
-                                   :special-words (append *special-words*
-                                                          *vendor-ids*))))
-
-(defun parse-arg-type (node gt &key stringify)
+(defun parse-arg-type (node gt vendor-ids &key stringify)
   (let* ((type-node (xpath:evaluate "type" node))
          (.type (xps type-node))
          (values (xps (xpath:evaluate "@values" node)))
@@ -110,7 +92,7 @@
          (name (cffi:translate-camelcase-name
                 (xps (xpath:evaluate "name" node))
                 :special-words *special-words*))
-         (type (or (gethash .type *vk-platform*) (fix-type-name .type)))
+         (type (or (gethash .type *vk-platform*) (fix-type-name .type vendor-ids)))
          (prefix (xps (xpath:evaluate "type/preceding-sibling::text()" node)))
          (suffix (xps (xpath:evaluate "type/following-sibling::text()" node)))
          (namesuf (xps (xpath:evaluate "name/following-sibling::text()" node)))
@@ -233,13 +215,6 @@
         (setf (caddr desc) (parse-integer x))))
     desc))
 
-(defun fix-bit-name (name &key (prefix "VK_"))
-  ;; fixme: cache compiled regex instead of rebuilding from string on every call
-  (substitute #\- #\_
-              (ppcre:regex-replace-all (format nil "(^~a|_BIT(~{_~a~^|~})?$)"
-                                               prefix *vendor-ids*)
-                                       name "")))
-
 ;; todo: split this up into parser-functions & writer-functions
 (defun generate-vk-package (vk-xml-pathname out-dir)
   ;; read from data files
@@ -274,8 +249,8 @@
            (get-type/f (name)
              (cdr (assoc name types :test (lambda (a b)
                                             (equalp
-                                             (fix-type-name a)
-                                             (fix-type-name b)))))))
+                                             (fix-type-name a vendor-ids)
+                                             (fix-type-name b vendor-ids)))))))
       ;; remove some other text from the comment if present
       (let ((s (search "This file, vk.xml, is the " copyright)))
         (when s (setf copyright (string-trim '(#\space #\tab #\newline #\return)
@@ -290,15 +265,12 @@
         (setf *vk-api-version* (map 'list 'parse-integer
                                     (nth-value 1 (ppcre::scan-to-strings "\\((\\d+),\\W*(\\d+),\\W*(\\d+)\\)" api)))))
 
-      ;; todo: remove this and only work with vendor-ids
-      (setf *vendor-ids* vendor-ids)
-
       ;; extra pass to find struct/unions so we can mark them correctly
       ;; in member types
       (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[(@category=\"struct\") or (@category=\"union\")]" vk.xml))
         (let ((name (xps (xpath:evaluate "@name" node)))
               (category (xps (xpath:evaluate "@category" node))))
-          (setf (gethash (fix-type-name name) structs)
+          (setf (gethash (fix-type-name name vendor-ids) structs)
                 (make-keyword category))))
 
       ;; and extract "API constants" enum first too for member array sizes
@@ -375,7 +347,7 @@
                (assert (and name type))
                (format t "new base type ~s -> ~s~%" name type)
                (set-type (list :basetype (or (gethash type *vk-platform*)
-                                          (fix-type-name type)))))
+                                          (fix-type-name type vendor-ids)))))
               ((string= category "bitmask")
                (format t "new bitmask ~s -> ~s~%  ~s~%" name type
                        (mapcar 'xps (xpath:all-nodes (xpath:evaluate "@*" node))))
@@ -413,10 +385,10 @@
                                     collect (list (format nil "~a~@[/const~]"
                                                           an const)
                                                   (if (plusp star)
-                                                      `(:pointer ,(fix-type-name at))
-                                                      (fix-type-name at))))))
+                                                      `(:pointer ,(fix-type-name at vendor-ids))
+                                                      (fix-type-name at vendor-ids))))))
                  (let ((c (count #\* rt)))
-                   (setf rt (fix-type-name (string-right-trim '(#\*) rt)))
+                   (setf rt (fix-type-name (string-right-trim '(#\*) rt) vendor-ids))
                    (setf rt (or (gethash rt *vk-platform*) rt))
                    (loop repeat c do (setf rt (list :pointer rt))))
                  (set-type (list :func :type (list rt args)))))
@@ -424,7 +396,9 @@
                    (string= category "union"))
                (let ((members nil))
                  (xpath:do-node-set (member (xpath:evaluate "member" node))
-                   (push (parse-arg-type member (lambda (a) (gethash a structs))
+                   (push (parse-arg-type member
+                                         (lambda (a) (gethash a structs))
+                                         vendor-ids
                                          :stringify returnedonly)
                          members))
                  (setf members (nreverse members))
@@ -532,8 +506,9 @@
                             for externsync = (xps (xpath:evaluate "@externsync" p))
                             for len = (xps (xpath:evaluate "@len" p))
                             for noautovalidity = (xps (xpath:evaluate "@noautovalidity" p))
-                            for desc = (parse-arg-type p (lambda (a)
-                                                           (gethash a structs))
+                            for desc = (parse-arg-type p
+                                                       (lambda (a) (gethash a structs))
+                                                       vendor-ids
                                                        :stringify t)
                             for attribs = (attrib-names p)
                             do
@@ -655,20 +630,20 @@
                                               (eql (second x) :basetype)))
                                        types)
               do (format out "~((defctype ~a ~s)~)~%~%"
-                         (fix-type-name name) (second attribs)))
+                         (fix-type-name name vendor-ids) (second attribs)))
         (format out "(defctype handle :pointer)~%")
         (format out "#.(if (= 8 (foreign-type-size :pointer))~%  '(defctype non-dispatch-handle :pointer)~%  '(defctype non-dispatch-handle :uint64))~%~%")
         ;; misc OS types that are just passed around as pointers
         (loop for name in *opaque-types*
               ;; fixme: is there a better type to use here? or use empty struct?
               do (format out "~((defctype ~a :void)~)~%~%"
-                         (fix-type-name name)))
+                         (fix-type-name name vendor-ids)))
         (loop for (name type) on *misc-os-types* by #'cddr
               do (format out "~((defctype ~a ~s)~)~%~%"
-                         (fix-type-name name) type))
+                         (fix-type-name name vendor-ids) type))
         (loop for name in *opaque-struct-types*
               do (format out "~((defcstruct ~a)~)~%~%"
-                         (fix-type-name name)))
+                         (fix-type-name name vendor-ids)))
         ;; handles
         (loop for (name . attribs) in (remove-if-not
                                        (lambda (x)
@@ -681,7 +656,7 @@
               ;; on 32bit platform, 'non-dispatch' handles are 64bit int,
               ;; otherwise pointer to foo_T struct
               do (format out "(~(defctype ~a ~a~))~%~%"
-                         (fix-type-name name)
+                         (fix-type-name name vendor-ids)
                          (car attribs)))
         ;; bitfields
         (loop for (name . attribs) in (sort (alexandria:hash-table-alist bitfields)
@@ -693,9 +668,9 @@
                              (second (when requires
                                        (get-type requires))))
               for prefix = "VK_"
-              for fixed-name = (string (fix-type-name name))
+              for fixed-name = (string (fix-type-name name vendor-ids))
               do (format out "(defbitfield (~(~a~@[ ~a~]~))" fixed-name
-                         (when (stringp base-type) (fix-type-name base-type)))
+                         (when (stringp base-type) (fix-type-name base-type vendor-ids)))
                  ;; possibly shouldn't strip prefix from things like
                  ;; VK_QUERY_RESULT_64_BIT or VK_SAMPLE_COUNT_1_BIT where
                  ;; only :64 or :1 is left?
@@ -707,7 +682,7 @@
                  (loop for ((k . v) . more) on bits
                        for comment = (getf (cdr v) :comment)
                        do (format out "~%  (:~(~a~) #x~x)"
-                                  (fix-bit-name k :prefix prefix)
+                                  (fix-bit-name k vendor-ids :prefix prefix)
                                   (first v))
                        unless more
                          do (format out ")")
@@ -727,7 +702,7 @@
               for requires = (getf (cddr attribs) :requires)
               for bits =  (second attribs)
               for prefix = "VK_"
-              for fixed-name = (string (fix-type-name name))
+              for fixed-name = (string (fix-type-name name vendor-ids))
               unless (or (eq type :bitmask)
                          (and (not bits)
                               (alexandria:ends-with-subseq "Bits" name)))
@@ -744,7 +719,7 @@
                                       minimize (or (mismatch expand k) 0))))
                          (when (> l (length prefix))
                            (setf prefix (subseq expand 0 l)))))
-                     (let* ((p (loop for v in *vendor-ids*
+                     (let* ((p (loop for v in vendor-ids
                                        thereis (search v fixed-name)))
                             (n (format nil "VK_~a"
                                        (substitute #\_ #\-
@@ -759,7 +734,7 @@
                          for comment = (getf (cdr v) :comment)
                          for ext = (getf (cdr v) :ext)
                          do (format out "~%  (:~(~a~) ~:[#x~x~;~d~])"
-                                    (string-trim '(#\-) (fix-bit-name k :prefix prefix))
+                                    (string-trim '(#\-) (fix-bit-name k vendor-ids :prefix prefix))
                                     (minusp (first v)) (first v))
                          unless more
                            do (format out ")")
@@ -771,7 +746,7 @@
                      ;; enough to print out to users in errors
                      (format out "(defparameter *result-comments*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
                              (loop for (k nil . v) in bits
-                                   collect (string-trim '(#\-) (fix-bit-name k :prefix prefix))
+                                   collect (string-trim '(#\-) (fix-bit-name k vendor-ids :prefix prefix))
                                    collect (getf v :comment)))))
 
         ;; function pointer types
@@ -783,7 +758,7 @@
                                             'string< :key 'car)
               do (format out "~( ~<;; ~@;~a~;~:>~%(defctype ~a :pointer)~)~%~%"
                          (list (cons "defcallback x" (getf (cdr attribs) :type)))
-                         (fix-type-name name)))
+                         (fix-type-name name vendor-ids)))
 
         ;; structs/unions
         (loop with dumped = (make-hash-table :test 'equal)
@@ -799,7 +774,7 @@
                         (if (and (consp name)
                                  (member (car name) '(:pointer :struct :union)))
                             (dump (second name))
-                            (when (and (gethash (fix-type-name name) structs)
+                            (when (and (gethash (fix-type-name name vendor-ids) structs)
                                        (not (gethash name dumped)))
                               (let* ((attribs (get-type/f name))
                                      (members (getf (cddr attribs) :members)))
@@ -810,7 +785,7 @@
                                 (loop for (nil mt) in members
                                       do (dump mt))
                                 (format out "(defc~(~a~) ~(~a~)" (first attribs)
-                                        (fix-type-name name))
+                                        (fix-type-name name vendor-ids))
                                 (format out
                                         "~{~%  ~1{(:~(~a ~s~@[ :count ~a~])~^#|~@{~a~^ ~}|#~)~}~}"
                                         members)
@@ -836,13 +811,13 @@
               do (format out "(~a (~s ~(~a) ~a~)"
                          (if ext *ext-definer* *core-definer*)
                          name
-                         (fix-function-name name)
+                         (fix-function-name name vendor-ids)
                          (cond
                            ((string-equal ret "VkResult")
                             "checked-result")
                            ((keywordp ret)
                             (format nil "~s" ret))
-                           (t (fix-type-name ret))))
+                           (t (fix-type-name ret vendor-ids))))
                  (loop with *print-right-margin* = 10000
                        for (arg . opts) in args
                        do (format out "~&  ~1{~((~a ~s)~)~}" arg)
@@ -860,11 +835,11 @@
         (loop for (type . (typetype)) in (sort (copy-list types)
                                                'string< :key 'car)
               do (format out "~(    #:~a ;; ~s~)~%"
-                         (fix-type-name type) typetype))
+                         (fix-type-name type vendor-ids) typetype))
         (format out "~%")
         (loop for (func) in (sort (alexandria:hash-table-alist funcs)
                                   'string< :key 'car)
-              do (format out "~(    #:~a~)~%" (fix-function-name func)))
+              do (format out "~(    #:~a~)~%" (fix-function-name func vendor-ids)))
         (format out "))~%"))
 
       ;; write struct translators
@@ -883,10 +858,10 @@
                                             'string< :key 'car)
               for members = (getf (cddr attribs) :members)
               do (format out "~((def-translator ~a (deref-~a ~:[:fill fill-~a~;~])~)~%"
-                         (fix-type-name name)
-                         (fix-type-name name)
+                         (fix-type-name name vendor-ids)
+                         (fix-type-name name vendor-ids)
                          (getf (cddr attribs) :returned-only)
-                         (fix-type-name name))
+                         (fix-type-name name vendor-ids))
                  (loop for m in members
                        do (format out "~&  ~((:~{~s~^ ~})~)" m))
                  (format out ")~%~%")))
