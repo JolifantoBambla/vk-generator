@@ -6,13 +6,11 @@
 (defun make-vk (&key
                   (version (car (last *versions*)))
                   (package-dir (first ql:*local-project-directories*) package-dir-supplied-p)
-                  (download-dir
-                   #+win32 #P"\\temp\\" ; test if this is really the right path on windows..
-                   #-win32 #P"/tmp/")
+                  (vk-xml-dir (uiop:temporary-directory))
                   (force-download nil))
   (declare (type string version))
   (declare (type pathname package-dir))
-  (declare (type pathname download-dir))
+  (declare (type pathname vk-xml-dir))
   "Generates the package VK from an xml file.
 
   :VERSION        --- The version tag of the Vulkan version for which the VK package is generated.
@@ -21,12 +19,13 @@
   :PACKAGE-DIR    --- The directory where the VK package is created.
                       The sources of the created package will lie in <:PACKAGE-DIR>/vk.
                       Default: (FIRST QL:*LOCAL-PROJECT-DIRECTORIES*)
-  :DOWNLOAD-DIR   --- The directory to which the Vulkan documentation is downloaded and to which the vk.xml is extracted.
-                      If either a vk-<:VERSION>.xml or a Vulkan-Docs-<:VERSION>.zip exists at DOWNLOAD-DIR and :FORCE-DOWNLOAD is NIL, the extraction of the xml file and/or the download of the Vulkan documentation is omitted.
-                      Default: #P\"/tmp\"
-  :FORCE-DOWNLOAD --- If this is truthy the Vulkan documentation will be downloaded even if it already exists in the file system.
+  :VK-XML-DIR     --- The directory to which the vk.xml is downloaded from the Vulkan-Docs GitHub repository.
+                      If vk-<:VERSION>.xml exists at VK-XML-DIR and :FORCE-DOWNLOAD is NIL, the download of the vk.xml file is omitted.
+                      Default: UIOP:TEMPORARY-DIRECTORY
+  :FORCE-DOWNLOAD --- If this is truthy the vk.xml file will be downloaded even if it already exists in the file system.
                       Default: NIL
 
+See *VERSIONS*
 See ENSURE-VK-XML
 "
   (unless (find version *versions* :test #'string=)
@@ -37,6 +36,6 @@ See ENSURE-VK-XML
   (let ((vk-dir (merge-pathnames (make-pathname :directory '(:relative "vk")) package-dir)))
     (ensure-directories-exist vk-dir :verbose t)
     (generate-vk-package
-     (ensure-vk-xml version :vulkan-docs-dir download-dir :force-download force-download)
+     (ensure-vk-xml version :vk-xml-dir vk-xml-dir :force-download force-download)
      vk-dir)))
 

@@ -176,12 +176,23 @@
     "v1.2.150"
     "v1.2.151"
     "v1.2.152"
-    "v1.2.153")) ;; all versions supported
+    "v1.2.153")
+  "A list of valid version tags in the Vulkan-Docs GitHub repository.
+
+See https://github.com/KhronosGroup/Vulkan-Docs/releases
+") ;; all versions supported
 
 (defun get-xml-path (version)
+  (declare (type string version))
+  "Returns the path to the vk.xml file in the Vulkan-Docs Github repository for a given version tag.
+
+The Vulkan-Docs GitHub repository was restructured between v1.1.71 and v1.1.72.
+
+See *VERSIONS*
+See https://github.com/KhronosGroup/Vulkan-Docs
+"
   (let ((version-index (position version *versions* :test #'string=)))
     (unless version-index (format t "Unknown version: ~a, trying anyway ..." version))
     (if (or (not version-index) (< (position version *versions* :test #'string=) 91))
         (make-pathname :directory '(:relative "src" "spec"))
         (make-pathname :directory '(:relative "xml")))))
-
