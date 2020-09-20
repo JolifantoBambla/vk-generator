@@ -14,6 +14,25 @@
            :extract-vk-xml
            :ensure-vk-xml))
 
+(uiop:define-package :vk-generator/vk-spec
+    (:use :cl)
+  (:export :vk-spec
+           :version
+           :copyright
+           :vendor-ids
+           :types
+           :bitfields
+           :enums
+           :structs
+           :functions
+           :function-apis
+           :extension-names
+           :handle-types
+           :alias-names
+           :get-type
+           :get-type/f
+           :set-type))
+
 ;;; PARSER
 
 (uiop:define-package :vk-generator/parser/constants
@@ -74,7 +93,8 @@
           :vk-generator/parser/extract-vendor-ids
           :vk-generator/parser/fix-name
           :vk-generator/parser/parse-arg-type
-          :vk-generator/write-types-file)
+          :vk-generator/write-types-file
+          :vk-generator/vk-spec)
   (:export :generate-vk-package))
 
 

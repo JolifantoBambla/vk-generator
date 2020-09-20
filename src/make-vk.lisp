@@ -36,6 +36,7 @@ See ENSURE-VK-XML
   (let ((vk-dir (merge-pathnames (make-pathname :directory '(:relative "vk")) package-dir)))
     (ensure-directories-exist vk-dir :verbose t)
     (generate-vk-package
+     version
      (ensure-vk-xml version :vk-xml-dir vk-xml-dir :force-download force-download)
      vk-dir)))
 

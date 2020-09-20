@@ -23,6 +23,7 @@
                 :components ((:file "package")
                              (:file "versions")
                              (:file "ensure-vk-xml")
+                             (:file "vk-spec")
                              (:file "parser/constants")
                              (:file "parser/make-keyword")
                              (:file "parser/numeric-value")

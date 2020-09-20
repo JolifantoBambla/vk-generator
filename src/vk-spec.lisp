@@ -12,7 +12,7 @@
     :initarg :copyright
     :reader copyright)
    (vendor-ids
-    :initarg :vendor-id
+    :initarg :vendor-ids
     :initform (list)
     :accessor vendor-ids)
    (types ;; todo: this is a list for legacy reasons, but should probably also be a hash table
@@ -21,11 +21,11 @@
     :accessor types)
    (bitfields
     :initarg :bitfields
-    :iniform (make-hash-table :test 'equal)
+    :initform (make-hash-table :test 'equal)
     :accessor bitfields)
    (enums
     :initarg :enums
-    :iniform (make-hash-table :test 'equal)
+    :initform (make-hash-table :test 'equal)
     :accessor enums)
    (structs
     :initarg :structs
@@ -49,7 +49,7 @@
     :accessor handle-types)
    (alias-names ;; todo: handle aliases
     :initarg :alia-names
-    :iniform (list)
+    :initform (list)
     :accessor alias-names))
   (:documentation "Vulkan Specification"))
 

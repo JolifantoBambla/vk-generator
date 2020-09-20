@@ -42,54 +42,40 @@
 
 (defparameter *api-constants* (make-hash-table :test 'equal))
 
-(defvar *handle-types*)
-
 ;; not sure if we should remove the type prefixes in struct members or
 ;; not?
 ;;(defparameter *type-prefixes* '("s-" "p-" "pfn-" "pp-"))
-          
+
+(defun parse-copyright-notice (vk.xml)
+  "Extracts the copyright notice from a parsed vk.xml."
+  (let* ((copyright (xpath:string-value
+                     (xpath:evaluate "/registry/comment" vk.xml)))
+         (s (search "This file, vk.xml, is the " copyright)))
+    ;; remove some other text from the comment if present
+    (when s (setf copyright (string-trim '(#\space #\tab #\newline #\return)
+                                         (subseq copyright 0 s))))
+      ;; make sure we still have a copyright notice
+      (assert (search "Copyright" copyright))
+    copyright))
+
 ;; todo: split this up into parser-functions & writer-functions
-(defun generate-vk-package (vk-xml-pathname out-dir)
+(defun generate-vk-package (version vk-xml-pathname out-dir)
   ;; read from data files
   (let* ((vk-dir out-dir)
          (binding-package-file (merge-pathnames "bindings-package.lisp" vk-dir))
          (translators-file (merge-pathnames "translators.lisp" vk-dir))
          (types-file (merge-pathnames "types.lisp" vk-dir))
          (funcs-file (merge-pathnames "funcs.lisp" vk-dir))
-         #++(name-map (read-name-map vk-dir))
-         #++(types (read-known-types vk-dir))
          (vk.xml (cxml:parse-file vk-xml-pathname
                                   (cxml:make-whitespace-normalizer
                                    (stp:make-builder))))
-         (copyright (xpath:string-value
-                     (xpath:evaluate "/registry/comment" vk.xml)))
-         (bitfields (make-hash-table :test 'equal))
-         #++(types (alexandria:copy-hash-table *vk-platform* :test 'equal))
-         (types nil) ;; structs are ordered, so use an alist (actually need to order by hand anyway, so probably should switch back to hash)
-         (enums (make-hash-table :test 'equal))
-         (structs (make-hash-table :test 'equal))
-         (funcs (make-hash-table :test 'equal))
-         (function-apis (make-hash-table :test 'equal))
-         (extension-names (make-hash-table :test 'equal))
-         (*handle-types* (make-hash-table :test 'equal))
-         ;; todo: handle aliases - for now alias names are stored here so processing can be skipped for them further down
-         (alias-names nil)
-         #++(old-bindings (load-bindings vk-dir))
-         #++(old-enums (load-enums vk-dir))
-         (vendor-ids (extract-vendor-ids vk.xml))) ;; extract tags / vendor-ids
-    (flet ((get-type (name)
-             (cdr (assoc name types :test 'string=)))
-           (get-type/f (name)
-             (cdr (assoc name types :test (lambda (a b)
-                                            (equalp
-                                             (fix-type-name a vendor-ids)
-                                             (fix-type-name b vendor-ids)))))))
+
+         (vk-spec (make-instance 'vk-spec
+                                 :version version
+                                 :copyright (parse-copyright-notice vk.xml)
+                                 :vendor-ids (extract-vendor-ids vk.xml)))) ;; extract tags / vendor-ids
+    (flet () ;; todo: remove this flet
       ;; remove some other text from the comment if present
-      (let ((s (search "This file, vk.xml, is the " copyright)))
-        (when s (setf copyright (string-trim '(#\space #\tab #\newline #\return)
-                                             (subseq copyright 0 s)))))
-      ;; make sure we still have a copyright notice
-      (assert (search "Copyright" copyright))
 
       ;; extract version info
       (let ((api (xpath:string-value
@@ -103,7 +89,7 @@
       (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[(@category=\"struct\") or (@category=\"union\")]" vk.xml))
         (let ((name (xps (xpath:evaluate "@name" node)))
               (category (xps (xpath:evaluate "@category" node))))
-          (setf (gethash (fix-type-name name vendor-ids) structs)
+          (setf (gethash (fix-type-name name (vendor-ids vk-spec)) (structs vk-spec))
                 (make-keyword category))))
 
       ;; and extract "API constants" enum first too for member array sizes
@@ -121,7 +107,7 @@
       ;; extract handle types so we can mark them as pointers for translators
       (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[(@category=\"handle\")]" vk.xml))
         (let ((name (xps (xpath:evaluate "name" node))))
-          (setf (gethash name *handle-types*) t)))
+          (setf (gethash name (handle-types vk-spec)) t)))
 
       ;; extract types
       ;; todo:? VK_DEFINE_HANDLE VK_DEFINE_NON_DISPATCHABLE_HANDLE
@@ -155,11 +141,7 @@
                                          "allowduplicate"
                                          )
                                        :test 'string=)))
-          (flet ((set-type (value)
-                   (let ((name (or name @name)))
-                     (if (get-type name)
-                         (assert (equalp value (get-type name)))
-                         (push (cons name value) types)))))
+          (flet () ;; todo: remove this flet
             (cond
               ((string= requires "vk_platform")
                ;; make sure we have a mapping for everything in vk_platform.h
@@ -170,7 +152,7 @@
                (unless (gethash @name *vk-platform*)
                  (format t "Unknown platform type ~s from ~s (~s)?~%" @name requires name)))
               (alias
-               (push @name alias-names)
+               (push @name (alias-names vk-spec))
                (warn "ALIAS NOT HANDLED YET: ~s is alias for ~s and has category ~a~%" @name alias category))
               ((and (string= category "basetype")
                     (not (string= prefix "typedef")))
@@ -179,13 +161,17 @@
                ;; basetypes
                (assert (and name type))
                (format t "new base type ~s -> ~s~%" name type)
-               (set-type (list :basetype (or (gethash type *vk-platform*)
-                                          (fix-type-name type vendor-ids)))))
+               (set-type vk-spec
+                         (or name @name)
+                         (list :basetype (or (gethash type *vk-platform*)
+                                          (fix-type-name type (vendor-ids vk-spec))))))
               ((string= category "bitmask")
                (format t "new bitmask ~s -> ~s~%  ~s~%" name type
                        (mapcar 'xps (xpath:all-nodes (xpath:evaluate "@*" node))))
-               (setf (gethash name bitfields) (list requires :type type))
-               (set-type (list :bitmask type)))
+               (setf (gethash name (bitfields vk-spec)) (list requires :type type))
+               (set-type vk-spec
+                         (or name @name)
+                         (list :bitmask type)))
               ((string= category "handle")
                (let ((dispatch (cond
                                  ((string= type "VK_DEFINE_HANDLE")
@@ -195,11 +181,15 @@
                                  (t
                                   (error "unknown handle type ~s?" type)))))
                  (format t "new handle ~s / ~s ~s~%" parent name type)
-                 (set-type (list dispatch type))))
+                 (set-type vk-spec
+                           (or name @name)
+                           (list dispatch type))))
               ((string= category "enum")
                (assert (not (or requires type name parent)))
                (format t "new enum type ~s ~s~%" @name type)
-               (set-type (list :enum type)))
+               (set-type vk-spec
+                         (or name @name)
+                         (list :enum type)))
               ((string= category "funcpointer")
                (format t "new function pointer type ~s ~s~%" name type*)
                (let* ((types (mapcar 'xps (xpath:all-nodes (xpath:evaluate "type" node))))
@@ -218,28 +208,32 @@
                                     collect (list (format nil "~a~@[/const~]"
                                                           an const)
                                                   (if (plusp star)
-                                                      `(:pointer ,(fix-type-name at vendor-ids))
-                                                      (fix-type-name at vendor-ids))))))
+                                                      `(:pointer ,(fix-type-name at (vendor-ids vk-spec)))
+                                                      (fix-type-name at (vendor-ids vk-spec)))))))
                  (let ((c (count #\* rt)))
-                   (setf rt (fix-type-name (string-right-trim '(#\*) rt) vendor-ids))
+                   (setf rt (fix-type-name (string-right-trim '(#\*) rt) (vendor-ids vk-spec)))
                    (setf rt (or (gethash rt *vk-platform*) rt))
                    (loop repeat c do (setf rt (list :pointer rt))))
-                 (set-type (list :func :type (list rt args)))))
+                 (set-type vk-spec
+                           (or name @name)
+                           (list :func :type (list rt args)))))
               ((or (string= category "struct")
                    (string= category "union"))
                (let ((members nil))
                  (xpath:do-node-set (member (xpath:evaluate "member" node))
                    (push (parse-arg-type member
-                                         (lambda (a) (gethash a structs))
-                                         vendor-ids
+                                         (lambda (a) (gethash a (structs vk-spec)))
+                                         (vendor-ids vk-spec)
                                          *api-constants*
-                                         *handle-types*
+                                         (handle-types vk-spec)
                                          :stringify returnedonly)
                          members))
                  (setf members (nreverse members))
                  (format t "new ~s ~s: ~%~{  ~s~^~%~}~%"
                          category @name members)
-                 (set-type `(,(if (string= category "struct")
+                 (set-type vk-spec
+                           (or name @name)
+                           `(,(if (string= category "struct")
                                   :struct
                                   :union)
                              , @name
@@ -259,7 +253,7 @@
                (namespace (xps (xpath:evaluate "@namespace" node)))
                (attribs  (attrib-names node))
                (enums (xpath:all-nodes (xpath:evaluate "enum" node)))
-               (enum-type (get-type name)))
+               (enum-type (get-type vk-spec name)))
           ;; make sure nobody added any attributes we might care about
           (assert (not (set-difference attribs
                                        '("namespace" "name"
@@ -270,10 +264,10 @@
             (if (and (not enum-type)
                      (string= name "VkSemaphoreCreateFlagBits"))
                 (progn
-                  (push (cons name (list :enum nil)) types)
+                  (push (cons name (list :enum nil)) (types vk-spec))
                   (format t "new enum type ~s~%" name)
-                  (setf enum-type (get-type name)))
-                (assert (get-type name))))
+                  (setf enum-type (get-type vk-spec name)))
+                (assert (get-type vk-spec  name))))
           (assert (not (second enum-type)))
           (loop for enum in enums
                 for name2 = (xps (xpath:evaluate "@name" enum))
@@ -298,8 +292,8 @@
             (setf (getf (cddr enum-type) :type) (make-keyword type))
             (format t "add bitmask ~s ~s~%" name type)
             (when (and (string= type "bitmask")
-                       (not (gethash name bitfields)))
-              (setf (gethash name bitfields)
+                       (not (gethash name (bitfields vk-spec))))
+              (setf (gethash name (bitfields vk-spec))
                     (list nil :type nil))))
           (when expand
             (setf (getf (cddr enum-type) :expand) expand))
@@ -333,7 +327,7 @@
                                        :test 'string=)))
           (if alias
               (progn
-                (push @name alias-names)
+                (push @name (alias-names vk-spec))
                 (warn "ALIAS NOT HANDLED YET: ~s is alias for ~s~%" @name alias))
               (let ((params
                       (loop for p in .params
@@ -342,10 +336,10 @@
                             for len = (xps (xpath:evaluate "@len" p))
                             for noautovalidity = (xps (xpath:evaluate "@noautovalidity" p))
                             for desc = (parse-arg-type p
-                                                       (lambda (a) (gethash a structs))
-                                                       vendor-ids
+                                                       (lambda (a) (gethash a (structs vk-spec)))
+                                                       (vendor-ids vk-spec)
                                                        *api-constants*
-                                                       *handle-types*
+                                                       (handle-types vk-spec)
                                                        :stringify t)
                             for attribs = (attrib-names p)
                             do
@@ -361,7 +355,7 @@
                 (flet ((kw-list (x &key (translate #'make-keyword))
                          (mapcar translate
                                  (split-sequence:split-sequence #\, x :remove-empty-subseqs t))))
-                  (setf (gethash name funcs)
+                  (setf (gethash name (functions vk-spec))
                         (list (or (gethash type *vk-platform*) type)
                               params
                               :success (kw-list successcodes
@@ -402,16 +396,16 @@
                                        :test 'string=)))
           (if alias
               (progn
-                (push .name alias-names)
+                (push .name (alias-names vk-spec))
                 (warn "ALIAS NOT HANDLED YET: ~s is alias for ~s~%" .name alias))
               (progn
                 (when (and (not extends)
                            (alexandria:ends-with-subseq "_EXTENSION_NAME" .name))
                   ;; todo: do something with the version/ext name enums
-                  (setf (gethash ext extension-names)
+                  (setf (gethash ext (extension-names vk-spec))
                         (ppcre:regex-replace-all "&quot;" value "")))
                 (when extends
-                  (let ((extend (get-type extends)))
+                  (let ((extend (get-type vk-spec extends)))
                     (assert (or (and offset (not value) (not bitpos))
                                 ;; this was a special case for (string= .name "VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAM_TO_EDGE") until version v1.1.70
                                 (and (not offset) value (not bitpos))
@@ -435,28 +429,34 @@
         (let* ((ext (xps (xpath:evaluate "../../@name" node)))
                (name (xps (xpath:evaluate "@name" node)))
                (attribs (attrib-names node)))
-          (if (find name alias-names :test #'string=)
+          (if (find name (alias-names vk-spec) :test #'string=)
               (warn "ALIAS NOT HANDLED YET: ~s is an alias~%" name) 
               (progn
                 (assert (not (set-difference attribs
                                              '("name")
                                              :test 'string=)))
-                (assert (gethash name funcs))
-                (setf (getf (cddr (gethash name funcs)) :ext)
+                (assert (gethash name (functions vk-spec)))
+                (setf (getf (cddr (gethash name (functions vk-spec))) :ext)
                       ext)
                 (format t "extf: ~s ~s~%" name ext)))))
 
-      (setf types (nreverse types))
+      (setf (types vk-spec) (nreverse (types vk-spec)))
  
       ;; WRITE PACKAGE 
-      (write-types-file types-file copyright extension-names types bitfields structs vendor-ids)
+      (write-types-file types-file
+                        (copyright vk-spec)
+                        (extension-names vk-spec)
+                        (types vk-spec)
+                        (bitfields vk-spec)
+                        (structs vk-spec)
+                        (vendor-ids vk-spec))
 
       ;; write functions file
       (with-open-file (out funcs-file :direction :output :if-exists :supersede)
         (format out ";;; this file is automatically generated, do not edit~%")
-        (format out "#||~%~a~%||#~%~%" copyright)
+        (format out "#||~%~a~%||#~%~%" (copyright vk-spec))
         (format out "(in-package #:cl-vulkan-bindings)~%~%")
-        (loop for (name . attribs) in (sort (alexandria:hash-table-alist funcs)
+        (loop for (name . attribs) in (sort (alexandria:hash-table-alist (functions vk-spec))
                                             'string< :key 'car)
               for ret = (first attribs)
               for args = (second attribs)
@@ -468,13 +468,13 @@
               do (format out "(~a (~s ~(~a) ~a~)"
                          (if ext *ext-definer* *core-definer*)
                          name
-                         (fix-function-name name vendor-ids)
+                         (fix-function-name name (vendor-ids vk-spec))
                          (cond
                            ((string-equal ret "VkResult")
                             "checked-result")
                            ((keywordp ret)
                             (format nil "~s" ret))
-                           (t (fix-type-name ret vendor-ids))))
+                           (t (fix-type-name ret (vendor-ids vk-spec)))))
                  (loop with *print-right-margin* = 10000
                        for (arg . opts) in args
                        do (format out "~&  ~1{~((~a ~s)~)~}" arg)
@@ -485,18 +485,18 @@
       (with-open-file (out binding-package-file
                            :direction :output :if-exists :supersede)
         (format out ";;; this file is automatically generated, do not edit~%")
-        (format out "#||~%~a~%||#~%~%" copyright)
+        (format out "#||~%~a~%||#~%~%" (copyright vk-spec))
         (format out "(defpackage #:cl-vulkan-bindings~%  (:use #:cl #:cffi)~%")
         (format out "  (:nicknames #:%vk)~%")
         (format out "  (:export~%")
-        (loop for (type . (typetype)) in (sort (copy-list types)
+        (loop for (type . (typetype)) in (sort (copy-list (types vk-spec))
                                                'string< :key 'car)
               do (format out "~(    #:~a ;; ~s~)~%"
-                         (fix-type-name type vendor-ids) typetype))
+                         (fix-type-name type (vendor-ids vk-spec)) typetype))
         (format out "~%")
-        (loop for (func) in (sort (alexandria:hash-table-alist funcs)
+        (loop for (func) in (sort (alexandria:hash-table-alist (functions vk-spec))
                                   'string< :key 'car)
-              do (format out "~(    #:~a~)~%" (fix-function-name func vendor-ids)))
+              do (format out "~(    #:~a~)~%" (fix-function-name func (vendor-ids vk-spec))))
         (format out "))~%"))
 
       ;; write struct translators
@@ -504,21 +504,21 @@
       (with-open-file (out translators-file
                            :direction :output :if-exists :supersede)
         (format out ";;; this file is automatically generated, do not edit~%")
-        (format out "#||~%~a~%||#~%~%" copyright)
+        (format out "#||~%~a~%||#~%~%" (copyright vk-spec))
         (format out "(in-package #:cl-vulkan-bindings)~%~%")
         (loop for (name . attribs) in (sort (remove-if-not
                                              (lambda (x)
                                                (and (consp (cdr x))
                                                     (member (second x)
                                                             '(:struct :union))))
-                                             types)
+                                             (types vk-spec))
                                             'string< :key 'car)
               for members = (getf (cddr attribs) :members)
               do (format out "~((def-translator ~a (deref-~a ~:[:fill fill-~a~;~])~)~%"
-                         (fix-type-name name vendor-ids)
-                         (fix-type-name name vendor-ids)
+                         (fix-type-name name (vendor-ids vk-spec))
+                         (fix-type-name name (vendor-ids vk-spec))
                          (getf (cddr attribs) :returned-only)
-                         (fix-type-name name vendor-ids))
+                         (fix-type-name name (vendor-ids vk-spec)))
                  (loop for m in members
                        do (format out "~&  ~((:~{~s~^ ~})~)" m))
                  (format out ")~%~%")))
