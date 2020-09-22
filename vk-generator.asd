@@ -16,8 +16,7 @@
                #:cxml-stp
                #:split-sequence
                #:trivial-download
-               #:xpath
-               #:zip)
+               #:xpath)
   :components
   ((:module "src"
     :serial t
