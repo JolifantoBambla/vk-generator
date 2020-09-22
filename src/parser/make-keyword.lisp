@@ -27,7 +27,7 @@
 ;;;
 
 
-(in-package :vk-generator/parser/make-keyword)
+(in-package :vk-generator/parser)
 
 (defun make-keyword (name)
   (alexandria:make-keyword (string-upcase name)))

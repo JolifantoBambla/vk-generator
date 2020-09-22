@@ -26,7 +26,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/parser/parse-arg-type)
+(in-package :vk-generator/parser)
 
 
 (defun parse-arg-type (node gt vendor-ids api-constants handle-types &key stringify)

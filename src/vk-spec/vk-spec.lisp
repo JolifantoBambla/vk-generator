@@ -15,6 +15,14 @@
     :initarg :vendor-ids
     :initform (list)
     :accessor vendor-ids)
+   (vk-api-version
+    :initarg :vk-api-version
+    :initform (list)
+    :accessor vk-api-version)
+   (api-constants
+    :initarg :api-constants
+    :initform (make-hash-table :test 'equal)
+    :accessor api-constants)
    (types ;; todo: this is a list for legacy reasons, but should probably also be a hash table
     :initarg :types
     :initform (list)
@@ -52,18 +60,3 @@
     :initform (list)
     :accessor alias-names))
   (:documentation "Vulkan Specification"))
-
-(defun get-type (vk-spec name)
-  (cdr (assoc name (types vk-spec) :test 'string=)))
-
-(defun get-type/f (vk-spec name)
-  (cdr (assoc name (types vk-spec) :test (lambda (a b)
-                                           (equalp
-                                            (fix-type-name a (vendor-ids vk-spec))
-                                            (fix-type-name b (vendor-ids vk-spec)))))))
-
-(defun set-type (vk-spec name value)
-  (let ((existing-type (get-type vk-spec name)))
-    (if existing-type
-        (assert (equalp value existing-type))
-        (push (cons name value) (types vk-spec)))))

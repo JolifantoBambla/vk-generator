@@ -26,28 +26,36 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/parser/fix-name)
+(in-package :vk-generator/vk-spec)
 
+(defun get-type (vk-spec name)
+  "Gets the type description for a given NAME from a VK-SPEC instance.
 
-(defun fix-type-name (name vendor-ids)
-  (if (not (stringp name))
-      name
-      (let* ((start (if (alexandria:starts-with-subseq "Vk" name) 2 0)))
-        (when (zerop start)
-          (setf name (ppcre:regex-replace-all "PFN_vk" name "Pfn")))
-        (cffi:translate-camelcase-name (subseq name start)
-                                       :special-words (append *special-words*
-                                                              vendor-ids)))))
+Uses STRING= to compare type descriptions.
 
-(defun fix-function-name (name vendor-ids)
-  (let* ((start (if (alexandria:starts-with-subseq "vk" name) 2 0)))
-    (cffi:translate-camelcase-name (subseq name start)
-                                   :special-words (append *special-words*
-                                                          vendor-ids))))
+See VK-SPEC
+"
+  (format t "get-type called ~a ~%" name)
+  (cdr (assoc name (types vk-spec) :test 'string=)))
 
-(defun fix-bit-name (name vendor-ids &key (prefix "VK_"))
-  ;; fixme: cache compiled regex instead of rebuilding from string on every call
-  (substitute #\- #\_
-              (ppcre:regex-replace-all (format nil "(^~a|_BIT(~{_~a~^|~})?$)"
-                                               prefix vendor-ids)
-                                       name "")))
+(defun get-type/f (vk-spec name)
+  "Gets the type description of a given NAME from a VK-SPEC instance.
+
+Uses FIX-TYPE-NAME to compare type descriptions.
+
+See VK-SPEC
+See GET-TYPE
+See FIX-TYPE-NAME
+"
+  (cdr (assoc name (types vk-spec) :test (lambda (a b)
+                                           (equalp
+                                            (fix-type-name a (vendor-ids vk-spec))
+                                            (fix-type-name b (vendor-ids vk-spec)))))))
+
+(defun set-type (vk-spec name value)
+  (format t "set type called ~%")
+  (let ((existing-type (get-type vk-spec name)))
+    (format t "existing type evaluated~%")
+    (if existing-type
+        (assert (equalp value existing-type))
+        (push (cons name value) (types vk-spec)))))

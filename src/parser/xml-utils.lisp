@@ -27,7 +27,7 @@
 ;;;
 
 
-(in-package :vk-generator/parser/xml-utils)
+(in-package :vk-generator/parser)
 
 
 (defun xps (node)

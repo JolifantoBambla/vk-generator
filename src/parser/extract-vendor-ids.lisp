@@ -26,7 +26,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/parser/extract-vendor-ids)
+(in-package :vk-generator/parser)
 
 (defun extract-vendor-ids (vk.xml)
   (let ((vendor-ids '("KHX")))

@@ -22,7 +22,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/parser/numeric-value)
+(in-package :vk-generator/parser)
 
 (defun numeric-value (str)
   (cond

@@ -26,76 +26,66 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/write-types-file)
+(in-package :vk-generator/writer)
 
 
-;;todo: replace get-type and get-type/f with functions from vk-spec
-(defun get-type (name types)
-  (cdr (assoc name types :test 'string=)))
-(defun get-type/f (name types vendor-ids)
-  (cdr (assoc name types :test (lambda (a b)
-                                 (equalp
-                                  (fix-type-name a vendor-ids)
-                                  (fix-type-name b vendor-ids))))))
-
-
-(defun write-extension-names (out extension-names)
+(defun write-extension-names (out vk-spec)
   (format out "(defparameter *extension-names*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~a~^~%     ~})))~%~%"
-          (loop for (k . v) in (alexandria:hash-table-alist extension-names)
+          (loop for (k . v) in (alexandria:hash-table-alist (extension-names vk-spec))
                 collect (ppcre:regex-replace-all
                          "^VK-" (substitute #\- #\_ k) "")
                 collect v)))
 
-(defun write-base-types (out types vendor-ids)
+(defun write-base-types (out vk-spec)
   (loop for (name . attribs) in (remove-if-not
                                  (lambda (x)
                                    (and (consp (cdr x))
                                         (eql (second x) :basetype)))
-                                 types)
+                                 (types vk-spec))
         do (format out "~((defctype ~a ~s)~)~%~%"
-                   (fix-type-name name vendor-ids) (second attribs)))
+                   (fix-type-name name (vendor-ids vk-spec)) (second attribs)))
   (format out "(defctype handle :pointer)~%")
   (format out "#.(if (= 8 (foreign-type-size :pointer))~%  '(defctype non-dispatch-handle :pointer)~%  '(defctype non-dispatch-handle :uint64))~%~%")
         ;; misc OS types that are just passed around as pointers
   (loop for name in *opaque-types*
         ;; fixme: is there a better type to use here? or use empty struct?
         do (format out "~((defctype ~a :void)~)~%~%"
-                   (fix-type-name name vendor-ids)))
+                   (fix-type-name name (vendor-ids vk-spec))))
   (loop for (name type) on *misc-os-types* by #'cddr
         do (format out "~((defctype ~a ~s)~)~%~%"
-                   (fix-type-name name vendor-ids) type))
+                   (fix-type-name name (vendor-ids vk-spec)) type))
   (loop for name in *opaque-struct-types*
         do (format out "~((defcstruct ~a)~)~%~%"
-                   (fix-type-name name vendor-ids))))
+                   (fix-type-name name (vendor-ids vk-spec)))))
 
-(defun write-handles (out types vendor-ids)
+(defun write-handles (out vk-spec)
   (loop for (name . attribs) in (remove-if-not
                                  (lambda (x)
                                    (and (consp (cdr x))
                                         (member (second x)
                                                 '(:handle
                                                   :non-dispatch-handle))))
-                                 types)
+                                 (types vk-spec))
         ;; handles are pointers to foo_T struct
         ;; on 32bit platform, 'non-dispatch' handles are 64bit int,
         ;; otherwise pointer to foo_T struct
         do (format out "(~(defctype ~a ~a~))~%~%"
-                   (fix-type-name name vendor-ids)
+                   (fix-type-name name (vendor-ids vk-spec))
                    (car attribs))))
 
-(defun write-bitfields (out bitfields types vendor-ids)
-  (loop for (name . attribs) in (sort (alexandria:hash-table-alist bitfields)
+(defun write-bitfields (out vk-spec)
+  (loop for (name . attribs) in (sort (alexandria:hash-table-alist (bitfields vk-spec))
                                       'string< :key 'car)
-        for base-type = (second (get-type name types))
+        for base-type = (second (get-type vk-spec name))
         for requires = (first attribs)
         for bits = (if (consp base-type)
                        base-type
                        (second (when requires
-                                 (get-type requires types))))
+                                 (get-type vk-spec requires))))
         for prefix = "VK_"
-        for fixed-name = (string (fix-type-name name vendor-ids))
+        for fixed-name = (string (fix-type-name name (vendor-ids vk-spec)))
         do (format out "(defbitfield (~(~a~@[ ~a~]~))" fixed-name
-                   (when (stringp base-type) (fix-type-name base-type vendor-ids)))
+                   (when (stringp base-type) (fix-type-name base-type (vendor-ids vk-spec))))
            ;; possibly shouldn't strip prefix from things like
            ;; VK_QUERY_RESULT_64_BIT or VK_SAMPLE_COUNT_1_BIT where
            ;; only :64 or :1 is left?
@@ -107,7 +97,7 @@
            (loop for ((k . v) . more) on bits
                  for comment = (getf (cdr v) :comment)
                  do (format out "~%  (:~(~a~) #x~x)"
-                            (fix-bit-name k vendor-ids :prefix prefix)
+                            (fix-bit-name k (vendor-ids vk-spec) :prefix prefix)
                             (first v))
                  unless more
                  do (format out ")")
@@ -115,19 +105,19 @@
                  do (format out " ;; ~a" comment))
            (format out "~:[)~;~]~%~%" bits)))
 
-(defun write-enums (out types vendor-ids)
+(defun write-enums (out vk-spec)
   (loop for (name . attribs) in (sort (remove-if-not
                                        (lambda (x)
                                          (and (consp (cdr x))
                                               (eql (second x) :enum)))
-                                       types)
+                                       (types vk-spec))
                                       'string< :key 'car)
         for type = (getf (cddr attribs) :type)
         for expand = (getf (cddr attribs) :expand)
         for requires = (getf (cddr attribs) :requires)
         for bits =  (second attribs)
         for prefix = "VK_"
-        for fixed-name = (string (fix-type-name name vendor-ids))
+        for fixed-name = (string (fix-type-name name (vendor-ids vk-spec)))
         unless (or (eq type :bitmask)
                    (and (not bits)
                         (alexandria:ends-with-subseq "Bits" name)))
@@ -144,7 +134,7 @@
                            minimize (or (mismatch expand k) 0))))
               (when (> l (length prefix))
                 (setf prefix (subseq expand 0 l)))))
-          (let* ((p (loop for v in vendor-ids
+          (let* ((p (loop for v in (vendor-ids vk-spec)
                           thereis (search v fixed-name)))
                  (n (format nil "VK_~a"
                             (substitute #\_ #\-
@@ -159,7 +149,7 @@
               for comment = (getf (cdr v) :comment)
               for ext = (getf (cdr v) :ext)
               do (format out "~%  (:~(~a~) ~:[#x~x~;~d~])"
-                         (string-trim '(#\-) (fix-bit-name k vendor-ids :prefix prefix))
+                         (string-trim '(#\-) (fix-bit-name k (vendor-ids vk-spec) :prefix prefix))
                          (minusp (first v)) (first v))
               unless more
               do (format out ")")
@@ -171,37 +161,37 @@
           ;; enough to print out to users in errors
           (format out "(defparameter *result-comments*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
                   (loop for (k nil . v) in bits
-                        collect (string-trim '(#\-) (fix-bit-name k vendor-ids :prefix prefix))
+                        collect (string-trim '(#\-) (fix-bit-name k (vendor-ids vk-spec) :prefix prefix))
                         collect (getf v :comment))))))
 
-(defun write-function-pointer-types (out types vendor-ids)
+(defun write-function-pointer-types (out vk-spec)
   (loop for (name . attribs) in (sort (remove-if-not
                                        (lambda (x)
                                          (and (consp (cdr x))
                                               (eql (second x) :func)))
-                                       types)
+                                       (types vk-spec))
                                       'string< :key 'car)
         do (format out "~( ~<;; ~@;~a~;~:>~%(defctype ~a :pointer)~)~%~%"
                    (list (cons "defcallback x" (getf (cdr attribs) :type)))
-                   (fix-type-name name vendor-ids))))
+                   (fix-type-name name (vendor-ids vk-spec)))))
 
-(defun write-structs (out types structs vendor-ids)
+(defun write-structs (out vk-spec)
   (loop with dumped = (make-hash-table :test 'equal)
         for (name . attribs) in (sort (remove-if-not
                                        (lambda (x)
                                          (and (consp (cdr x))
                                               (member (second x)
                                                       '(:struct :union))))
-                                       types)
+                                       (types vk-spec))
                                       'string< :key 'car)
         do (labels
                ((dump (name)
                   (if (and (consp name)
                            (member (car name) '(:pointer :struct :union)))
                       (dump (second name))
-                      (when (and (gethash (fix-type-name name vendor-ids) structs)
+                      (when (and (gethash (fix-type-name name (vendor-ids vk-spec)) (structs vk-spec))
                                  (not (gethash name dumped)))
-                        (let* ((attribs (get-type/f name types vendor-ids))
+                        (let* ((attribs (get-type/f vk-spec name))
                                (members (getf (cddr attribs) :members)))
                                 ;; todo: test if this still works
                                 ;; set dumped true already here to prevent infinite recursion - necessary since v1.1.75
@@ -210,7 +200,7 @@
                           (loop for (nil mt) in members
                                 do (dump mt))
                           (format out "(defc~(~a~) ~(~a~)" (first attribs)
-                                  (fix-type-name name vendor-ids))
+                                  (fix-type-name name (vendor-ids vk-spec)))
                           (format out
                                   "~{~%  ~1{(:~(~a ~s~@[ :count ~a~])~^#|~@{~a~^ ~}|#~)~}~}"
                                   members)
@@ -219,16 +209,16 @@
                           )))))
              (dump name))) )
 
-(defun write-types-file (types-file copyright extension-names types bitfields structs vendor-ids)
+(defun write-types-file (types-file vk-spec)
   (with-open-file (out types-file :direction :output :if-exists :supersede)
     (format out ";;; this file is automatically generated, do not edit~%")
-    (format out "#||~%~a~%||#~%~%" copyright)
+    (format out "#||~%~a~%||#~%~%" (copyright vk-spec))
     (format out "(in-package #:cl-vulkan-bindings)~%~%")
     
-    (write-extension-names out extension-names)
-    (write-base-types out types vendor-ids)
-    (write-handles out types vendor-ids)
-    (write-bitfields out bitfields types vendor-ids)
-    (write-enums out types vendor-ids)
-    (write-function-pointer-types out types vendor-ids)
-    (write-structs out types structs vendor-ids)))
+    (write-extension-names out vk-spec)
+    (write-base-types out vk-spec)
+    (write-handles out vk-spec)
+    (write-bitfields out vk-spec)
+    (write-enums out vk-spec)
+    (write-function-pointer-types out vk-spec)
+    (write-structs out vk-spec)))
