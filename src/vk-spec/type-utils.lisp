@@ -35,7 +35,6 @@ Uses STRING= to compare type descriptions.
 
 See VK-SPEC
 "
-  (format t "get-type called ~a ~%" name)
   (cdr (assoc name (types vk-spec) :test 'string=)))
 
 (defun get-type/f (vk-spec name)
@@ -53,9 +52,7 @@ See FIX-TYPE-NAME
                                             (fix-type-name b (vendor-ids vk-spec)))))))
 
 (defun set-type (vk-spec name value)
-  (format t "set type called ~%")
   (let ((existing-type (get-type vk-spec name)))
-    (format t "existing type evaluated~%")
     (if existing-type
         (assert (equalp value existing-type))
         (push (cons name value) (types vk-spec)))))
