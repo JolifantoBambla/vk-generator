@@ -11,6 +11,7 @@
   :description "A tool to generate Vulkan bindings for Common Lisp from the XML API Registry."
   :depends-on (#:alexandria
                #:cffi
+               #:cl-fad
                #:cl-ppcre
                #:cxml
                #:cxml-stp

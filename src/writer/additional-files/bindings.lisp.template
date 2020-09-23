@@ -24,7 +24,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package #:cl-vulkan-bindings)
+(in-package #:vulkan)
 
 (define-foreign-library vulkan
   #++(:darwin (:framework "?"))

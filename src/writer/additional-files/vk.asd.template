@@ -1,16 +1,14 @@
-(defsystem cl-vulkan
+(defsystem vk
   :description "Common Lisp bindings for Vulkan API."
   :depends-on (cffi alexandria)
   :license "MIT"
   :author "Bart Botta <00003b at gmail.com>"
   :components
-  ((:module "vk"
+  ((:module "src"
     :serial t
-    :components ((:file "bindings-package")
+    :components ((:file "package")
                  (:file "bindings")
                  (:file "types")
                  (:file "extra-types")
                  (:file "funcs")
-                 (:file "translators")
-                 (:file "package")
-                 (:file "wrappers")))))
+                 (:file "translators")))))

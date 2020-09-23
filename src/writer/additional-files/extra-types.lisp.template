@@ -24,7 +24,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package #:cl-vulkan-bindings)
+(in-package #:vulkan)
 
 ;;; used for positive non-zero returns
 (defun %print-vk-cond (condition stream type)
