@@ -35,14 +35,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Multiline step
+      - name: Copy project to quicklisp local-projects
         run: |
-          ls
-          echo "hello"
-          ls ~/quicklisp/local-projects
-          mv ../vk-generator ~/quicklisp/local-projects
+          cp -r ../vk-generator ~/quicklisp/local-projects
 
-      - name: Foo
+      - name: Build docs
         run: |
-          sbcl --non-interactive --eval '(ql:quickload :staple)' --eval '(ql:quickload :vk-generator)' --eval '(progn (staple:generate :vk-generator) (sb-ext:quit))'
+          sbcl \
+            --non-interactive \
+            --eval '(ql:quickload :staple)' \
+            --eval '(ql:quickload :vk-generator)' \
+            --eval '
+              (progn
+                (staple:generate :vk-generator)
+                (sb-ext:quit))
+            '
           cat ~/quicklisp/local-projects/vk-generator/docs/index.html
