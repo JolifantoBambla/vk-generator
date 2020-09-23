@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Setup environment
         run: |
-          apt-get install sbcl
+          sudo apt-get install sbcl
           curl -O https://beta.quicklisp.org/quicklisp.lisp
           curl -O https://beta.quicklisp.org/quicklisp.lisp.asc
           sbcl --noinform --disable-debugger --eval '
