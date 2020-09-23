@@ -41,9 +41,8 @@ jobs:
       - name: Build docs
         working-directory: ~/quicklisp/local-projects
         run: |
-          sbcl --noinform --disable-debugger --eval '
+          sbcl --noinform --disable-debugger --eval '(ql:quickload :staple)' --eval '
             (progn
-              (ql:quickload :staple)
               (staple:generate :vk-generator
               (sb-ext:quit))
           '
