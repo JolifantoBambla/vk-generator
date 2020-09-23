@@ -1,0 +1,54 @@
+# This is a basic workflow to help you get started with Actions
+
+name: build
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ master ]
+    tags:
+      - '*'
+  pull_request:
+    branches: [ master ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - name: Setup environment
+        run: |
+          apt-get install sbcl
+          curl -O https://beta.quicklisp.org/quicklisp.lisp
+          curl -O https://beta.quicklisp.org/quicklisp.lisp.asc
+          sbcl --noinform --disable-debugger --eval '
+            (progn
+              (load "quicklisp.lisp")
+              (quicklisp-quickstart:install)
+              (setf ql-util:*do-not-prompt* t)
+              (ql:add-to-init-file)
+              (sb-ext:quit))
+          '
+          
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          path: ~/quicklisp/local-projects
+
+      # Runs a set of commands using the runners shell
+      - name: Build docs
+        working-directory: ~/quicklisp/local-projects
+        run: |
+          sbcl --noinform --disable-debugger --eval '
+            (progn
+              (ql:quickload :staple)
+              (staple:generate :vk-generator
+              (sb-ext:quit))
+          '
+          cat docs/index.html
