@@ -30,11 +30,17 @@ jobs:
             (let ((ql-util::*do-not-prompt* t))
               (ql:add-to-init-file)
               (sb-ext:quit))'
-          
+    
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout
         uses: actions/checkout@v2
-    
+
+      - name: Multiline step
+        run: |
+          ls
+          echo "hello"
+          ls ~/quicklisp/local-projects
+
       - name: Move project to quicklisp local-projects
         run: |
           mv ../vk-generator ~/quicklisp/local-projects
