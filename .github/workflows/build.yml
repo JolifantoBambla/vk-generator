@@ -35,13 +35,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          path: ~/quicklisp/local-projects
+          path: ./quicklisp/local-projects
 
       # Runs a set of commands using the runners shell
       - name: Build docs
-        working-directory: ~/quicklisp/local-projects
+        working-directory: ./quicklisp/local-projects
         run: |
-          sbcl --noinform --disable-debugger --eval '(ql:quickload :staple)' --eval '
+          ls
+          sbcl --non-interactive --eval '(ql:quickload :staple)' --eval '
             (progn
               (staple:generate :vk-generator)
               (sb-ext:quit))
