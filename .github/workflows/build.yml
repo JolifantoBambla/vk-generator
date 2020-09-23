@@ -40,15 +40,9 @@ jobs:
           ls
           echo "hello"
           ls ~/quicklisp/local-projects
+          mv ../vk-generator/local-projects
 
-      - name: Move project to quicklisp local-projects
+      - name: Foo
         run: |
-          mv ../vk-generator ~/quicklisp/local-projects
-          ls ~/quicklisp/local-projects
-          echo "at least I am trying"
-          sbcl --disable-debugger --eval '(ql:quickload :staple)' --eval '(ql:quickload :vk-generator)' --eval '
-            (progn
-              (staple:generate :vk-generator)
-              (sb-ext:quit))
-          '
+          sbcl --non-interactive --eval '(ql:quickload :staple)' --eval '(ql:quickload :vk-generator)' --eval '(progn (staple:generate :vk-generator) (sb-ext:quit))'
           cat ~/quicklisp/local-projects/vk-generator/docs/index.html
