@@ -31,13 +31,13 @@ jobs:
               (ql:add-to-init-file)
               (sb-ext:quit))'
           ls
-          sbcl --eval '(progn ql:*local-project-directories* (sb-ext:quit))'
+          sbcl --eval '(progn (format t "~a~%" ql:*local-project-directories*) (sb-ext:quit))'
           
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          path: ../quicklisp/local-projects
+          path: ./quicklisp/local-projects
 
       # Runs a set of commands using the runners shell
       - name: Build docs
