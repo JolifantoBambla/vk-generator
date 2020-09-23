@@ -40,7 +40,7 @@ jobs:
           mv ../vk-generator ~/quicklisp/local-projects
           ls ~/quicklisp/local-projects
           echo "at least I am trying"
-          sbcl --disable-debugger --eval '(ql:quickload :staple)' --eval '
+          sbcl --disable-debugger --eval '(ql:quickload :staple)' --eval '(ql:quickload :vk-generator)' --eval '
             (progn
               (staple:generate :vk-generator)
               (sb-ext:quit))
