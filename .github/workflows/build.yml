@@ -49,3 +49,4 @@ jobs:
               (staple:generate :vk-generator)
               (sb-ext:quit))
           '
+          cat ~/quicklisp/local-projects/vk-generator/docs/index.html
