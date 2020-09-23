@@ -46,7 +46,6 @@ jobs:
         
       # Runs a set of commands using the runners shell
       - name: Build docs
-        working-directory: ~/quicklisp/local-projects
         run: |
           ls 
           sbcl --non-interactive --eval '(ql:quickload :staple)' --eval '
@@ -54,4 +53,4 @@ jobs:
               (staple:generate :vk-generator)
               (sb-ext:quit))
           '
-          cat docs/index.html
+          cat ~/quicklisp/local-projects/vk-generator/docs/index.html
