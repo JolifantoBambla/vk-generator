@@ -26,14 +26,10 @@ jobs:
           sudo apt-get install sbcl
           curl -O https://beta.quicklisp.org/quicklisp.lisp
           curl -O https://beta.quicklisp.org/quicklisp.lisp.asc
-          sbcl --noinform --disable-debugger --eval '
-            (progn
-              (load "quicklisp.lisp")
-              (quicklisp-quickstart:install)
-              (setf ql-util:*do-not-prompt* t)
+          sbcl --non-interactive --load quicklisp.lisp --eval '(quicklisp-quickstart:install)' --eval '
+            (let ((ql-util::*do-not-prompt* t))
               (ql:add-to-init-file)
-              (sb-ext:quit))
-          '
+              (sb-ext:quit))'
           
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout
