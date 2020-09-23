@@ -39,10 +39,6 @@ jobs:
         run: |
           mv ../vk-generator ~/quicklisp/local-projects
           ls ~/quicklisp/local-projects
-        
-      # Runs a set of commands using the runners shell
-      - name: Build docs
-        run: |
           echo "at least I am trying"
           sbcl --disable-debugger --eval '(ql:quickload :staple)' --eval '
             (progn
