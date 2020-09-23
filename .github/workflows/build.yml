@@ -43,7 +43,7 @@ jobs:
         run: |
           sbcl --noinform --disable-debugger --eval '(ql:quickload :staple)' --eval '
             (progn
-              (staple:generate :vk-generator
+              (staple:generate :vk-generator)
               (sb-ext:quit))
           '
           cat docs/index.html
