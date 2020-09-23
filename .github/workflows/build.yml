@@ -40,7 +40,7 @@ jobs:
           ls
           echo "hello"
           ls ~/quicklisp/local-projects
-          mv ../vk-generator/local-projects
+          mv ../vk-generator ~/quicklisp/local-projects
 
       - name: Foo
         run: |
