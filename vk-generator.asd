@@ -31,7 +31,9 @@
       ((:file "vk-spec")
        (:file "constants")
        (:file "fix-name")
-       (:file "type-utils")))
+       (:file "type-utils")
+       (:file "xml-utils")
+       (:file "parse")))
      (:module "parser"
       :depends-on ("vk-spec")
       :serial t
