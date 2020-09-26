@@ -7,6 +7,11 @@
   "Checks whether or not the given string STR begins with the string SUBSTR."
   (string= (subseq str 0 (length substr)) substr))
 
+(defun parse-boolean (node)
+  "Checks whether or not the given node NODE holds a string that equals 'true'."
+  (let ((str (xps node)))
+    (and str (string= str "true"))))
+
 (defun parse-modifiers (node)
   (let ((array-sizes nil)
         (bit-count ""))
@@ -51,11 +56,11 @@
 (defun parse-type-info (node)
   "TODO"
   ;; todo: check attributes
-  (let ((type (xps "type" node))
+  (let ((type-name (xps "type" node))
         (prefix (xps (xpath:evaluate "type/preceding-sibling::text()" node)))
         (postfix (xps (xpath:evaluate "type/following-sibling::text()" node))))
     (make-instance 'type-info
-                   :type-name (or type "")
+                   :type-name (or type-name "")
                    :prefix (or prefix "")
                    :postfix (or postfix ""))))
 
@@ -133,10 +138,43 @@
 
 (defun parse-define (node vk-spec)
   "TODO"
-  (let ((xml-line (context-position node))
-        (name (xps (xpath:evaluate "@name" node)))
-        (requires (xps (xpath:evaluate "@requires" node))))
-    (warn "defines not handled yet")))
+  (let* ((xml-line (context-position node))
+         (name (xps (xpath:evaluate "name" node)))
+         (@name (xps (xpath:evaluate "@name" node)))
+         (type (xps (xpath:evaluate "type" node)))
+         (requires (xps (xpath:evaluate "@requires" node)))
+         (args (xps (xpath:evaluate (if type
+                                        "type/following-sibling::text()"
+                                        "name/following-sibling::text()")
+                                    node)))
+         (is-value-p (begins-with-p args "("))
+         (is-struct-p (search "struct" (xps node))))
+    (when (is-struct-p)
+        (assert (not (gethash name (types vk-spec)))
+                ()
+                "Line ~a: type <~a> has already been specified" xml-line name)
+        (setf (gethash name (types vk-spec))
+              :define))
+    (when @name
+      (assert (string= @name "VK_DEFINE_NON_DISPATCHABLE_HANDLE")
+              (@name)
+              "Line ~a: unknown category=define name <~a>" xml-line @name)
+      (setf name @name)
+      (setf is-value-p nil)
+      (setf args (xps node)))    
+    (assert (not (gethash name (defines vk-spec)))
+            ()
+            "Line ~a: define <~a> has already been specified" xml-line name)
+    (setf (gethash name (defines vk-spec))
+          (make-instance 'define
+                         :name name
+                         :lisp-name "TODO: fix me"
+                         :xml-line xml-line
+                         :is-value-p is-value-p
+                         :is-struct-p is-struct-p
+                         :requires requires
+                         :calls type
+                         :args args))))
 
 (defun parse-enum-type (node vk-spec)
   "TODO"
@@ -281,6 +319,87 @@
                                      0 (length (members other-struct)))))
         return (name other-struct)))
 
+(defparameter *ignore-lens*
+  '("null-terminated"
+    "latexmath:[\\lceil{\\mathit{rasterizationSamples} \\over 32}\\rceil]"
+    "2*VK_UUID_SIZE"
+    "2*ename:VK_UUID_SIZE")
+  "A list of <len> attributes in <member> tags.")
+
+(defun parse-struct-member (node structure vk-spec)
+  "TODO"
+  (let* ((xml-line (context-position node))
+         (name-data (parse-name-data node))
+         (type-info (parse-type-info node))
+         (enum-node (xpath:evaluate "enum" node))
+         (len (xps (xpath:evaluate "@len" node)))
+         (no-autovalidity-p (parse-boolean (xpath:evaluate "@noautovalidity" node)))
+         (optional-p (parse-boolean (xpath:evaluate "@optional" node)))
+         (selection (xps (xpath:evaluate "@selection" node)))
+         (selector (xps (xpath:evaluate "@selector" node)))
+         (member-values (xps (xpath:evaluate "@values" node)))
+         (comment (xps (xpath:evaluate "comment" node)))
+         (member-data (make-instance 'member-data
+                                     :name (name name-data)
+                                     :lisp-name "TODO: fix me"
+                                     :xml-line xml-line
+                                     :comment comment
+                                     :array-sizes (array-sizes name-data)
+                                     :bit-count (bit-count name-data)
+                                     :type-info type-info
+                                     :no-autovalidity-p no-autovalidity-p
+                                     :optional-p optional-p
+                                     :selection selection
+                                     :selector selector
+                                     :member-values (split-sequence:split-sequence #, member-values))))
+    (assert (not (find (name member-data) (member-values structure) :test #'string=))
+            (member-data)
+            "Line ~a: structure member name <~a> already used" xml-line (name member-data))
+    (when enum-node
+      (let ((enum (xps enum-node))
+            (enum-prefix (xps (xpath:evaluate "enum/preceding-sibling::text()" node)))
+            (enum-postfix (xps (xpath:evaluate "enum/following-sibling::text()" node))))
+        (assert (and enum-prefix (string= enum-prefix "[")
+                     enum-postfix (string= enum-postfix "]"))
+                ()
+                "Line ~a: structure member array specification is ill-formatted: <~a>" xml-line enum)
+        (push enum (array-sizes member-data))))
+    (when len
+      (setf (len member-data) (split-sequence:split-sequence #\, len))
+      (assert (<= (length (len member-data)) 2)
+              ()
+              "Line ~a: member attribute <len> holds unknown number of data: ~a" xml-line (length (len member-data)))
+      (let* ((first-len (first (len member-data)))
+             (len-member (find-if (lambda (m) (string= first-len (name m)))
+                                  (member-values structure))))
+        (assert (or len-member
+                    (find ind first-len *ignore-lens* :test #'string=)
+                    (string= first-len "latexmath:[\\textrm{codeSize} \\over 4]"))
+                ()
+                "Line ~a: member attribute <len> holds unknown value <~a>" xml-line first-len)
+        (when len-member
+          (assert (and (not (prefix len-member))
+                       (not (postfix len-member)))
+                  ()
+                  "Line ~a: member attribute <len> references a member of unexpected type <[~a>" xml-line (type-info len-member)))
+        (when (< 1 (length (len member-data)))
+          (assert (find (second (len member-data)) '("1" "null-terminated") :test #'string=)
+                  ()
+                  "Line ~a: member attribute <len> holds unknown second value <~a>" xml-line (second (len member-data))))))
+    (when selection
+      (assert (is-union-p structure)
+              ()
+              "Line ~a: attribute <selection> is used with non-union structure." xml-line))
+    (when selector
+      (let ((member-selector (find-if (lambda (m) (string= selector (name m))))))
+        (assert member-selector
+                ()
+                "Line ~a: member attribute <selector> holds unknown value <~a>" xml-line selector)
+        (assert (gethash (type-name (type-info member-selector)) (enums vk-spec))
+                ()
+                "Line ~a: member attribute references unknown enum type <~a>" xml-line (type-name (type-info member-selector)))))
+    member-data))
+
 (defun parse-struct (node vk-spec)
   "TODO"
   (let ((xml-line (context-position node))
@@ -328,7 +447,11 @@
                                :allow-duplicate-p allow-duplicate-p
                                :returned-only-p returned-only-p
                                :is-union-p is-union-p))
-          ;; todo: parse-struct-member
+          (xpath:do-node-set (member-node (xpath:evaluate "member" node))
+            (push (parse-struct-member member-node
+                                       (gethash name (structures vk-spec))
+                                       vk-spec)
+                  (members (gethash name (structures vk-spec)))))
           (setf (sub-struct (gethash name (structures vk-spec)))
                 (determine-sub-struct (gethash name (structures vk-spec))
                                       vk-spec))
@@ -340,6 +463,28 @@
                   (name)
                   "Line ~a: struct <~a> already specified as a type" xml-line name)))))
 
+
+(defun parse-requires (node vk-spec)
+  "TODO"
+  (let ((xml-line (context-position node))
+        (name (xps (xpath:evaluate "@name" node)))
+        (requires (xps (xpath:evaluate "@requires" node))))
+    (assert (not (gethash name (types vk-spec)))
+            ()
+            "Line ~a: type <~a> already specified as a type" xml-line name)
+    (if requires
+        (progn
+          (assert (find requires (includes vk-spec) :test #'string=)
+                  ()
+                  "Line ~a: type requires unknown include <~a>" xml-line requires)
+          (setf (gethash name (types vk-spec))
+                :requires))
+        (progn
+          (assert (string= name "int")
+                  ()
+                  "Line ~a: unknown type" xml-line)
+          (setf (gethash name (types vk-spec))
+                :unknown)))))
 
 (defun parse-types (vk.xml vk-spec)
   "TODO"
@@ -361,4 +506,5 @@
     (parse-handle node vk-spec))
   (xpath:do-node-set (node (xpath:evaluate "/registry/types[@category=union]" vk.xml))
     (parse-handle node vk-spec))
-  (xpath:do-node-set (node (xpath:evaluate "/registry/types[not(@category)]" vk.xml))))
+  (xpath:do-node-set (node (xpath:evaluate "/registry/types[not(@category)]" vk.xml))
+    (parse-requires node vk-spec)))

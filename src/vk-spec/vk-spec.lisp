@@ -2,30 +2,14 @@
 
 ;; TODO: much of the stuff below will not be needed or will have to be changed to generate cl bindings
 
+;;; CLASSES WITH HEAVILY REUSED SLOTS
+
 (defclass has-name ()
   ((name
     :initarg :name
     :type string
     :accessor name))
   (:documentation ""))
-
-(defclass vk-element (has-name)
-  ((lisp-name
-    :initarg :lisp-name
-    :type string
-    :accessor lisp-name)
-   (xml-line
-    :initarg :xml-line
-    :type bignum
-    :initform 0
-    :accessor xml-line))
-  (:documentation "The base class for elements parsed from a vk.xml.
-
-Slots:
-See  NAME       the name of the element in the Vulkan API registry.
-See LISP-NAME   the name of the element in the Common Lisp bindings.
-See  XML-LINE   the line number in the vk.xml where this element was specified.
-"))
 
 (defclass has-extensions ()
   ((extensions
@@ -38,6 +22,7 @@ See  XML-LINE   the line number in the vk.xml where this element was specified.
   ((type-name
     :initarg :type-name
     :type string
+    :initarg (error "type-name not supplied")
     :accessor type-name))
   (:documentation "TODO"))
 
@@ -52,16 +37,61 @@ See  XML-LINE   the line number in the vk.xml where this element was specified.
   ((array-sizes
     :initarg :array-sizes
     :type list ;; string
+    :initform nil
     :accessor array-sizes))
   (:documentation "TODO"))
 
-;; todo: maybe this is also a vk-element
-(defclass name-data (has-name has-array-sizes)
+(defclass has-bit-count ()
   ((bit-count
     :initarg :bit-count
     :type string
-    :accessor name))
+    :initform nil
+    :accessor :bit-count)))
+
+;; todo: maybe this is also a vk-element
+(defclass name-data (has-name has-array-sizes has-bit-count)
+  ()
   (:documentation "TODO"))
+
+(defclass vk-element (has-name)
+  ((lisp-name
+    :initarg :lisp-name
+    :type string
+    :accessor lisp-name)
+   (comment
+    :initarg :comment
+    :type string
+    :initform ""
+    :accessor comment)
+   (xml-line
+    :initarg :xml-line
+    :type bignum
+    :initform 0
+    :accessor xml-line))
+  (:documentation "The base class for elements parsed from a vk.xml.
+
+Slots:
+See NAME       the name of the element in the Vulkan API registry.
+See LISP-NAME  the name of the element in the Common Lisp bindings.
+See XML-LINE   the line number in the vk.xml where this element was specified.
+"))
+
+(defmethod print-object ((obj name-data) stream)
+  (print-unreadable-object (obj stream :type t)
+    (with-accessors ((name name)
+                     (array-sizes array-sizes)
+                     (bit-count bit-count))
+        obj
+      (format stream "name: ~a, array-sizes: ~a, bit-count: ~a" name array-sizes bit-count))))
+
+(defmethod print-object ((obj vk-element) stream)
+  (print-unreadable-object (obj stream :type t)
+    (with-accessors ((name name)
+                     (lisp-name lisp-name)
+                     (xml-line xml-line))
+        obj
+      (format stream "name: ~a, lisp-name: ~a, xml-line: ~a" name lisp-name xml-line))))
+
 
 (defclass base-type (vk-element has-type-name)
   ()
@@ -97,12 +127,22 @@ See *VK-PLATFORM*
   ((prefix
     :initarg :prefix
     :type string
+    :initform nil
     :accessor prefix)
    (postfix
-    :initarg :prefix
+    :initarg :postfix
     :type string
+    :initform nil
     :accessor postfix))
   (:documentation "TODO"))
+
+(defmethod print-object ((obj type-info) stream)
+  (print-unreadable-object (obj stream :type t)
+    (with-slots ((prefix prefix)
+                 (type-name type-name)
+                 (postfix postfix))
+        obj
+      (format stream "~@[~a ~]~a~@[ ~a~]" prefix type-name postfix))))
 
 (defclass has-type-info ()
   ((type-info
@@ -256,12 +296,8 @@ See DELETE-COMMAND   The name of the command that deletes this handle.
 See DELETE-POOL
 "))
 
-(defclass member-data (vk-element has-type-info has-array-sizes)
-  ((bit-count
-    :initarg :bit-count
-    :type string
-    :accessor bit-count)
-   (len
+(defclass member-data (vk-element name-data has-type-info)
+  ((len
     :initarg :len
     :type list ;; string
     :accessor len)
@@ -355,6 +391,47 @@ See DELETE-POOL
     :accessor category))
   (:documentation "TODO"))
 
+(defclass define (vk-element)
+  ((is-value-p
+    :initarg :is-value-p
+    :type boolean
+    :initform nil
+    :accessor is-value-p)
+   (is-struct-p
+    :initarg :is-struct-p
+    :type boolean
+    :initform nil
+    :accessor is-struct-p)
+   (requires
+    :initarg :requires
+    :type string
+    :initform nil
+    :accessor requires)
+   (calls
+    :initarg :calls
+    :type string
+    :initform nil
+    :accessor calls)
+   (args
+    :initarg :args
+    :type string
+    :initform nil
+    :accessor args))
+  (:documentation "Describes a #define in the Khronos Vulkan XML API Registry.
+
+DEFINE instances should be parsed to lisp functions / values.
+
+If IS-VALUE-P is truthy ARGS is a value (e.g.: '#define VK_HEADER_VERSION 29').
+
+If CALLS is not NIL ARGS are the arguments for a function from another #define (e.g.: '#define VK_API_VERSION_1_0 VK_MAKE_VERSION(1, 0, 0)').
+
+If IS-VALUE-P and CALLS are both NIL, the #define defines a function (e.g. '#define VK_MAKE_VERSION(major, minor, patch) ((((uint32_t)(major)) << 22) | (((uint32_t)(minor)) << 12) | ((uint32_t)(patch)))').
+
+If REQUIRES is not NIL the #define uses another #define as an argument for a function (e.g. '#define VK_MAKE_VERSON(1, 2, VK_HEADER_VERSION)').
+
+If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct ANativeWindow'). Since version 1.2.140 these types are no longer in the category :DEFINE, but in :BASETYPE.
+"))
+
 (defclass vulkan-spec ()
   ((base-types
     :initarg :base-types
@@ -377,7 +454,8 @@ See DELETE-POOL
     :accessor constants)
    (defines
     :initarg :defines
-    :type list
+    :type hash-table ;; string to define
+    :initform (make-hash-table :test 'string=)
     :accessor defines)
    (enums
     :initarg :enums
