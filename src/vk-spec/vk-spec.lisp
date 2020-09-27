@@ -11,6 +11,14 @@
     :accessor name))
   (:documentation ""))
 
+(defclass has-alias ()
+  ((alias
+    :initarg :alias
+    :type string
+    :initform nil
+    :accessor alias))
+  (:documentation ""))
+
 (defclass has-extensions ()
   ((extensions
     :initarg :extensions
@@ -22,7 +30,7 @@
   ((type-name
     :initarg :type-name
     :type string
-    :initarg (error "type-name not supplied")
+    :initform (error "type-name not supplied")
     :accessor type-name))
   (:documentation "TODO"))
 
@@ -46,7 +54,7 @@
     :initarg :bit-count
     :type string
     :initform nil
-    :accessor :bit-count)))
+    :accessor bit-count)))
 
 ;; todo: maybe this is also a vk-element
 (defclass name-data (has-name has-array-sizes has-bit-count)
@@ -108,15 +116,12 @@ See VK-ELEMENT
 See *VK-PLATFORM* 
 "))
 
-(defclass bitmask (vk-element)
+(defclass bitmask (vk-element has-type-name has-alias)
   ((requirements
    :initarg :requirements
    :type string
-   :accessor :requirements)
-   (alias
-    :initarg :alias
-    :type string
-    :accessor alias))
+   :initform nil
+   :accessor :requirements))
   (:documentation "TODO"))
 
 ;; TODO: check what compose should do
@@ -155,10 +160,12 @@ See *VK-PLATFORM*
   ((len
     :initarg :len
     :type string
+    :initform nil
     :accessor len)
    (optional-p
     :initarg :optional-p
     :type boolean
+    :initform nil
     :accessor optional-p))
   (:documentation "TODO"))
 
@@ -170,27 +177,32 @@ See *VK-PLATFORM*
   ((alias
     :initarg :alias
     :type hash-table ;; string - command-alias
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor alias)
    (error-codes
     :initarg :error-codes
     :type list ;; string
+    :initform nil
     :accessor error-codes)
    (handle
     :initarg :handle
     :type string
+    :initform nil
     :accessor handle)
    (params
     :initarg :params
     :type list ;; param
+    :initform nil
     :accessor params)
    (return-type
     :initarg :return-type
     :type string
+    :initform nil
     :accessor return-type)
    (success-codes
     :initarg :success-codes
     :type list ;; string
+    :initform nil
     :accessor success-codes))
   (:documentation "TODO"))
 
@@ -198,26 +210,25 @@ See *VK-PLATFORM*
   ((vulkan-value ;; I guess this is (name vk-element)
     :initarg :vulkan-value
     :type string
+    :initform nil
     :accessor vulkan-value)
    (vk-value ;; I guess this is (lisp-name vk-element)
     :initarg :vk-value
     :type string
+    :initform nil
     :accessor vk-value)
    (single-bit-p
     :initarg :single-bit-p
     :type boolean
+    :initform nil
     :accessor single-bit-p))
   (:documentation "TODO"))
 
-(defclass enum (vk-element)
-  ((alias
-    :initarg :alias
-    :type string
-    :accessor alias)
-   (aliases
+(defclass enum (vk-element has-alias)
+  ((aliases
     :initarg :aliases
     :type hash-table ;; string to (string string)
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor aliases)
    (bitmask-p
     :initarg :bitmask-p
@@ -250,7 +261,7 @@ See *VK-PLATFORM*
    (requirements
     :initarg :requirements
     :type hash-table ;; string to bignum
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor requirements))
   (:documentation "TODO"))
 
@@ -261,12 +272,8 @@ See *VK-PLATFORM*
     :accessor requirements))
   (:documentation "TODO"))
 
-(defclass handle (vk-element)
-  ((alias
-    :initarg :alias
-    :type string
-    :accessor alias)
-   (children
+(defclass handle (vk-element has-alias)
+  ((children
     :initarg :children
     :type list ;; string
     :accessor children)
@@ -314,18 +321,22 @@ See DELETE-POOL
    (selection
     :initarg :selection
     :type string
+    :initform nil
     :accessor selection)
    (selector
     :initarg :selector
     :type string
+    :initform nil
     :accessor selector)
    (member-values
     :initarg :member-values
     :type list ;; string
+    :initform nil
     :accessor member-values)
    (used-constant
     :initarg :used-constant
     :type string
+    :initform nil
     :accessor used-constant))
   (:documentation "TODO"))
 
@@ -333,10 +344,11 @@ See DELETE-POOL
   ((protect
     :initarg :protect
     :type string
+    :initform nil
     :accessor protect))
   (:documentation "TODO"))
 
-(defclass structure (vk-element)
+(defclass struct (vk-element)
   ((allow-duplicate-p
     :initarg :allow-duplicate-p
     :type boolean
@@ -345,28 +357,32 @@ See DELETE-POOL
    (is-union-p
     :initarg :is-union-p
     :type boolean
-    :initarg nil
+    :initform nil
     :accessor is-union-p)
    (returned-only-p
     :initarg :returned-only-p
     :type boolean
-    :initarg nil
+    :initform nil
     :accessor returned-only-p)
-   (members
-    :initarg :members
+   (member-values
+    :initarg :member-values
     :type list ;; member
-    :accessor members)
+    :initform nil
+    :accessor member-values)
    (struct-extends
     :initarg :struct-extends
     :type list ;; string
+    :initform nil
     :accessor struct-extends)
    (aliases
     :initarg :aliases
     :type list ;; string
+    :initform nil
     :accessor aliases)
    (sub-struct
     :initarg :sub-struct
     :type string
+    :initform nil
     :accessor sub-struct))
   (:documentation "TODO"))
 
@@ -436,103 +452,112 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
   ((base-types
     :initarg :base-types
     :type hash-table ;; string to base-type
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor base-types)
    (bitmasks
     :initarg :bitmasks
     :type hash-table ;; string to bitmask
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor bitmasks)
    (commands
     :initarg :commands
     :type hash-table ;; string to command
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor commands)
    (constants
     :initarg :constants
     :type list ;; string
+    :initform nil
     :accessor constants)
    (defines
     :initarg :defines
     :type hash-table ;; string to define
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor defines)
    (enums
     :initarg :enums
     :type hash-table ;; string to enum
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor enums)
    (extended-structs
     :initarg :extended-structs
     :type list ;; string
+    :initform nil
     :accessor extended-structs)
    (extensions
     :initarg :extensions
     :type hash-table ;; string to extension
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor extensions)
    (features
     :initarg :features
     :type hash-table ;; string to string
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor features)
    (func-pointers
     :initarg :func-pointers
     :type hash-table ;; string to func-pointer
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor func-pointers)
    (handles
     :initarg :handles
     :type hash-table ;; string to handle
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor handles)
    (includes
     :initarg :includes
     :type list ;; string
+    :initform nil
     :accessor includes)
    (listed-types
     :initarg :listed-types
     :type list ;; string
+    :initform nil
     :accessor listed-types)
    (listing-types
     :initarg :listing-types
     :type list ;; string
+    :initform nil
     :accessor listing-types)
    (platforms
     :initarg :platforms
     :type hash-table ;; string to platform
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor platforms)
    (structure-aliases
     :initarg :structure-aliases
     :type hash-table ;; string to string
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor structure-aliases)
    (structures
     :initarg :structures
     :type hash-table ;; string to structure
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor structures)
    (tags
     :initarg :tags
     :type list ;; string
+    :initform nil
     :accessor tags)
    (types
     :initarg :types
     :type hash-table ;; string to category
-    :initform (make-hash-table :test 'string=)
+    :initform (make-hash-table :test 'equal)
     :accessor types)
-   (typesafe-check
+   (typesafe-check  ;; todo: this is not needed for CL bindings
     :initarg :typesafe-check
     :type string
+    :initform nil
     :accessor typesafe-check)
    (version
     :initarg :version
     :type string
+    :initform nil
     :accessor version)
    (vulkan-licence-header
     :initarg :vulkan-licence-header
     :type string
+    :initform nil
     :accessor vulkan-licence-header))
   (:documentation "Vulkan specification class based on VulkanHppGenerator"))
 
