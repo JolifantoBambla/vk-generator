@@ -112,7 +112,7 @@
           (setf (gethash name (types vk-spec)) :bitmask))
         (let ((name-data (parse-name-data node))
               (type-info (parse-type-info node))
-              (requirements (xps (xpath:evaluate "@requires" node))))
+              (requires (xps (xpath:evaluate "@requires" node))))
           (assert (begins-with-p (name name-data) "Vk")
                   () "name <~a> does not begin with <VK>" (name name-data))
           (assert (= (length (array-sizes name-data)) 0)
@@ -131,7 +131,7 @@
                                :lisp-name "TODO: fix name"
                                :xml-line (xpath:evaluate "position()" node)
                                :type-name (type-name type-info)
-                               :requirements requirements))
+                               :requires requires))
           (assert (not (gethash (name name-data) (types vk-spec)))
                   () "bitmask <~a> already specified as a type" (name name-data))
           (setf (gethash (name name-data) (types vk-spec)) :bitmask)))))
@@ -517,15 +517,107 @@
   (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[@category=\"handle\"]" vk.xml))
     (format t "parsing handle~%")
     (parse-handle node vk-spec))
-  (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[@category=\"struct\"]" vk.xml))
-    (format t "parsing struct~%")
-    (parse-struct node vk-spec))
-  (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[@category=\"union\"]" vk.xml))
-    (format t "parsing union~%")
+  (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[@category=\"struct\" or @category=\"union\"]" vk.xml))
+    (format t "parsing ~a~%" (xps (xpath:evaluate "@category" node)))
     (parse-struct node vk-spec))
   (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[@category=\"funcpointer\"]" vk.xml))
     (format t "parsing funcpointer~%")
     (parse-funcpointer node vk-spec)))
+
+(defun parse-enum-contant (node vk-spec)
+  "TODO"
+  (let ((name (xps (xpath:evaluate "@name" node)))
+        (alias (xps (xpath:evaluate "@alias" node)))
+        (comment (xps (xpath:evaluate "@comment" node))))
+    (if alias
+        (let ((constant (gethash alias (constants vk-spec))))
+          (assert constant
+                  () "unknown enum constant alias <~a>" alias)
+          (setf (gethash name (constants vk-spec))
+                (make-instance 'api-constant
+                               :name name
+                               :lisp-name "TODO: fix me"
+                               :alias alias
+                               :comment comment
+                               :vulkan-value (vulkan-value constant)
+                               :vk-value (vk-value constant)
+                               :single-bit-p (single-bit-p constant)
+                               )))
+        (progn
+          (assert (not (gethash name (constants vk-spec)))
+                  () "already specified enum constant <~a>" name)
+          (setf (gethash name (constants vk-spec))
+                (make-instance 'api-constant
+                               :name name
+                               :lisp-name "TODO: fix me"
+                               :comment comment
+                               ;; todo: vulkan-value, vk-value, single-bit-p
+                               ;; this uses (numeric-value ...)
+                               ))))))
+
+(defun get-enum-prefix (name is-bitmaks-p)
+  "TODO"
+  (cond
+    ((string= name "VkResult") "VK_")
+    (is-bitmaks-p
+     (let ((flag-bits-pos (search "FlagBits" name)))
+       (assert flag-bits-pos
+               () "bitmask <~a> does not contain <FlagBits> as substring")
+       (concatenate 'string (string-upcase (kebab:to-snake-case (subseq name 0 flag-bits-pos))) "_")))
+    (t
+     (concatenate 'string (string-upcase (kebab:to-snake-case name)) "_"))))
+
+(defun get-enum-postfix (name enum-prefix tags)
+  "TODO"
+  ;; todo: implement this
+  "")
+
+(defun parse-enums (vk.xml vk-spec)
+  "TODO"
+  (xpath:do-node-set (node (xpath:evaluate "/registry/enums[@name=\"API Constants\"]/enum" vk.xml))
+    (parse-enum-contant node vk-spec))
+  (xpath:do-node-set (node (xpath:evaluate "/registry/enums[not(@name=\"API Constants\")]"))
+    (let* ((name (xps (xpath:evaluate "@name" node)))
+           (type (xps (xpath:evaluate "@type" node)))
+           (comment (xps (xpath:evaluate "@comment" node)))
+           (is-bitmask-p (string= type "bitmask"))
+           (enum-prefix (get-enum-prefix name is-bitmask-p))
+           (enum-postfix (get-enum-postfix name enum-prefix tags))
+           (enum (gethash name (enums vk-spec))))
+      (unless enum
+        (warn "enum <~a> is not listed as enum in the types section" name)
+        (setf (gethash name (enums vk-spec))
+              (make-instance 'enum
+                             :name name
+                             :lisp-name "TODO: fix me"
+                             :is-bitmask-p is-bitmask-p
+                             :comment comment))
+        (assert (not (gethash name (types vk-spec)))
+                () "enum <~a> already specified as a type" name)
+        (setf (gethash name (types vk-spec))
+              :enum))
+      (assert (not (enum-values enum))
+              () "enum <~a> already holds values" name)
+      (setf (is-bitmask-p enum) is-bitmask-p)
+      (setf (comment enum) comment)
+      (when is-bitmask-p
+        (let ((bitmask (loop for b being each hash-values of (bitmasks vk-spec)
+                             when (string= (requires b) name)
+                             return b)))
+          (unless bitmask
+            (warn "enum <~a> is not listed as an requires for any bitmask in the types section")
+            (let ((flag-bits-pos (search "FlagBits" name)))
+              (assert flag-bits-pos
+                      () "enum <~a> does not contain <FlagBits> as substring")
+              (let* ((bitmask-name (replace (copy-seq name) "Flags" :start1 flag-bits-pos)))
+                (setf bitmask (gethash bitmask-name (bitmasks vk-spec)))
+                (assert bitmask
+                        () "enum <~a> has no corresponding bitmask <~a> listed in the types section" name bitmask-name)
+                (setf (requires bitmask) name))))))
+      (xpath:do-node-set (enum-value-node (xpath:evaluate "enum" node))
+        ;; todo: parse enum-value 
+        ))))
+
 
 (defun parse-vk-xml (version vk-xml-pathname)
   "Parses the vk.xml file at VK-XML-PATHNAME into a VK-SPEC instance."
@@ -534,4 +626,5 @@
                                    (stp:make-builder))))
          (vk-spec (make-instance 'vulkan-spec)))
     (parse-types vk.xml vk-spec)
+    ;; todo: parse tags before parsing enums
     vk-spec))

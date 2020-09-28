@@ -117,11 +117,11 @@ See *VK-PLATFORM*
 "))
 
 (defclass bitmask (vk-element has-type-name has-alias)
-  ((requirements
-   :initarg :requirements
+  ((requires
+   :initarg :requires
    :type string
    :initform nil
-   :accessor :requirements))
+   :accessor :requires))
   (:documentation "TODO"))
 
 ;; TODO: check what compose should do
@@ -224,20 +224,25 @@ See *VK-PLATFORM*
     :accessor single-bit-p))
   (:documentation "TODO"))
 
+(defclass api-constant (enum-value has-alias)
+  ()
+  (:documentation "TODO"))
+
 (defclass enum (vk-element has-alias)
   ((aliases
     :initarg :aliases
     :type hash-table ;; string to (string string)
     :initform (make-hash-table :test 'equal)
     :accessor aliases)
-   (bitmask-p
-    :initarg :bitmask-p
+   (is-bitmask-p
+    :initarg :is-bitmask-p
     :type boolean
     :initform nil
-    :accessor bitmask-p)
+    :accessor is-bitmask-p)
    (enum-values
     :initarg :enum-values
     :type list ;; enum-value
+    :initform nil
     :accessor enum-values))
   (:documentation "TODO"))
 
@@ -466,8 +471,8 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :accessor commands)
    (constants
     :initarg :constants
-    :type list ;; string
-    :initform nil
+    :type hash-table ;; string to api-constant
+    :initform (make-hash-table :test 'equal)
     :accessor constants)
    (defines
     :initarg :defines

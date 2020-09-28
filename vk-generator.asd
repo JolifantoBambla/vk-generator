@@ -15,6 +15,7 @@
                #:cl-ppcre
                #:cxml
                #:cxml-stp
+               #:kebab
                #:split-sequence
                #:trivial-download
                #:xpath)
