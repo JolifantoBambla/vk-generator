@@ -62,26 +62,15 @@
   (:documentation "TODO"))
 
 (defclass vk-element (has-name)
-  ((lisp-name
-    :initarg :lisp-name
-    :type string
-    :accessor lisp-name)
-   (comment
+  ((comment
     :initarg :comment
     :type string
     :initform ""
-    :accessor comment)
-   (xml-line
-    :initarg :xml-line
-    :type bignum
-    :initform 0
-    :accessor xml-line))
+    :accessor comment))
   (:documentation "The base class for elements parsed from a vk.xml.
 
 Slots:
 See NAME       the name of the element in the Vulkan API registry.
-See LISP-NAME  the name of the element in the Common Lisp bindings.
-See XML-LINE   the line number in the vk.xml where this element was specified.
 "))
 
 (defmethod print-object ((obj name-data) stream)
@@ -94,11 +83,9 @@ See XML-LINE   the line number in the vk.xml where this element was specified.
 
 (defmethod print-object ((obj vk-element) stream)
   (print-unreadable-object (obj stream :type t)
-    (with-accessors ((name name)
-                     (lisp-name lisp-name)
-                     (xml-line xml-line))
+    (with-accessors ((name name))
         obj
-      (format stream "name: ~a, lisp-name: ~a, xml-line: ~a" name lisp-name xml-line))))
+      (format stream "name: ~a" name))))
 
 
 (defclass base-type (vk-element has-type-name)
@@ -121,7 +108,7 @@ See *VK-PLATFORM*
    :initarg :requires
    :type string
    :initform nil
-   :accessor :requires))
+   :accessor requires))
   (:documentation "TODO"))
 
 ;; TODO: check what compose should do
@@ -207,16 +194,21 @@ See *VK-PLATFORM*
   (:documentation "TODO"))
 
 (defclass enum-value (vk-element)
-  ((vulkan-value ;; I guess this is (name vk-element)
-    :initarg :vulkan-value
+  ((number-value
+    :initarg :number-value
+    :type integer
+    :initform nil
+    :accessor number-value)
+   (string-value
+    :initarg :string-value
     :type string
     :initform nil
-    :accessor vulkan-value)
-   (vk-value ;; I guess this is (lisp-name vk-element)
-    :initarg :vk-value
+    :accessor string-value)
+   (vk-hpp-name ;; I'll keep this, in case I wanna name lisp enum values according to this rather than their C names
+    :initarg :vk-hpp-name
     :type string
     :initform nil
-    :accessor vk-value)
+    :accessor vk-hpp-name)
    (single-bit-p
     :initarg :single-bit-p
     :type boolean
@@ -392,6 +384,7 @@ See DELETE-POOL
   (:documentation "TODO"))
 
 (deftype type-category ()
+  "TODO: documentation"
   '(member
     :bitmask
     :basetype
@@ -402,8 +395,7 @@ See DELETE-POOL
     :requires
     :struct
     :union
-    :unknown)
-  "TODO: documentation")
+    :unknown))
 
 (defclass vk-type (vk-element has-extensions has-feature)
   ((category

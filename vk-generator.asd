@@ -34,6 +34,7 @@
        (:file "fix-name")
        (:file "type-utils")
        (:file "xml-utils")
+       (:file "numeric-value")
        (:file "parse")))
      (:module "parser"
       :depends-on ("vk-spec")
