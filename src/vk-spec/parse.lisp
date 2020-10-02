@@ -889,7 +889,16 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
         (name (xps (xpath:evaluate "@name" node)))
         (extends (xps (xpath:evaluate "@extends" node))))
     (if alias
-        (progn)
+        (let ((enum (gethash extends (enums vk-spec))))
+          (assert enum
+                  () "feature extends unknown enum <~a>" extends)
+          (multiple-value-bind (prefix postfix) (get-enum-pre-and-postfix extends (is-bitmask-p enum) (tags vk-spec))
+            (let ((vk-hpp-name (create-enum-vk-hpp-name name prefix postfix (is-bitmask-p enum) tag)))
+              (when (alias enum)
+                (multiple-value-bind (alias-prefix alias-postfix) (get-enum-pre-and-postfix (alias enum) (is-bitmask-p enum) (tags vk-spec))
+                  (when (alexandria:ends-with-subseq postfix name)
+                    (setf vk-hpp-name (create-enum-vk-hpp-name name alias-prefix alias-postfix (is-bismask-p enum) tag)))))
+              (add-enum-alias enum name alias vk-hpp-name))))
         (let* ((dir-string (xps (xpath:evaluate "@dir" node)))
                (dir (if (and dir-string (string= dir-string "-"))
                         -1
@@ -933,7 +942,7 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
   (xpath:do-node-set (node (xpath:evaluate "/registry/extensions/extension" vk.xml))
     (let ((name (xps (xpath:evaluate "@name" node)))
           (platform (xps (xpath:evaluate "@platform" node)))
-          (depcrecated-by (xps (xpath:evaluate "@deprecatedby" node)))
+          (deprecated-by (xps (xpath:evaluate "@deprecatedby" node)))
           (obsoleted-by (xps (xpath:evaluate "@obsoletedby" node)))
           (promoted-to (xps (xpath:evaluate "@promotedto" node)))
           (requirements
@@ -945,7 +954,7 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
       (assert (or (not platform)
                   (gethash platform (platforms vk-spec)))
               () "unknown platform <~a>" platform)
-      (assert (or (not feature)
+      (assert (or (not requires-core)
                   (find-if (lambda (f)
                              (string= f requires-core))
                            (alexandria:hash-table-values (features vk-spec))))
@@ -969,7 +978,7 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
                   extension)
             (xpath:do-node-set (require-node (xpath:evaluate "require" node))
               (let ((@extension (xps (xpath:evaluate "@extension" require-node)))
-                    (@featue (xps (xpath:evaluate "@feature" require-node))))
+                    (@feature (xps (xpath:evaluate "@feature" require-node))))
                 (when @extension
                   (assert (not (find @extension (requirements extension) :test 'string=))
                           () "require extension <~a> already listed" @extension)
@@ -1050,5 +1059,5 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
     (parse-enums vk.xml vk-spec)
     (parse-commands vk.xml vk-spec)
     (parse-features vk.xml vk-spec)
-    ;; todo: extensions // queries platforms & features
+    (parse-extensions vk.xml vk-spec)
     vk-spec))
