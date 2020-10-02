@@ -273,22 +273,27 @@ See *VK-PLATFORM*
   ((children
     :initarg :children
     :type list ;; string
+    :initform nil
     :accessor children)
    (parents
     :initarg :parents
     :type list ;; string
+    :initform nil
     :accessor parents)
    (commands
     :initarg :commands
     :type list ;; string
+    :initform nil
     :accessor commands)
    (delete-command
     :initarg :delete-command
     :type string
+    :initform nil
     :accessor delete-command)
    (delete-pool
     :initarg :delete-pool
     :type string
+    :initform nil
     :accessor delete-pool))
   (:documentation "TODO
 

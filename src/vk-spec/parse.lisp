@@ -1,6 +1,12 @@
 
 (in-package :vk-generator/vk-spec)
 
+;; todo: replace all usages of (split-sequence:split-sequence #\, str) with this
+(defun tokenize (str)
+  "Splits a comma-separated string."
+  (split-sequence:split-sequence #\, str))
+
+;; todo: replace all usages with alexandria:starts-with-subseq
 (defun begins-with-p (str substr)
   (declare (type string str))
   (declare (type string substr))
@@ -403,6 +409,8 @@
                                        (gethash name (structures vk-spec))
                                        vk-spec)
                   (member-values (gethash name (structures vk-spec)))))
+          (setf (member-values (gethash name (structures vk-spec)))
+                (reverse (member-values (gethash name (structures vk-spec)))))
           (setf (sub-struct (gethash name (structures vk-spec)))
                 (determine-sub-struct (gethash name (structures vk-spec))
                                       vk-spec))
@@ -566,7 +574,7 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
     (when is-bitmask-p
       (setf result (subseq result 0 (search "Bit" result))))
     (when (and (> (length tag) 0)
-               (string= (upper-snake-to-camel-case tag)
+               (string= (upper-snake-to-pascal-case tag)
                         (subseq result 0 (- (length result) (length tag)))))
       (setf result (subseq result 0 (- (length result) (length tag)))))
     result))
@@ -683,13 +691,184 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
               () "tag named <~a> has already been specified")
       (push name (tags vk-spec)))))
 
+(defun parse-command-name (node vk-spec)
+  "TODO"
+  (let ((name-data (parse-name-data (xpath:first-node (xpath:evaluate "proto" node)))))
+    (assert (alexandria:starts-with-subseq "vk" (name name-data))
+            () "name <~a> does not begin with <vk>" (name name-data))
+    (assert (not (array-sizes name-data))
+            () "name <~a> with unsupported array-sizes <~a>" (name name-data) (array-sizes name-data))
+    (assert (not (bit-count name-data))
+            () "name <~a> with unsupported bit-count <~a>" (name name-data) (bit-count name-data))
+    (assert (not (gethash (name name-data) (commands vk-spec)))
+            () "command <~a> already specified" (name name-data))
+    (name name-data)))
+
+(defun parse-command-return-type (node vk-spec)
+  "TODO"
+  (let ((type-info (parse-type-info (xpath:first-node (xpath:evaluate "proto" node)))))
+    (assert (gethash (type-name type-info) (types vk-spec))
+            () "unknown type <~a>" (type-name type-info))
+    (assert (not (prefix type-info))
+            () "unexpected type prefix <~a>" (prefix type-info))
+    (assert (not (postfix type-info))
+            () "unexpected type postfix <~a>" (postfix type-info))
+    (type-name type-info)))
+
+(defun is-param-indirect (name params vk-spec)
+  (let ((delimiter-pos (or (search "->" name) (search "::" name))))
+    (when (and delimiter-pos (< delimiter-pos (- (length name) 2)))
+      (let* ((param-name (subseq name 0 delimiter-pos))
+             (param-member (subseq name (+ delimiter-pos 2)))
+             (param (find-if (lambda (p)
+                               (string= (name p) param-name))
+                             params)))
+        (when param
+          (let ((struct (gethash (type-name (type-info param)) (structures vk-spec))))
+            (when struct
+              (find-if (lambda (m)
+                         (string= (name m) param-member))
+                       (member-values struct)))))))))
+
+(defun parse-command-param (node params vk-spec)
+  "TODO"
+  (let ((len (xps (xpath:evaluate "@len" node)))
+        (optional-p (parse-boolean (xpath:evaluate "@optional" node)))
+        (name-data (parse-name-data node))
+        (type-info (parse-type-info node)))
+    (assert (or (not len)
+                (string= len "null-terminated")
+                (find-if (lambda (p)
+                           (string= (name p) len))
+                         params)
+                (is-param-indirect len params vk-spec))
+            () "command param len <~a> is not recognized as a valid len value" len)
+    (assert (not (bit-count name-data))
+            () "name <~a> with unsupported bit-count <~a>" (name name-data) (bit-count name-data))
+    (assert (gethash (type-name type-info) (types vk-spec))
+            () "unknown type <~a>" (type-name type-info))
+    (assert (or (not (prefix type-info))
+                (string= (prefix type-info) "const")
+                (string= (prefix type-info) "const struct")
+                (string= (prefix type-info) "struct"))
+            () "unexpected type prefix <~a>" (prefix type-info))
+    (assert (or (not (postfix type-info))
+                (string= (postfix type-info) "*")
+                (string= (postfix type-info) "**")
+                (string= (postfix type-info) "* const*"))
+            () "unexpected type postfix <~a>" (postfix type-info))
+    (assert (not (find-if (lambda (p)
+                            (string= (name name-data) (name p)))
+                          params))
+            () "command param <~a> already used" (name name-data))
+    (make-instance 'param
+                   :name (name name-data)
+                   :array-sizes (array-sizes name-data)
+                   :type-info type-info
+                   :len len
+                   :optional-p optional-p)))
+
+(defun register-deleter (command vk-spec)
+  "TODO"
+  (let* ((params (params command))
+         (num-params (length params))
+         (key nil)
+         (value-index nil))
+    (flet ((get-type-name (param)
+             (type-name (type-info param))))
+      (cond
+        ((or (= 2 num-params)
+             (= 3 num-params))
+         (assert (string= (get-type-name (alexandria:lastcar params))
+                          "VkAllocationCallbacks")
+                 () "unexpected last paramer for deleter <~a>" (get-type-name (alexandria:lastcar params)))
+         (if (= num-params 2)
+             (setf key "")
+             (setf key (get-type-name (first params))))
+         (setf value-index (- num-params 2)))
+        ((= num-params 4)
+         (setf key (get-type-name (first params)))
+         (setf value-index 3)
+         (let ((handle (gethash (get-type-name (nth value-index params)) (handles vk-spec))))
+           (assert (gethash (get-type-name (nth value-index params)) (handles vk-spec))
+                   () "missing handle <~a>" (get-type-name (nth value-index params)))
+           (setf (delete-pool handle)
+                 (get-type-name (first params)))))
+        (t (error "illegal number of params for deleter <~a>" num-params)))
+      (let* ((value-name (get-type-name (nth value-index params)))
+             (key-handle (gethash key (handles vk-spec)))
+             (handle (gethash value-name (handles vk-spec))))
+        (assert (and key-handle
+                     (not (find value-name (children handle))))
+                () "handle <~a> already specified as a child of <~a>" value-name key)
+        (push value-name (children key-handle))
+        (assert handle
+                () "missing handle <~a>" value-name)
+        (setf (delete-command handle) (name command))))))
+
+(defun parse-commands (vk.xml vk-spec)
+  "TODO"
+  (xpath:do-node-set (node (xpath:evaluate "/registry/commands/command" vk.xml))
+    (let ((alias (xps (xpath:evaluate "@alias" node))))
+      (if alias
+          (let ((name (xps (xpath:evaluate "@name" node)))
+                (command (gethash alias (commands vk-spec))))
+            (assert (alexandria:starts-with-subseq "vk" name)
+                    () "name <~a> should begin with <vk>" name)
+            (assert command
+                    () "missing command <~a>" alias)
+            (assert (not (gethash name (alias command)))
+                    () "command <~a> already listed as alias to <~a>" name alias)
+            (setf (gethash name (alias command))
+                  (make-instance 'command-alias
+                                 :name name)))
+          (let* ((error-codes (tokenize (xps (xpath:evaluate "@errorcodes" node))))
+                 (success-codes (tokenize (xps (xpath:evaluate "@successcodes" node))))
+                 (name (parse-command-name node vk-spec))
+                 (return-type (parse-command-return-type node vk-spec))
+                 (command (make-instance 'command
+                                         :name name
+                                         :return-type return-type
+                                         :success-codes success-codes
+                                         :error-codes error-codes)))
+            (xpath:do-node-set (param-node (xpath:evaluate "param" node))
+              (push (parse-command-param param-node (params command) vk-spec)
+                    (params command)))
+            (setf (params command) (reverse (params command)))
+            (when (or (string= (subseq name 2 9) "Destroy")
+                      (string= (subseq name 2 6) "Free"))
+              (register-deleter command vk-spec))
+            (assert (> (length (params command)) 0)
+                    () "command <~a> with no params" name)
+            (let ((handle (gethash (name (first (params command))) (handles vk-spec))))
+              (unless handle
+                (setf handle (gethash "" (handles vk-spec))))
+              (assert handle
+                      () "could not find a handle to hold command <~a>" name)
+              (setf (handle command) (name handle))
+              (assert (not (gethash name (commands vk-spec)))
+                      () "already encountered command <~a>" name)
+              (setf (gethash name (commands vk-spec))
+                    command)
+              (assert (not (find name (commands handle) :test 'string=))
+                      () "command list of handle <~a> already holds a command <~a>" (name handle) name)
+              (push name (commands handle))))))))
+
 (defun parse-vk-xml (version vk-xml-pathname)
   "Parses the vk.xml file at VK-XML-PATHNAME into a VK-SPEC instance."
   (let* ((vk.xml (cxml:parse-file vk-xml-pathname
                                   (cxml:make-whitespace-normalizer
                                    (stp:make-builder))))
          (vk-spec (make-instance 'vulkan-spec)))
+    (setf (gethash "" (handles vk-spec))
+          (make-instance 'handle
+                         :name ""))
+    ;; copyright
+    ;; todo: platforms
     (parse-tags vk.xml vk-spec)
     (parse-types vk.xml vk-spec)
     (parse-enums vk.xml vk-spec)
+    (parse-commands vk.xml vk-spec)
+    ;; todo: extensions
+    ;; todo: features
     vk-spec))
