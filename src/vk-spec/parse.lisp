@@ -854,6 +854,76 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
                       () "command list of handle <~a> already holds a command <~a>" (name handle) name)
               (push name (commands handle))))))))
 
+(defun parse-extensions (vk.xml vk-spec)
+  "TODO"
+  (xpath:do-node-set (node (xpath:evaluate "/registry/extensions/extension" vk.xml))
+    (let ((name (xps (xpath:evaluate "@name" node)))
+          (platform (xps (xpath:evaluate "@platform" node)))
+          (depcrecated-by (xps (xpath:evaluate "@deprecatedby" node)))
+          (obsoleted-by (xps (xpath:evaluate "@obsoletedby" node)))
+          (promoted-to (xps (xpath:evaluate "@promotedto" node)))
+          (requirements
+            (remove-duplicates
+             (tokenize (xps (xpath:evaluate "@requires" node)))
+             :test 'string=))
+          (requires-core (xps (xpath:evaluate "@requiresCore" node)))
+          (supported (xps (xpath:evaluate "@supported" node))))
+      (assert (or (not platform)
+                  (gethash platform (platforms vk-spec)))
+              () "unknown platform <~a>" platform)
+      (assert (or (not feature)
+                  (find-if (lambda (f)
+                             (string= f requires-core))
+                           (alexandria:hash-table-values (features vk-spec))))
+              () "unknown feature number <~a>" requires-core)
+      (if (string= supported "disabled")
+          (xpath:do-node-set (require-node (xpath:evaluate "require" node))
+            ;; todo: remove disabled stuff
+            (xpath:do-node-set (disable-node (xpath:evaluate "command" require-node)))
+            (xpath:do-node-set (disable-node (xpath:evaluate "enum" require-node)))
+            (xpath:do-node-set (disable-node (xpath:evaluate "type" require-node))))
+          (let ((extension (make-instance 'extension
+                                          :name name
+                                          :platform platform
+                                          :deprecated-by deprecated-by
+                                          :obsoleted-by obsoleted-by
+                                          :promoted-to promoted-to
+                                          :requirements requirements)))
+            (assert (not (gethash name (extensions vk-spec)))
+                    () "already encountered extension <~a>" name)
+            (setf (gethash name (extensions vk-spec))
+                  extension)
+            (xpath:do-node-set (require-node (xpath:evaluate "require" node))
+              (let ((@extension (xps (xpath:evaluate "@extension" require-node)))
+                    (@featue (xps (xpath:evaluate "@feature" require-node))))
+                (when @extension
+                  (assert (not (find @extension (requirements extension) :test 'string=))
+                          () "require extension <~a> already listed" @extension)
+                  (push @extension (requirements extension)))
+                (assert (or (not @feature)
+                            (gethash @feature (features vk-spec)))
+                        () "unknown feature <~a>" @feature))
+              ;; todo: read require children
+              (xpath:do-node-set (command-node (xpath:evaluate "command" require-node)))
+              (xpath:do-node-set (enum-node (xpath:evaluate "enum" require-node)))
+              (xpath:do-node-set (type-node (xpath:evaluate "type" require-node)))))))))
+
+(defun parse-platforms (vk.xml vk-spec)
+  "TODO"
+  (xpath:do-node-set (node (xpath:evaluate "/registry/platforms/platform" vk.xml))
+    (let ((name (xps (xpath:evaluate "@name" node)))
+          (protect (xps (xpath:evaluate "@protect" node))))
+      (assert (not (find-if (lambda (p)
+                              (string= (protect p) protect))
+                            (alexandria:hash-table-values (platforms vk-spec))))
+              () "platform protect <~a> already specified" protect)
+      (assert (not (gethash name (platforms vk-spec)))
+              () "platform name <~a> already specified" name)
+      (setf (gethash name (platforms vk-spec))
+            (make-instance 'platform
+                           :name name
+                           :protect protect)))))
+
 (defun parse-vk-xml (version vk-xml-pathname)
   "Parses the vk.xml file at VK-XML-PATHNAME into a VK-SPEC instance."
   (let* ((vk.xml (cxml:parse-file vk-xml-pathname
@@ -864,11 +934,11 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
           (make-instance 'handle
                          :name ""))
     ;; copyright
-    ;; todo: platforms
+    (parse-platforms vk.xml vk-spec)
     (parse-tags vk.xml vk-spec)
     (parse-types vk.xml vk-spec)
     (parse-enums vk.xml vk-spec)
     (parse-commands vk.xml vk-spec)
-    ;; todo: extensions
     ;; todo: features
+    ;; todo: extensions // queries platforms & features
     vk-spec))

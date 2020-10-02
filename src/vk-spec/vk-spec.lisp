@@ -257,8 +257,8 @@ See *VK-PLATFORM*
     :accessor promoted-to)
    (requirements
     :initarg :requirements
-    :type hash-table ;; string to bignum
-    :initform (make-hash-table :test 'equal)
+    :type list ;; string (used to be a mapping of requirement name to xml-line
+    :initform nil
     :accessor requirements))
   (:documentation "TODO"))
 
