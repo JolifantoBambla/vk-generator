@@ -86,3 +86,7 @@
     "xcb_visualid_t" :uint32
     "window" :ulong
     "visual-id" :ulong))
+
+;; from generator.py
+(defconstant +ext-base+ 1000000000)
+(defconstant +ext-block-size+ 1000)

@@ -97,7 +97,10 @@
                            :type-name (type-name type-info))))
     (assert (not (gethash (name name-data) (types vk-spec)))
             () "basetype <~a> already specified as a type" (name name-data))
-    (setf (gethash (name name-data) (types vk-spec)) :basetype)))
+    (setf (gethash (name name-data) (types vk-spec))
+          (make-instance 'vk-type
+                         :name (name name-data)
+                         :category :basetype))))
 
 (defun parse-bitmask (node vk-spec)
   "TODO"
@@ -113,7 +116,10 @@
           (setf (alias bitmask) name)
           (assert (not (gethash name (types vk-spec)))
                   () "aliased bitmask <~a> already specified as a type" name)
-          (setf (gethash name (types vk-spec)) :bitmask))
+          (setf (gethash name (types vk-spec))
+                (make-instance 'vk-type
+                               :name name
+                               :category :bitmask)))
         (let ((name-data (parse-name-data node))
               (type-info (parse-type-info node))
               (requires (xps (xpath:evaluate "@requires" node))))
@@ -136,7 +142,10 @@
                                :requires requires))
           (assert (not (gethash (name name-data) (types vk-spec)))
                   () "bitmask <~a> already specified as a type" (name name-data))
-          (setf (gethash (name name-data) (types vk-spec)) :bitmask)))))
+          (setf (gethash (name name-data) (types vk-spec))
+                (make-instance 'vk-type
+                               :name (name name-data)
+                               :category :bitmask))))))
 
 (defun parse-define (node vk-spec)
   "TODO"
@@ -156,7 +165,9 @@
         (assert (not (gethash name (types vk-spec)))
                 () "type <~a> has already been specified" name)
         (setf (gethash (or name @name) (types vk-spec))
-              :define))
+              (make-instance 'vk-type
+                             :name (or name @name)
+                             :category :define)))
     (when @name
       (assert (string= @name "VK_DEFINE_NON_DISPATCHABLE_HANDLE")
               () "unknown category=define name <~a>" @name)
@@ -198,7 +209,9 @@
     (assert (not (gethash name (types vk-spec)))
             () "enum <~a> already specified as a type" name)
     (setf (gethash name (types vk-spec))
-          :enum)))
+          (make-instance 'vk-type
+                         :name name
+                         :category :enum))))
 
 (defun str-not-empty-p (str)
   (and str (> (length str) 0)))
@@ -218,7 +231,9 @@
     (assert (not (gethash name (types vk-spec)))
             () "funcpointer <~a> already specified as a type" name)
     (setf (gethash name (types vk-spec))
-          :funcpointer)
+          (make-instance 'vk-type
+                         :name name
+                         :category :funcpointer))
     (let* ((types (mapcar 'xps (xpath:all-nodes (xpath:evaluate "type" node)))))
       (loop for type in types
             do (progn
@@ -242,7 +257,9 @@
           (assert (not (gethash name (types vk-spec)))
                   () "handle alias <~a> already specified as a type" name)
           (setf (gethash name (types vk-spec))
-                :handle))
+                (make-instance 'vk-type
+                               :name name
+                               :category :handle)))
         (let ((parent (xps (xpath:evaluate "@parent" node)))
               (name-data (parse-name-data node))
               (type-info (parse-type-info node)))
@@ -268,7 +285,9 @@
           (assert (not (gethash (name name-data) (types vk-spec)))
                   () "handle <~a> already specified as a type" (name name-data))
           (setf (gethash (name name-data) (types vk-spec))
-                :handle)))))
+                (make-instance 'vk-type
+                               :name (name name-data)
+                               :category :handle))))))
 
 (defun parse-type-include (node vk-spec)
   "TODO"
@@ -384,7 +403,9 @@
           (assert (not (gethash name (types vk-spec)))
                   () "struct <~a> already specified as a type" name)
           (setf (gethash name (types vk-spec))
-                :struct))
+                (make-instance 'vk-type
+                               :name name
+                               :category :struct)))
         (let ((allow-duplicate-p (parse-boolean (xpath:evaluate "@allowduplicate" node)))
               (is-union-p (string= (xps (xpath:evaluate "@category" node)) "union"))
               (returned-only-p (parse-boolean (xpath:evaluate "@returnedonly" node)))
@@ -421,9 +442,11 @@
           (assert (not (gethash name (types vk-spec)))
                   () "struct <~a> already specified as a type" name)
           (setf (gethash name (types vk-spec))
-                (if is-union-p
-                    :union
-                    :struct))))))
+                (make-instance 'vk-type
+                               :name name
+                               :category (if is-union-p
+                                             :union
+                                             :struct)))))))
 
 
 (defun parse-requires (node vk-spec)
@@ -437,12 +460,16 @@
           (assert (find requires (includes vk-spec) :test #'string=)
                   () "type requires unknown include <~a>" requires)
           (setf (gethash name (types vk-spec))
-                :requires))
+                (make-instance 'vk-type
+                               :name name
+                               :category :requires)))
         (progn
           (assert (string= name "int")
                   () "unknown type")
           (setf (gethash name (types vk-spec))
-                :unknown)))))
+                (make-instance 'vk-type
+                               :name name
+                               :category :unknown))))))
 
 (defun parse-types (vk.xml vk-spec)
   "TODO"
@@ -655,7 +682,9 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
         (assert (not (gethash name (types vk-spec)))
                 () "enum <~a> already specified as a type" name)
         (setf (gethash name (types vk-spec))
-              :enum)
+              (make-instance 'vk-type
+                             :name name
+                             :category :enum))
         (setf enum (gethash name (enums vk-spec))))
       (assert (not (enum-values enum))
               () "enum <~a> already holds values" name)
@@ -854,6 +883,51 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
                       () "command list of handle <~a> already holds a command <~a>" (name handle) name)
               (push name (commands handle))))))))
 
+(defun parse-require-enum (node tag vk-spec)
+  "TODO"
+  (let ((alias (xps (xpath:evaluate "@alias" node)))
+        (name (xps (xpath:evaluate "@name" node)))
+        (extends (xps (xpath:evaluate "@extends" node))))
+    (if alias
+        (progn)
+        (let* ((dir-string (xps (xpath:evaluate "@dir" node)))
+               (dir (if (and dir-string (string= dir-string "-"))
+                        -1
+                        1))
+               (bitpos-string (xps (xpath:evaluate "@bitpos" node)))
+               (bitpos (numeric-value bitpos-string))
+               (value-string (xps (xpath:evaluate "@value" node)))
+               (value (numeric-value value-string))
+               (offset-string (xps (xpath:evaluate "@offset" node)))
+               (offset (numeric-value offset-string))
+               (extension-number (numeric-value (and offset
+                                                       (or (xps (xpath:evaluate "@extnumber" node))
+                                                           (xps (xpath:evaluate "../../@number" node)))))))
+          (if extends
+            (let ((enum (gethash extends (enums vk-spec))))
+              (assert enum
+                      () "feature extends unknown enum <~a>" extends)
+              (multiple-value-bind (prefix postfix) (get-enum-pre-and-postfix extends (is-bitmask-p enum) (tags vk-spec))
+                (assert (or (and bitpos-string (not value-string) (not offset-string))
+                            (and (not bitpos-string) value-string (not offset-string))
+                            (and (not bitpos-string) (not value-string) offset-string))
+                        () "exactly one of bitpos = <~a>, offset = <~a>, and value = <~a> is supposed to be set" bitpos-string offset-string value-string)
+                (push (make-instance 'enum-value
+                                     :name name
+                                     :number-value (* dir
+                                                      (or (and offset (+ +ext-base+
+                                                                         (* +ext-block-size+ (1- extension-number))
+                                                                         offset))
+                                                          value
+                                                          (ash 1 bitpos)))
+                                     :string-value (or value-string bitpos-string offset-string)
+                                     :vk-hpp-name (create-enum-vk-hpp-name name prefix postfix (is-bitmask-p enum) tag)
+                                     :single-bit-p (not value))
+                      (enum-values enum))))
+            (unless value-string
+              (assert (gethash name (constants vk-spec))
+                      () "unknown required enum <~a>" name)))))))
+
 (defun parse-extensions (vk.xml vk-spec)
   "TODO"
   (xpath:do-node-set (node (xpath:evaluate "/registry/extensions/extension" vk.xml))
@@ -924,6 +998,42 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
                            :name name
                            :protect protect)))))
 
+(defun parse-features (vk.xml vk-spec)
+  "TODO"
+  (xpath:do-node-set (node (xpath:evaluate "/registry/feature" vk.xml))
+    (let* ((name (xps (xpath:evaluate "@name" node)))
+           (number (xps (xpath:evaluate "@number" node))))
+      (assert (string= name
+                       (concatenate 'string "VK_VERSION_" (substitute #\_ #\. number)))
+              () "unexpected formatting of name <~a>" name)
+      (assert (not (gethash name (features vk-spec)))
+              () "already specified feature <~a>" name)
+      (setf (gethash name (features vk-spec))
+            number)
+      (xpath:do-node-set (require-node (xpath:evaluate "require" node))
+        (xpath:do-node-set (command-node (xpath:evaluate "command" require-node))
+          (let* ((command-name (xps (xpath:evaluate "@name" command-node)))
+                 (command (gethash command-name (commands vk-spec))))
+            (assert command
+                    () "feature requires unknown command <~a>" command-name)
+            (assert (not (feature command))
+                    () "command <~a> already listed with feature <~a>" command-name (feature command))
+            (setf (feature command) name)))
+        (xpath:do-node-set (enum-node (xpath:evaluate "enum" require-node))
+          (parse-require-enum enum-node "" vk-spec))
+        (xpath:do-node-set (type-node (xpath:evaluate "type" require-node))
+          (let ((type-name (xps (xpath:evaluate "@name" type-node))))
+            (when (and (not (gethash type-name (defines vk-spec)))
+                       (not (find type-name (includes vk-spec) :test 'string=)))
+              (let ((type (gethash type-name (types vk-spec))))
+                (assert type
+                        () "feature requires unknown type <~a>" type-name)
+                (assert (or (not (feature type))
+                            (string= (feature type) name))
+                        () "type <~a> already listed on feature <~a>" type-name (feature type))
+                (setf (feature type)
+                      name)))))))))
+
 (defun parse-vk-xml (version vk-xml-pathname)
   "Parses the vk.xml file at VK-XML-PATHNAME into a VK-SPEC instance."
   (let* ((vk.xml (cxml:parse-file vk-xml-pathname
@@ -939,6 +1049,6 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
     (parse-types vk.xml vk-spec)
     (parse-enums vk.xml vk-spec)
     (parse-commands vk.xml vk-spec)
-    ;; todo: features
+    (parse-features vk.xml vk-spec)
     ;; todo: extensions // queries platforms & features
     vk-spec))

@@ -8,6 +8,7 @@
   ((name
     :initarg :name
     :type string
+    :initform (error "name not supplied")
     :accessor name))
   (:documentation ""))
 
@@ -23,6 +24,7 @@
   ((extensions
     :initarg :extensions
     :type list ;; string
+    :initform nil
     :accessor extensions))
   (:documentation "TODO"))
 
@@ -38,6 +40,7 @@
   ((feature
     :initarg :feature
     :type string
+    :initform nil
     :accessor feature))
   (:documentation "TODO"))
 
@@ -204,6 +207,7 @@ See *VK-PLATFORM*
     :type string
     :initform nil
     :accessor string-value)
+   ;; how should offsets be handled?
    (vk-hpp-name ;; I'll keep this, in case I wanna name lisp enum values according to this rather than their C names
     :initarg :vk-hpp-name
     :type string
@@ -543,7 +547,7 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :accessor tags)
    (types
     :initarg :types
-    :type hash-table ;; string to category
+    :type hash-table ;; string to vk-type
     :initform (make-hash-table :test 'equal)
     :accessor types)
    (typesafe-check  ;; todo: this is not needed for CL bindings
