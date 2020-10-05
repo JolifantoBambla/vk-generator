@@ -2,7 +2,7 @@
  Copyright(c) 2020 - Lukas Herzberger <herzberger.lukas@gmail.com>
  SPDX-License-Identifier: MIT
 
- Copyright(c) 2015-2029 - NVIDIA CORPORATION
+ Copyright(c) 2015-2019 - NVIDIA CORPORATION
  SPDX-License-Identifier: Apache-2.0
 |#
 
