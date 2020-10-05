@@ -1,3 +1,10 @@
+#|
+ Copyright(c) 2020 - Lukas Herzberger <herzberger.lukas@gmail.com>
+ SPDX-License-Identifier: MIT
+
+ Copyright(c) 2015-2020 - NVIDIA CORPORATION
+ SPDX-License-Identifier: Apache-2.0
+|#
 
 (in-package :vk-generator/vk-spec)
 
@@ -606,25 +613,23 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
       (setf result (subseq result 0 (- (length result) (length tag)))))
     result))
 
-(defun add-enum-value (enum))
-
 (defun add-enum-alias (enum name alias-name vk-hpp-name)
-  (let ((alias (gethash alias-name (aliases enum))))
-    (assert (or (find-if (lambda (v)
+  "TODO"
+  (assert (or (find-if (lambda (v)
                            (string= alias-name (name v)))
                          (enum-values enum))
-                alias)
+                (gethash alias-name (aliases enum)))
             () "unknown enum alias <~a>" alias-name)
+  (let ((alias (gethash name (aliases enum))))
     (assert (or (not alias)
                 (string= (first alias) alias-name))
-            () "enum alias <~a> already listed for a different enum value")
-    ;; only list aliaes that map to different vk-hpp-names
-    (setf alias (find-if (lambda (alias-data)
-                           (string= vk-hpp-name (second alias-data)))
-                         (alexandria:hash-table-values (aliases enum))))
-    (unless alias
-      (setf (gethash name (aliases enum))
-            (list alias-name vk-hpp-name)))))
+            () "enum alias <~a> already listed for a different enum value" alias-name))
+  ;; only list aliases that map to different vk-hpp-names
+  (unless (find-if (lambda (alias-data)
+                     (string= vk-hpp-name (second alias-data)))
+                   (alexandria:hash-table-values (aliases enum)))
+    (setf (gethash name (aliases enum))
+          (list alias-name vk-hpp-name))))
 
 (defun parse-enum-value (node enum is-bitmask-p prefix postfix vk-spec)
   "TODO"
@@ -897,45 +902,77 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
               (when (alias enum)
                 (multiple-value-bind (alias-prefix alias-postfix) (get-enum-pre-and-postfix (alias enum) (is-bitmask-p enum) (tags vk-spec))
                   (when (alexandria:ends-with-subseq postfix name)
-                    (setf vk-hpp-name (create-enum-vk-hpp-name name alias-prefix alias-postfix (is-bismask-p enum) tag)))))
+                    (setf vk-hpp-name (create-enum-vk-hpp-name name alias-prefix alias-postfix (is-bitmask-p enum) tag)))))
               (add-enum-alias enum name alias vk-hpp-name))))
-        (let* ((dir-string (xps (xpath:evaluate "@dir" node)))
-               (dir (if (and dir-string (string= dir-string "-"))
-                        -1
-                        1))
-               (bitpos-string (xps (xpath:evaluate "@bitpos" node)))
-               (bitpos (numeric-value bitpos-string))
-               (value-string (xps (xpath:evaluate "@value" node)))
-               (value (numeric-value value-string))
-               (offset-string (xps (xpath:evaluate "@offset" node)))
-               (offset (numeric-value offset-string))
-               (extension-number (numeric-value (and offset
-                                                       (or (xps (xpath:evaluate "@extnumber" node))
-                                                           (xps (xpath:evaluate "../../@number" node)))))))
+        (let ((value-string (xps (xpath:evaluate "@value" node))))
           (if extends
-            (let ((enum (gethash extends (enums vk-spec))))
-              (assert enum
-                      () "feature extends unknown enum <~a>" extends)
-              (multiple-value-bind (prefix postfix) (get-enum-pre-and-postfix extends (is-bitmask-p enum) (tags vk-spec))
-                (assert (or (and bitpos-string (not value-string) (not offset-string))
-                            (and (not bitpos-string) value-string (not offset-string))
-                            (and (not bitpos-string) (not value-string) offset-string))
-                        () "exactly one of bitpos = <~a>, offset = <~a>, and value = <~a> is supposed to be set" bitpos-string offset-string value-string)
-                (push (make-instance 'enum-value
-                                     :name name
-                                     :number-value (* dir
-                                                      (or (and offset (+ +ext-base+
-                                                                         (* +ext-block-size+ (1- extension-number))
-                                                                         offset))
-                                                          value
-                                                          (ash 1 bitpos)))
-                                     :string-value (or value-string bitpos-string offset-string)
-                                     :vk-hpp-name (create-enum-vk-hpp-name name prefix postfix (is-bitmask-p enum) tag)
-                                     :single-bit-p (not value))
-                      (enum-values enum))))
-            (unless value-string
-              (assert (gethash name (constants vk-spec))
-                      () "unknown required enum <~a>" name)))))))
+              (let* ((enum (gethash extends (enums vk-spec)))
+                     (dir-string (xps (xpath:evaluate "@dir" node)))
+                     (dir (if (and dir-string (string= dir-string "-"))
+                              -1
+                              1))
+                     (bitpos-string (xps (xpath:evaluate "@bitpos" node)))
+                     (bitpos (numeric-value bitpos-string))
+                     (value (numeric-value value-string))
+                     (offset-string (xps (xpath:evaluate "@offset" node)))
+                     (offset (numeric-value offset-string))
+                     (extension-number (numeric-value (and offset
+                                                           (or (xps (xpath:evaluate "@extnumber" node))
+                                                               (xps (xpath:evaluate "../../@number" node)))))))
+                (assert enum
+                        () "feature extends unknown enum <~a>" extends)
+                (multiple-value-bind (prefix postfix) (get-enum-pre-and-postfix extends (is-bitmask-p enum) (tags vk-spec))
+                  (assert (or (and bitpos-string (not value-string) (not offset-string))
+                              (and (not bitpos-string) value-string (not offset-string))
+                              (and (not bitpos-string) (not value-string) offset-string))
+                          () "exactly one of bitpos = <~a>, offset = <~a>, and value = <~a> is supposed to be set" bitpos-string offset-string value-string)
+                  (push (make-instance 'enum-value
+                                       :name name
+                                       :number-value (* dir
+                                                        (or (and offset (+ +ext-base+
+                                                                           (* +ext-block-size+ (1- extension-number))
+                                                                           offset))
+                                                            value
+                                                            (ash 1 bitpos)))
+                                       :string-value (or value-string bitpos-string offset-string)
+                                       :vk-hpp-name (create-enum-vk-hpp-name name prefix postfix (is-bitmask-p enum) tag)
+                                       :single-bit-p (not value))
+                        (enum-values enum))))
+              (unless value-string
+                (assert (gethash name (constants vk-spec))
+                        () "unknown required enum <~a>" name)))))))
+
+(defun parse-extension-require-command (node extension-name vk-spec)
+  "TODO"
+  (let* ((name (xps (xpath:evaluate "@name" node)))
+         (command (gethash name (commands vk-spec))))
+    (if command
+        (push (extensions command) extension-name)
+        (progn
+          (setf command (find-if (lambda (c)
+                                   (gethash name (alias c)))
+                                 (alexandria:hash-table-values (commands vk-spec))))
+          (assert command
+                  () "extension <~a> requires unknown command <~a>" extension-name name)
+          (push (extensions (gethash name (alias command)))
+                extension-name)))))
+
+(defun get-platforms (extension-names vk-spec)
+  "Returns a list of unique platform names for a given sequence of extension names."
+  (remove-duplicates
+   (loop for e in extension-names
+         collect (platform (gethash e (extensions vk-spec))))))
+
+(defun parse-extension-require-type (node extension-name vk-spec)
+  "TODO"
+  (let* ((name (xps (xpath:evaluate "@name" node)))
+         (type (gethash name (types vk-spec))))
+    (assert type
+            () "failed to find required type <~a>" name)
+    (push extension-name (extensions type))
+    (assert (= (length (get-platforms (extensions type) vk-spec))
+               1)
+            () "type <~a> is protected by more than one platform" name)))
 
 (defun parse-extensions (vk.xml vk-spec)
   "TODO"
@@ -962,9 +999,55 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
       (if (string= supported "disabled")
           (xpath:do-node-set (require-node (xpath:evaluate "require" node))
             ;; todo: remove disabled stuff
-            (xpath:do-node-set (disable-node (xpath:evaluate "command" require-node)))
-            (xpath:do-node-set (disable-node (xpath:evaluate "enum" require-node)))
-            (xpath:do-node-set (disable-node (xpath:evaluate "type" require-node))))
+            (xpath:do-node-set (disable-node (xpath:evaluate "command" require-node))
+              (let* ((command-name (xps (xpath:evaluate "@name" disable-node)))
+                    (command (gethash command-name (commands vk-spec))))
+                (assert command
+                        () "try to remove unknown command <~a>" command-name)
+                (remhash command-name (commands vk-spec))
+                (let ((handle (gethash (handle command) (handles vk-spec))))
+                  (assert handle
+                          () "cannot find handle corresponding to command <~a>" command-name)
+                  (remove command-name (commands handle) :test 'string=))))
+            (xpath:do-node-set (disable-node (xpath:evaluate "enum" require-node))
+              (let ((enum-name (xps (xpath:evaluate "@name" disable-node)))
+                    (enum-extends (xps (xpath:evaluate "@extends" disable-node))))
+                (when enum-extends
+                  (let ((enum (gethash enum-extends (enums vk-spec))))
+                    (assert enum
+                            () "disabled extension <~a> references unknown enum <~a>" name enum-extends)
+                    (assert (not (find-if (lambda (v)
+                                       (string= (name v) enum-name))
+                                     (enum-values enum)))
+                            () "disabled extension <~a> references known enum value <~a>" name enum-name)))))
+            (xpath:do-node-set (disable-node (xpath:evaluate "type" require-node))
+              (let* ((type-name (xps (xpath:evaluate "@name" disable-node)))
+                     (type (gethash type-name (types vk-spec))))
+                (assert type
+                        () "trying to remove unknown type <~a>" type-name)
+                (cond
+                  ((eq (category type) :bitmask)
+                   (let ((bitmask (gethash type-name (bitmasks vk-spec))))
+                     (assert bitmask
+                             () "trying to remove unknown bitmask <~a>" type-name)
+                     (assert (not (alias bitmask))
+                             () "trying to remove disabled bitmask <~a> which has alias <~a>" type-name (alias bitmask))
+                     (remhash type-name (bitmasks vk-spec))))
+                  ((eq (category type) :enum)
+                   (let ((enum (gethash type-name (enums vk-spec))))
+                     (assert enum
+                             () "trying to remove unknown enum <~a>" type-name)
+                     (assert (not (alias enum))
+                             () "trying to remove disabled enum <~a> which has alias <~a>" type-name (alias enum))
+                     (remhash type-name (enums vk-spec))))
+                  ((eq (category type) :struct)
+                   (let ((struct (gethash type-name (structures vk-spec))))
+                     (assert struct
+                             () "trying to remove unknown structure <~a>" type-name)
+                     (assert (= (length (aliases struct)) 0)
+                             () "trying to remove disabled structure <~a> which has ~a aliases" type-name (length (aliases struct)))
+                     (remhash type-name (structures vk-spec))))
+                  (t (error "trying to remove <~a> of unhandled type <~a>" type-name (category type)))))))
           (let ((extension (make-instance 'extension
                                           :name name
                                           :platform platform
@@ -986,10 +1069,15 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
                 (assert (or (not @feature)
                             (gethash @feature (features vk-spec)))
                         () "unknown feature <~a>" @feature))
-              ;; todo: read require children
-              (xpath:do-node-set (command-node (xpath:evaluate "command" require-node)))
-              (xpath:do-node-set (enum-node (xpath:evaluate "enum" require-node)))
-              (xpath:do-node-set (type-node (xpath:evaluate "type" require-node)))))))))
+              (let ((tag (second (split-sequence:split-sequence #\_ name))))
+                (assert (find tag (tags vk-spec) :test 'string=)
+                        () "name <~a> is using an unknown tag <~a>" name tag)
+                (xpath:do-node-set (command-node (xpath:evaluate "command" require-node))
+                  (parse-extension-require-command command-node name vk-spec))
+                (xpath:do-node-set (enum-node (xpath:evaluate "enum" require-node))
+                  (parse-require-enum enum-node tag vk-spec))
+                (xpath:do-node-set (type-node (xpath:evaluate "type" require-node))
+                  (parse-extension-require-type type-node name vk-spec)))))))))
 
 (defun parse-platforms (vk.xml vk-spec)
   "TODO"
@@ -1043,6 +1131,17 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
                 (setf (feature type)
                       name)))))))))
 
+(defun parse-copyright (vk.xml vk-spec)
+  "TODO"
+  (xpath:do-node-set (node (xpath:evaluate "/registry/comment" vk.xml))
+    (let ((text (xps node)))
+      (when (search "Copyright" text)
+        (setf (vulkan-license-header vk-spec)
+              (string-trim '(#\Space #\Tab #\Newline #\return)
+                           (subseq text 0 (search "This file, vk.xml, is the" text)))))))
+  (assert (vulkan-license-header vk-spec)
+          () "no copyright notice found in vk.xml"))
+
 (defun parse-vk-xml (version vk-xml-pathname)
   "Parses the vk.xml file at VK-XML-PATHNAME into a VK-SPEC instance."
   (let* ((vk.xml (cxml:parse-file vk-xml-pathname
@@ -1052,7 +1151,7 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
     (setf (gethash "" (handles vk-spec))
           (make-instance 'handle
                          :name ""))
-    ;; copyright
+    (parse-copyright vk.xml vk-spec)
     (parse-platforms vk.xml vk-spec)
     (parse-tags vk.xml vk-spec)
     (parse-types vk.xml vk-spec)

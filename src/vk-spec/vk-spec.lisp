@@ -1,6 +1,12 @@
-(in-package :vk-generator/vk-spec)
+#|
+ Copyright(c) 2020 - Lukas Herzberger <herzberger.lukas@gmail.com>
+ SPDX-License-Identifier: MIT
 
-;; TODO: much of the stuff below will not be needed or will have to be changed to generate cl bindings
+ Copyright(c) 2015-2029 - NVIDIA CORPORATION
+ SPDX-License-Identifier: Apache-2.0
+|#
+
+(in-package :vk-generator/vk-spec)
 
 ;;; CLASSES WITH HEAVILY REUSED SLOTS
 
@@ -163,7 +169,7 @@ See *VK-PLATFORM*
   ()
   (:documentation "TODO"))
 
-(defclass command (vk-element has-feature)
+(defclass command (vk-element has-extensions has-feature)
   ((alias
     :initarg :alias
     :type hash-table ;; string - command-alias
@@ -560,11 +566,11 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :type string
     :initform nil
     :accessor version)
-   (vulkan-licence-header
-    :initarg :vulkan-licence-header
+   (vulkan-license-header
+    :initarg :vulkan-license-header
     :type string
     :initform nil
-    :accessor vulkan-licence-header))
+    :accessor vulkan-license-header))
   (:documentation "Vulkan specification class based on VulkanHppGenerator"))
 
 ;; todo: aliases
