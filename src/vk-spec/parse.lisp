@@ -8,17 +8,9 @@
 
 (in-package :vk-generator/vk-spec)
 
-;; todo: replace all usages of (split-sequence:split-sequence #\, str) with this
 (defun tokenize (str)
   "Splits a comma-separated string."
   (split-sequence:split-sequence #\, str))
-
-;; todo: replace all usages with alexandria:starts-with-subseq
-(defun begins-with-p (str substr)
-  (declare (type string str))
-  (declare (type string substr))
-  "Checks whether or not the given string STR begins with the string SUBSTR."
-  (string= (subseq str 0 (length substr)) substr))
 
 (defun parse-boolean (node)
   "Checks whether or not the given node NODE holds a string that equals 'true'."
@@ -130,7 +122,7 @@
         (let ((name-data (parse-name-data node))
               (type-info (parse-type-info node))
               (requires (xps (xpath:evaluate "@requires" node))))
-          (assert (begins-with-p (name name-data) "Vk")
+          (assert (alexandria:starts-with-subseq "Vk" (name name-data))
                   () "name <~a> does not begin with <VK>" (name name-data))
           (assert (= (length (array-sizes name-data)) 0)
                   () "name <~a> with unsupported array-sizes" (array-sizes name-data))
@@ -166,7 +158,7 @@
                                       (@name "text()")
                                       (t (error "unknown define args path for define")))
                                     node)))
-         (is-value-p (begins-with-p args "("))
+         (is-value-p (alexandria:starts-with-subseq "(" args))
          (is-struct-p (search "struct" (xps node))))
     (when is-struct-p
         (assert (not (gethash name (types vk-spec)))
@@ -270,7 +262,7 @@
         (let ((parent (xps (xpath:evaluate "@parent" node)))
               (name-data (parse-name-data node))
               (type-info (parse-type-info node)))
-          (assert (begins-with-p (name name-data) "Vk")
+          (assert (alexandria:starts-with-subseq "Vk" (name name-data))
                   () "name <~a> does not begin with <Vk>" (name name-data))
           (assert (= (length (array-sizes name-data)) 0)
                   () "name <~a> with unsupported array-sizes" (name name-data))
@@ -288,7 +280,7 @@
           (setf (gethash (name name-data) (handles vk-spec))
                 (make-instance 'handle
                                :name (name name-data)
-                               :parents (split-sequence:split-sequence #\, parent)))
+                               :parents (tokenize parent)))
           (assert (not (gethash (name name-data) (types vk-spec)))
                   () "handle <~a> already specified as a type" (name name-data))
           (setf (gethash (name name-data) (types vk-spec))
@@ -338,7 +330,7 @@
          (optional-p (parse-boolean (xpath:evaluate "@optional" node)))
          (selection (xps (xpath:evaluate "@selection" node)))
          (selector (xps (xpath:evaluate "@selector" node)))
-         (member-values (split-sequence:split-sequence #\, (xps (xpath:evaluate "@values" node))))
+         (member-values (tokenize (xps (xpath:evaluate "@values" node))))
          (comment (xps (xpath:evaluate "comment" node)))
          (member-data (make-instance 'member-data
                                      :name (name name-data)
@@ -363,7 +355,7 @@
                 () "structure member array specification is ill-formatted: <~a>" enum)
         (push enum (array-sizes member-data))))
     (when len
-      (setf (len member-data) (split-sequence:split-sequence #\, len))
+      (setf (len member-data) (tokenize len))
       (assert (<= (length (len member-data)) 2)
               () "member attribute <len> holds unknown number of data: ~a" (length (len member-data)))
       (let* ((first-len (first (len member-data)))
@@ -416,7 +408,7 @@
         (let ((allow-duplicate-p (parse-boolean (xpath:evaluate "@allowduplicate" node)))
               (is-union-p (string= (xps (xpath:evaluate "@category" node)) "union"))
               (returned-only-p (parse-boolean (xpath:evaluate "@returnedonly" node)))
-              (struct-extends (split-sequence:split-sequence #\, (xps (xpath:evaluate "@structextends" node)))))
+              (struct-extends (tokenize (xps (xpath:evaluate "@structextends" node)))))
           (assert name
                   () "struct has no name")
           ;; todo: this should be an assert in a future version
