@@ -75,12 +75,30 @@
     :initarg :comment
     :type string
     :initform ""
-    :accessor comment))
+    :accessor comment)
+   (id
+    :type integer
+    :initform 0
+    :reader id)
+   (count
+    :allocation :class
+    :type integer
+    :initform 0))
   (:documentation "The base class for elements parsed from a vk.xml.
 
+Instances of VK-ELEMENT are initialized with the index of their occurrence ID
+which is determined using the shared slot COUNT.
+This can be used to sort elements based on their occurrence in the XML API Registry.
+
 Slots:
+See ID
 See NAME       the name of the element in the Vulkan API registry.
+See COMMENT    a comment describing the element.
 "))
+
+(defmethod initialize-instance :after ((obj vk-element) &rest args)
+  (setf (slot-value obj 'id) (slot-value obj 'count))
+  (incf (slot-value obj 'count)))
 
 (defmethod print-object ((obj name-data) stream)
   (print-unreadable-object (obj stream :type t)
@@ -482,10 +500,10 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :initform (make-hash-table :test 'equal)
     :accessor constants)
    (defines
-    :initarg :defines
-    :type hash-table ;; string to define
-    :initform (make-hash-table :test 'equal)
-    :accessor defines)
+       :initarg :defines
+       :type hash-table ;; string to define
+       :initform (make-hash-table :test 'equal)
+       :accessor defines)
    (enums
     :initarg :enums
     :type hash-table ;; string to enum
@@ -521,16 +539,6 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :type list ;; string
     :initform nil
     :accessor includes)
-   (listed-types
-    :initarg :listed-types
-    :type list ;; string
-    :initform nil
-    :accessor listed-types)
-   (listing-types
-    :initarg :listing-types
-    :type list ;; string
-    :initform nil
-    :accessor listing-types)
    (platforms
     :initarg :platforms
     :type hash-table ;; string to platform
@@ -556,7 +564,7 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :type hash-table ;; string to vk-type
     :initform (make-hash-table :test 'equal)
     :accessor types)
-   (typesafe-check  ;; todo: this is not needed for CL bindings
+   (typesafe-check ;; todo: this is not needed for CL bindings
     :initarg :typesafe-check
     :type string
     :initform nil

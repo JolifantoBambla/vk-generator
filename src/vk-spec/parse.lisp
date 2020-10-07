@@ -10,7 +10,10 @@
 
 (defun tokenize (str)
   "Splits a comma-separated string."
-  (split-sequence:split-sequence #\, str))
+  (let ((tokenized (split-sequence:split-sequence #\, str)))
+    (if (member nil tokenized)
+        nil
+        tokenized)))
 
 (defun parse-boolean (node)
   "Checks whether or not the given node NODE holds a string that equals 'true'."
@@ -1140,9 +1143,12 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
                                   (cxml:make-whitespace-normalizer
                                    (stp:make-builder))))
          (vk-spec (make-instance 'vulkan-spec)))
+    ;; insert default handle for create-instance and such
     (setf (gethash "" (handles vk-spec))
           (make-instance 'handle
                          :name ""))
+
+    ;; parse vk.xml
     (parse-copyright vk.xml vk-spec)
     (parse-platforms vk.xml vk-spec)
     (parse-tags vk.xml vk-spec)
@@ -1151,4 +1157,13 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
     (parse-commands vk.xml vk-spec)
     (parse-features vk.xml vk-spec)
     (parse-extensions vk.xml vk-spec)
+    
+    ;; reverse order of lists 
+    (setf (extended-structs vk-spec)
+          (remove-duplicates (reverse (extended-structs vk-spec))))
+    (setf (includes vk-spec)
+          (reverse (includes vk-spec)))
+    (setf (tags vk-spec)
+          (reverse (tags vk-spec)))
+    
     vk-spec))
