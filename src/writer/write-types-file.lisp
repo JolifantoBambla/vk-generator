@@ -28,52 +28,60 @@
 
 (in-package :vk-generator/writer)
 
+(defun sorted-elements (vk-elements)
+  "Returns a sorted list of VK-ELEMENT instances, sorted by their ID in increasing order."
+  (sort vk-elements #'< :key #'id))
+
+(defun sorted-names (vk-elements)
+  "Returns a sorted list of names of VK-ELEMENT instances, sorted by their ID in increasing order.
+
+See SORTED-ELEMENTS
+"
+  (map 'list #'name (sorted-elements vk-elements)))
 
 (defun write-extension-names (out vk-spec)
   (format out "(defparameter *extension-names*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~a~^~%     ~})))~%~%"
-          (loop for (k . v) in (alexandria:hash-table-alist (extension-names vk-spec))
+          (loop for name in (sorted-names (alexandria:hash-table-values (extensions vk-spec)))
                 collect (ppcre:regex-replace-all
-                         "^VK-" (substitute #\- #\_ k) "")
-                collect v)))
+                         "^VK-" (substitute #\- #\_ name) "")
+                collect name)))
 
 (defun write-base-types (out vk-spec)
-  (loop for (name . attribs) in (remove-if-not
-                                 (lambda (x)
-                                   (and (consp (cdr x))
-                                        (eql (second x) :basetype)))
-                                 (types vk-spec))
+  (loop for base-type in (sorted-elements (alexandria:hash-table-values (base-types vk-spec)))
         do (format out "~((defctype ~a ~s)~)~%~%"
-                   (fix-type-name name (vendor-ids vk-spec)) (second attribs)))
+                   (fix-type-name (name base-type) (tags vk-spec))
+                   (gethash (type-name base-type) *vk-platform*)))
   (format out "(defctype handle :pointer)~%")
   (format out "#.(if (= 8 (foreign-type-size :pointer))~%  '(defctype non-dispatch-handle :pointer)~%  '(defctype non-dispatch-handle :uint64))~%~%")
-        ;; misc OS types that are just passed around as pointers
+
+  ;; todo: get these from VK-SPEC (e.g. (find-if (lambda (t) (and (= (category t) :basetype) (not (gethash (name t) (base-types vk-spec))))) (alexandria:hash-table-values (types vk-spec))) ... )
+  ;; misc OS types that are just passed around as pointers
   (loop for name in *opaque-types*
         ;; fixme: is there a better type to use here? or use empty struct?
         do (format out "~((defctype ~a :void)~)~%~%"
-                   (fix-type-name name (vendor-ids vk-spec))))
+                   (fix-type-name name (tags vk-spec))))
   (loop for (name type) on *misc-os-types* by #'cddr
         do (format out "~((defctype ~a ~s)~)~%~%"
-                   (fix-type-name name (vendor-ids vk-spec)) type))
+                   (fix-type-name name (tags vk-spec)) type))
   (loop for name in *opaque-struct-types*
         do (format out "~((defcstruct ~a)~)~%~%"
-                   (fix-type-name name (vendor-ids vk-spec)))))
+                   (fix-type-name name (tags vk-spec)))))
 
 (defun write-handles (out vk-spec)
-  (loop for (name . attribs) in (remove-if-not
-                                 (lambda (x)
-                                   (and (consp (cdr x))
-                                        (member (second x)
-                                                '(:handle
-                                                  :non-dispatch-handle))))
-                                 (types vk-spec))
+  (loop for handle in (sorted-elements (alexandria:hash-table-values (handles vk-spec)))
         ;; handles are pointers to foo_T struct
         ;; on 32bit platform, 'non-dispatch' handles are 64bit int,
         ;; otherwise pointer to foo_T struct
         do (format out "(~(defctype ~a ~a~))~%~%"
-                   (fix-type-name name (vendor-ids vk-spec))
-                   (car attribs))))
+                   (fix-type-name (name handle) (tags vk-spec))
+                   (if (non-dispatch-handle-p handle)
+                       "non-dispatch-handle"
+                       "handle"))))
 
 (defun write-bitfields (out vk-spec)
+  ;; todo: write bitfields
+  (loop for bitmask in (sorted-elements (alexandria:hash-table-values (bitmasks vk-spec)))
+        )
   (loop for (name . attribs) in (sort (alexandria:hash-table-alist (bitfields vk-spec))
                                       'string< :key 'car)
         for base-type = (second (get-type vk-spec name))

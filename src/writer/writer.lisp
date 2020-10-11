@@ -33,9 +33,6 @@
 (defparameter *core-definer* "defvkfun")
 (defparameter *ext-definer* "defvkextfun")
 
-;; todo: clean up
-;; todo: write all files
-;; todo: fix package structure (out-dir should contain .asd-file & rest should be in src & docs)
 (defun write-vk-package (vk-spec vk-package-dir)
   (let* ((additional-files-dir
            (asdf:system-relative-pathname 'vk-generator
