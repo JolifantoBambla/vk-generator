@@ -308,6 +308,11 @@ See *VK-PLATFORM*
     :type list ;; string
     :initform nil
     :accessor parents)
+   (non-dispatch-handle-p
+    :initarg :non-dispatch-handle-p
+    :type boolean
+    :initform nil
+    :accessor non-dispatch-handle-p)
    (commands
     :initarg :commands
     :type list ;; string

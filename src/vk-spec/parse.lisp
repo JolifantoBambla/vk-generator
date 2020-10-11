@@ -129,7 +129,7 @@
                   () "name <~a> does not begin with <VK>" (name name-data))
           (assert (= (length (array-sizes name-data)) 0)
                   () "name <~a> with unsupported array-sizes" (array-sizes name-data))
-          (when (find (type-name type-info) '("VkFlags" "VkFlags64"))
+          (unless (find (type-name type-info) '("VkFlags" "VkFlags64") :test #'string=)
             (warn "unexpected bitmask type <~a>" (type-name type-info)))
           (assert (string= (prefix type-info) "typedef")
                   () "unexpected type prefix <~a>" (prefix type-info))
@@ -283,7 +283,8 @@
           (setf (gethash (name name-data) (handles vk-spec))
                 (make-instance 'handle
                                :name (name name-data)
-                               :parents (tokenize parent)))
+                               :parents (tokenize parent)
+                               :non-dispatch-handle-p (string= (type-name type-info) "VK_DEFINE_NON_DISPATCHABLE_HANDLE")))
           (assert (not (gethash (name name-data) (types vk-spec)))
                   () "handle <~a> already specified as a type" (name name-data))
           (setf (gethash (name name-data) (types vk-spec))
