@@ -36,17 +36,6 @@
        (:file "xml-utils")
        (:file "numeric-value")
        (:file "parse")))
-     (:module "parser"
-      :depends-on ("vk-spec")
-      :serial t
-      :components
-      ((:file "constants")
-       (:file "make-keyword")
-       (:file "xml-utils")
-       (:file "extract-vendor-ids")
-       (:file "parse-arg-type")
-       (:file "numeric-value")
-       (:file "parser")))
      (:module "writer"
       :depends-on ("vk-spec")
       :serial t

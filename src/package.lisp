@@ -11,22 +11,84 @@
 (uiop:define-package :vk-generator/vk-spec
     (:use :cl)
   (:export
-   ;; vk-spec
-   :vk-spec
-   :version
-   :copyright
-   :vendor-ids
-   :vk-api-version
-   :api-constants
-   :types
-   :bitfields
+   ;; other accessors
+   :name
+   :alias
+   :type-name
+   :feature
+   :array-sizes
+   :bit-count
+   :comment
+   :id
+   :count
+   :requires
+   :prefix
+   :postfix
+   :type-infor
+   :len
+   :optional-p
+   :error-codes
+   :handle
+   :params
+   :return-type
+   :success-codes
+   :number-value
+   :string-value
+   :vk-hpp-name
+   :single-bit-p
+   :aliases
+   :is-bitmask-p
+   :enum-values
+   :deprecated-by
+   :obsoleted-by
+   :platform
+   :promoted-to
+   :requirements
+   :children
+   :parents
+   :non-dispatch-handle-p
+   :delete-command
+   :delete-pool
+   :no-autovalidity-p
+   :selection
+   :selector
+   :member-values
+   :used-constant
+   :protect
+   :allow-duplicate-p
+   :is-union-p
+   :returned-only-p
+   :struct-extends
+   :sub-struct
+   :member
+   :category
+   :is-value-p
+   :is-struct-p
+   :calls
+   :args
+   
+   ;; vulkan-spec
+   :vulkan-spec
+   :base-types
+   :bitmasks
+   :commands
+   :constatns
+   :defines
    :enums
-   :structs
-   :functions
-   :function-apis
-   :extension-names
-   :handle-types
-   :alias-names
+   :extended-structs
+   :extensions
+   :features
+   :func-pointers
+   :handles
+   :includes
+   :platforms
+   :stucture-aliases
+   :structures
+   :tags
+   :types
+   :typesafe-check
+   :version
+   :vulkan-license-header
 
    ;; constants
    :*special-words*
@@ -44,12 +106,10 @@
    ;; type-utils
    :get-type
    :get-type/f
-   :set-type))
+   :set-type
 
-(uiop:define-package :vk-generator/parser
-    (:use :cl
-          :vk-generator/vk-spec)
-  (:export :parse-vk-xml))
+   ;; parse spec
+   :parse-vk-xml))
 
 (uiop:define-package :vk-generator/writer
     (:use :cl
@@ -60,6 +120,6 @@
     (:use :cl
           :vk-generator/versions
           :vk-generator/ensure-vk-xml
-          :vk-generator/parser
+          :vk-generator/vk-spec
           :vk-generator/writer)
   (:export :generate))
