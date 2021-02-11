@@ -103,8 +103,7 @@ See SORTED-ELEMENTS
            (let ((p (search "-FLAG" fixed-name)))
              (when p
                (setf prefix (format nil "VK_~a"
-                                    (substitute #\_ #\- (subseq fixed-name 0 (1+ p)))))
-               (format t "prefix -> ~s~%" prefix)))
+                                    (substitute #\_ #\- (subseq fixed-name 0 (1+ p)))))))
            (loop for enum-value in bits
                  for comment = (comment enum-value)
                  do (format out "~%  (:~(~a~) #x~x)"
@@ -117,65 +116,56 @@ See SORTED-ELEMENTS
            (format out "~:[)~;~]~%~%" bits)))
 
 (defun write-enums (out vk-spec)
-  (loop for (name . attribs) in (sort (remove-if-not
-                                       (lambda (x)
-                                         (and (consp (cdr x))
-                                              (eql (second x) :enum)))
-                                       (types vk-spec))
-                                      'string< :key 'car)
-        for type = (getf (cddr attribs) :type)
-        for expand = (getf (cddr attribs) :expand)
-        for requires = (getf (cddr attribs) :requires)
-        for bits =  (second attribs)
+  (loop for enum in (sorted-elements (alexandria:hash-table-values (enums vk-spec)))
+        ;; TODO: before 1.07 there was an "expand" attribute for enum tags
+        for values = (enum-values enum)
+        for last-value = (alexandria:lastcar values)
         for prefix = "VK_"
-        for fixed-name = (string (fix-type-name name (vendor-ids vk-spec)))
-        unless (or (eq type :bitmask)
-                   (and (not bits)
-                        (alexandria:ends-with-subseq "Bits" name)))
+        for fixed-name = (string (fix-type-name (name enum) (tags vk-spec)))
         do
-        (if (string-equal fixed-name "RESULT")
-            ;; work around cffi bug: cffi always uses unsigned
-            ;; type for enums, and VkResult has negative values
-            (format out "(defcenum (~(~a :int~))" fixed-name)
-            (format out "(defcenum (~(~a~))" fixed-name))
-        (when bits
-          ;; find longest prefix out of VK_, name - vendor, and expand
-          (when expand
-            (let ((l (loop for (k) in bits
-                           minimize (or (mismatch expand k) 0))))
+          ;; originally bitmasks were omitted
+          ;; originally flagbits without values were omitted
+          (if (string-equal fixed-name "RESULT")
+              ;; work around cffi bug: cffi always uses unsigned
+              ;; type for enums, and VkResult has negative values
+              (format out "(defcenum (~(~a :int~))" fixed-name)
+              (format out "(defcenum (~(~a~))" fixed-name))
+          (when values
+            ;; find longest prefix out of VK_, name - vendor
+            (let* ((p (loop for v in (tags vk-spec)
+                            thereis (when (and
+                                           (>= (length fixed-name) (length v))
+                                           (string= v (subseq fixed-name (- (length fixed-name) (length v)))))
+                                      (search v fixed-name :from-end t))))
+                   (n (format nil "VK_~a"
+                              (substitute #\_ #\-
+                                          (if p
+                                              (subseq fixed-name 0 (- p 1))
+                                              fixed-name))))
+                   (l (loop for enum-value in values
+                            minimize (or (mismatch n (name enum-value)) 0))))
               (when (> l (length prefix))
-                (setf prefix (subseq expand 0 l)))))
-          (let* ((p (loop for v in (vendor-ids vk-spec)
-                          thereis (search v fixed-name)))
-                 (n (format nil "VK_~a"
-                            (substitute #\_ #\-
-                                        (if p
-                                            (subseq fixed-name 0 (- p 1))
-                                            fixed-name))))
-                 (l (loop for (k) in bits
-                          minimize (or (mismatch n k) 0))))
-            (when (> l (length prefix))
-              (setf prefix (subseq n 0 l)))))
-        (loop for ((k . v) . more) on bits
-              for comment = (getf (cdr v) :comment)
-              for ext = (getf (cdr v) :ext)
-              do (format out "~%  (:~(~a~) ~:[#x~x~;~d~])"
-                         (string-trim '(#\-) (fix-bit-name k (vendor-ids vk-spec) :prefix prefix))
-                         (minusp (first v)) (first v))
-              unless more
-              do (format out ")")
-              when (or ext comment)
-              do (format out " ;;~@[ ~a~]~@[ ~a~]" ext comment))
-        (format out "~:[)~;~]~%~%" bits)
-        (when (string-equal fixed-name "RESULT")
-          ;; write out error->comment, since they seem useful
-          ;; enough to print out to users in errors
-          (format out "(defparameter *result-comments*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
-                  (loop for (k nil . v) in bits
-                        collect (string-trim '(#\-) (fix-bit-name k (vendor-ids vk-spec) :prefix prefix))
-                        collect (getf v :comment))))))
+                (setf prefix (subseq n 0 l)))))
+          (loop for enum-value in values
+                for comment = (comment enum-value)
+                do (format out "~%  (:~(~a~) ~:[#x~x~;~d~])"
+                           (string-trim '(#\-) (fix-bit-name (name enum-value) (tags vk-spec) :prefix prefix))
+                           (minusp (number-value enum-value)) (number-value enum-value))
+                when (string= (name last-value) (name enum-value))
+                do (format out ")")
+                when comment
+                do (format out " ;; ~a" comment))
+          (format out "~:[)~;~]~%~%" values)
+          (when (string-equal fixed-name "RESULT")
+            ;; write out error->comment, since they seem useful
+            ;; enough to print out to users in errors
+            (format out "(defparameter *result-comments*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
+                    (loop for enum-value in values
+                          collect (string-trim '(#\-) (fix-bit-name (name enum-value) (tags vk-spec) :prefix prefix))
+                          collect (comment enum-value))))))
 
 (defun write-function-pointer-types (out vk-spec)
+  ;; TODO: fix this
   (loop for (name . attribs) in (sort (remove-if-not
                                        (lambda (x)
                                          (and (consp (cdr x))
@@ -187,6 +177,7 @@ See SORTED-ELEMENTS
                    (fix-type-name name (vendor-ids vk-spec)))))
 
 (defun write-structs (out vk-spec)
+  ;; TODO: fix this
   (loop with dumped = (make-hash-table :test 'equal)
         for (name . attribs) in (sort (remove-if-not
                                        (lambda (x)
