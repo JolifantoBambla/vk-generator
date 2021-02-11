@@ -83,22 +83,20 @@ See SORTED-ELEMENTS
                        "handle"))))
 
 (defun write-bitfields (out vk-spec)
-  ;; todo: write bitfields
+  ;; NOTE: in the original generator bitfields where created for the flags (a type) and the flagbits (an enum)
+  ;;       now we only write the flags using the flagbits as values and later write the flagbits as a separate enum
+  ;;       I guess comparisons between the two should still work after this, but I'll have to check
   (loop for bitmask in (sorted-elements (alexandria:hash-table-values (bitmasks vk-spec)))
-        ;; TODO: so I guess this is where I left off...
-        )
-  (loop for (name . attribs) in (sort (alexandria:hash-table-alist (bitfields vk-spec))
-                                      'string< :key 'car)
-        for base-type = (second (get-type vk-spec name))
-        for requires = (first attribs)
-        for bits = (if (consp base-type)
-                       base-type
-                       (second (when requires
-                                 (get-type vk-spec requires))))
+        for base-type = (type-name bitmask)
+        for requires = (requires bitmask)
+        for enum = (gethash requires (enums vk-spec))
+        for bits = (if enum (enum-values (gethash requires (enums vk-spec))) '())
+        for last-bit = (alexandria:lastcar bits)
         for prefix = "VK_"
-        for fixed-name = (string (fix-type-name name (vendor-ids vk-spec)))
-        do (format out "(defbitfield (~(~a~@[ ~a~]~))" fixed-name
-                   (when (stringp base-type) (fix-type-name base-type (vendor-ids vk-spec))))
+        for fixed-name = (string (fix-type-name (name bitmask) (tags vk-spec)))
+        do (format out "(defbitfield (~(~a~@[ ~a~]~))"
+                   fixed-name
+                   (when (stringp base-type) (fix-type-name base-type (tags vk-spec))))
            ;; possibly shouldn't strip prefix from things like
            ;; VK_QUERY_RESULT_64_BIT or VK_SAMPLE_COUNT_1_BIT where
            ;; only :64 or :1 is left?
@@ -107,12 +105,12 @@ See SORTED-ELEMENTS
                (setf prefix (format nil "VK_~a"
                                     (substitute #\_ #\- (subseq fixed-name 0 (1+ p)))))
                (format t "prefix -> ~s~%" prefix)))
-           (loop for ((k . v) . more) on bits
-                 for comment = (getf (cdr v) :comment)
+           (loop for enum-value in bits
+                 for comment = (comment enum-value)
                  do (format out "~%  (:~(~a~) #x~x)"
-                            (fix-bit-name k (vendor-ids vk-spec) :prefix prefix)
-                            (first v))
-                 unless more
+                            (fix-bit-name (name enum-value) (tags vk-spec) :prefix prefix)
+                            (number-value enum-value))
+                 when (string= (name last-bit) (name enum-value))
                  do (format out ")")
                  when comment
                  do (format out " ;; ~a" comment))
