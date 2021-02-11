@@ -40,7 +40,7 @@ See SORTED-ELEMENTS
   (map 'list #'name (sorted-elements vk-elements)))
 
 (defun write-extension-names (out vk-spec)
-  (format out "(defparameter *extension-names*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~a~^~%     ~})))~%~%"
+  (format out "(defparameter *extension-names*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
           (loop for name in (sorted-names (alexandria:hash-table-values (extensions vk-spec)))
                 collect (ppcre:regex-replace-all
                          "^VK-" (substitute #\- #\_ name) "")
@@ -165,51 +165,40 @@ See SORTED-ELEMENTS
                           collect (comment enum-value))))))
 
 (defun write-function-pointer-types (out vk-spec)
-  ;; TODO: fix this
-  (loop for (name . attribs) in (sort (remove-if-not
-                                       (lambda (x)
-                                         (and (consp (cdr x))
-                                              (eql (second x) :func)))
-                                       (types vk-spec))
-                                      'string< :key 'car)
-        do (format out "~( ~<;; ~@;~a~;~:>~%(defctype ~a :pointer)~)~%~%"
-                   (list (cons "defcallback x" (getf (cdr attribs) :type)))
-                   (fix-type-name name (vendor-ids vk-spec)))))
+  ;; TODO: return type and argument types should be documented somewhere (need to be stored in func-pointer first...)
+  (loop for func-pointer in (sorted-elements (alexandria:hash-table-values (func-pointers vk-spec)))
+        do (format out "~((defctype ~a :pointer)~)~%~%"
+                   (fix-type-name (name func-pointer) (tags vk-spec)))))
 
 (defun write-structs (out vk-spec)
   ;; TODO: fix this
   (loop with dumped = (make-hash-table :test 'equal)
-        for (name . attribs) in (sort (remove-if-not
-                                       (lambda (x)
-                                         (and (consp (cdr x))
-                                              (member (second x)
-                                                      '(:struct :union))))
-                                       (types vk-spec))
-                                      'string< :key 'car)
+        for structure in (sorted-elements (alexandria:hash-table-values (structures vk-spec)))
         do (labels
-               ((dump (name)
-                  (if (and (consp name)
-                           (member (car name) '(:pointer :struct :union)))
-                      (dump (second name))
-                      (when (and (gethash (fix-type-name name (vendor-ids vk-spec)) (structs vk-spec))
-                                 (not (gethash name dumped)))
-                        (let* ((attribs (get-type/f vk-spec name))
-                               (members (getf (cddr attribs) :members)))
-                                ;; todo: test if this still works
-                                ;; set dumped true already here to prevent infinite recursion - necessary since v1.1.75
-                          (setf (gethash name dumped) t)
-
-                          (loop for (nil mt) in members
-                                do (dump mt))
-                          (format out "(defc~(~a~) ~(~a~)" (first attribs)
-                                  (fix-type-name name (vendor-ids vk-spec)))
-                          (format out
-                                  "~{~%  ~1{(:~(~a ~s~@[ :count ~a~])~^#|~@{~a~^ ~}|#~)~}~}"
-                                  members)
-                          (format out "~:[)~;~]~%~%" nil)
-                                ;; (setf (gethash name dumped) t) used to be here
-                          )))))
-             (dump name))) )
+               ((dump (struct)
+                  (setf (gethash (name struct) dumped) t)
+                  (loop for member-value in (member-values struct)
+                        for member-type = (type-name (type-info member-value))
+                        when (and (gethash member-type (structures vk-spec))
+                                  (not (gethash (type-name (type-info member-value)) dumped)))
+                        do (dump (gethash member-type (structures vk-spec))))
+                  (format out "(defc~(~a~) ~(~a~)"
+                          (if (is-union-p struct) "union" "struct")
+                          (fix-type-name (name struct) (tags vk-spec)))
+                  (loop for member-value in (member-values struct)
+                        for name = (fix-type-name (name member-value) (tags vk-spec))
+                        for member-type = (fix-type-name (type-name (type-info member-value)) (tags vk-spec))
+                        for array-count = (array-sizes member-value)
+                        ;; TODO: check if this is correct
+                        ;; TODO: check why array-sizes is always nil
+                        ;; TODO: check if sometimes bit-count is needed as well
+                        ;; TODO: member-type can also be void, uint32, etc. -> need to be keywords
+                        ;; TODO: member-type can be a pointer of a certain type -> needs to be e.g. (:pointer (:struct descriptor-image-info))
+                        ;; TODO: fix-type-name should not split up numbers such as physical-device-4-4-4-4-formats-features-ext
+                        do (format out "~%  ~1{(:~(~a ~s~@[ :count ~a~])~)~}"
+                                     (list name member-type array-count)))
+                  (format out "~:[)~;~]~%~%" nil)))
+             (dump structure))))
 
 (defun write-types-file (types-file vk-spec)
   (with-open-file (out types-file :direction :output :if-exists :supersede)

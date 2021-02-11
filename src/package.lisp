@@ -14,6 +14,7 @@
    ;; other accessors
    :name
    :alias
+   :type-info
    :type-name
    :feature
    :array-sizes
