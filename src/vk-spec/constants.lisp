@@ -34,7 +34,11 @@
     "16" "32" "64"
     "3d" "2d" "1d"
     "3D" "2D" "1D"
-    "ID" "UUID"
+    "b32" "i64" "u64" "f64"
+    "AABB" "AABBS" "AABBs"
+    "RTE" "RTZ"
+    "4444" "A4R4G4B4" "A4B4G4R4" ;; VK_EXT_4444_FORMATS
+    "ID" "UUID" "LUID"
     "HINSTANCE" "HWND" "HANDLE" "DWORD" "LPCWSTR" "SECURITY_ATTRIBUTES"
     "ETC2" "ASTC" "ASTC_" "LDR" "BC" "RR")
   "A sequence of special words that are used in the specification of the Vulkan API.")

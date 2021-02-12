@@ -171,7 +171,6 @@ See SORTED-ELEMENTS
                    (fix-type-name (name func-pointer) (tags vk-spec)))))
 
 (defun write-structs (out vk-spec)
-  ;; TODO: fix this
   (loop with dumped = (make-hash-table :test 'equal)
         for structure in (sorted-elements (alexandria:hash-table-values (structures vk-spec)))
         do (labels
@@ -187,16 +186,30 @@ See SORTED-ELEMENTS
                           (fix-type-name (name struct) (tags vk-spec)))
                   (loop for member-value in (member-values struct)
                         for name = (fix-type-name (name member-value) (tags vk-spec))
-                        for member-type = (fix-type-name (type-name (type-info member-value)) (tags vk-spec))
+                        for member-type = (type-name (type-info member-value)) 
                         for array-count = (array-sizes member-value)
-                        ;; TODO: check if this is correct
-                        ;; TODO: check why array-sizes is always nil
-                        ;; TODO: check if sometimes bit-count is needed as well
-                        ;; TODO: member-type can also be void, uint32, etc. -> need to be keywords
-                        ;; TODO: member-type can be a pointer of a certain type -> needs to be e.g. (:pointer (:struct descriptor-image-info))
-                        ;; TODO: fix-type-name should not split up numbers such as physical-device-4-4-4-4-formats-features-ext
-                        do (format out "~%  ~1{(:~(~a ~s~@[ :count ~a~])~)~}"
-                                     (list name member-type array-count)))
+                        ;; TODO: what exactly should bit-count do? see VkAccelerationStructureInstanceKHR
+                        do
+                          (let ((primitive-type (gethash member-type *vk-platform*))
+                                (fixed-type-name (fix-type-name member-type (tags vk-spec))))
+                            (setf member-type
+                                  (if (alexandria:starts-with-subseq "P-" (string name))
+                                      (list :pointer
+                                            (if primitive-type
+                                                primitive-type
+                                                (list :struct fixed-type-name)))
+                                      (if primitive-type
+                                          primitive-type
+                                          fixed-type-name))))
+                          (cond
+                            ;; TODO: I'll probably have to fix the array size for multidimensional arrays
+                            ((= (length array-count) 1)
+                             (setf array-count
+                                   (if (alexandria:starts-with-subseq "VK_" (first array-count))
+                                       (fix-bit-name (first array-count) (tags vk-spec))
+                                       (parse-integer (first array-count))))))
+                          (format out "~%  ~1{(:~(~a ~s~@[ :count ~a~])~)~}"
+                                       (list name member-type array-count)))
                   (format out "~:[)~;~]~%~%" nil)))
              (dump structure))))
 
