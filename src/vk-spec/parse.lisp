@@ -42,8 +42,7 @@
                           (push (subseq value (1+ start-pos) (- end-pos start-pos 1))
                                 array-sizes)))))
             ((string= (first value) ":")
-             (setf bit-count (cdr value))
-             )
+             (setf bit-count (cdr value)))
             (t
              (assert (or (string= (first value) ";")
                          (string= (first value) ")"))
@@ -495,7 +494,7 @@
   (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[@category=\"funcpointer\"]" vk.xml))
     (parse-funcpointer node vk-spec)))
 
-(defun parse-enum-contant (node vk-spec)
+(defun parse-enum-constant (node vk-spec)
   "TODO"
   (let ((name (xps (xpath:evaluate "@name" node)))
         (alias (xps (xpath:evaluate "@alias" node)))
@@ -628,7 +627,26 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
           (list alias-name vk-hpp-name))))
 
 (defun parse-enum-value (node enum is-bitmask-p prefix postfix vk-spec)
-  "TODO"
+  "Parses an enum value node into an ENUM-VALUE instance and stores it in the given ENUM instance.
+
+A node could look like this:
+<enum value=\"0\" name=\"VK_FRONT_FACE_COUNTER_CLOCKWISE\"/>
+
+Which could be a child of the following enum node:
+<enums name=\"VkFrontFace\" type=\"enum\">
+  <enum value=\"0\" name=\"VK_FRONT_FACE_COUNTER_CLOCKWISE\"/>
+  <enum value=\"1\" name=\"VK_FRONT_FACE_CLOCKWISE\"/>
+</enums>
+
+Note that the created ENUM-VALUE instance is appended at the front of the ENUM-VALUES slot of the given ENUM instance.
+Depending on what you want to do with it you might want to reverse the order of the list after parsing all values of an enum like it is done in PARSE-ENUMS.
+
+See also:
+- PARSE-ENUMS
+- ENUM-VALUE
+- ENUM
+- VULKAN-SPEC
+"
   (let* ((name (xps (xpath:evaluate "@name" node)))
          (alias (xps (xpath:evaluate "@alias" node)))
          (tag (find-tag (tags vk-spec) name postfix))
@@ -664,9 +682,24 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
                     (enum-values enum)))))))
 
 (defun parse-enums (vk.xml vk-spec)
-  "TODO"
+  "Parses an enum node into an ENUM instance and stores it in the given VULKAN-SPEC instance.
+
+A node could look like this:
+<enums name=\"VkFrontFace\" type=\"enum\">
+  <enum value=\"0\" name=\"VK_FRONT_FACE_COUNTER_CLOCKWISE\"/>
+  <enum value=\"1\" name=\"VK_FRONT_FACE_CLOCKWISE\"/>
+</enums>
+
+The enum's child nodes are parsed into ENUM-VALUE instances in the process.
+
+See also:
+- PARSE-ENUM-VALUE
+- ENUM
+- ENUM-VALUE
+- VULKAN-SPEC
+"
   (xpath:do-node-set (node (xpath:evaluate "/registry/enums[@name=\"API Constants\"]/enum" vk.xml))
-    (parse-enum-contant node vk-spec))
+    (parse-enum-constant node vk-spec))
   (xpath:do-node-set (node (xpath:evaluate "/registry/enums[not(@name=\"API Constants\")]" vk.xml))
     (let* ((name (xps (xpath:evaluate "@name" node)))
            (type (xps (xpath:evaluate "@type" node)))
@@ -710,7 +743,9 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
                 (setf (requires bitmask) name))))))
       (multiple-value-bind (prefix postfix) (get-enum-pre-and-postfix name is-bitmask-p (tags vk-spec))
         (xpath:do-node-set (enum-value-node (xpath:evaluate "enum" node))
-          (parse-enum-value enum-value-node enum is-bitmask-p prefix postfix vk-spec))))))
+          (parse-enum-value enum-value-node enum is-bitmask-p prefix postfix vk-spec)))
+      (setf (enum-values enum)
+            (remove-duplicates (reverse (enum-values enum)))))))
 
 
 (defun parse-tags (vk.xml vk-spec)
