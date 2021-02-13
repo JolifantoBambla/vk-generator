@@ -53,7 +53,7 @@
     ;; TODO: I'll probably have to fix the array size for multidimensional arrays
     ((= (length array-sizes) 1)
      (if (alexandria:starts-with-subseq "VK_" (first array-sizes))
-         (fix-bit-name (first array-sizes) (tags vk-spec))
+         (number-value (gethash (first array-sizes) (constants vk-spec)))
          (parse-integer (first array-sizes))))
     (t array-sizes)))
 

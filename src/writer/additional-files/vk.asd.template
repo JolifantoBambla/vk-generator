@@ -8,6 +8,7 @@
     :serial t
     :components ((:file "package")
                  (:file "bindings")
+                 (:file "api-constants")
                  (:file "types")
                  (:file "extra-types")
                  (:file "funcs")

@@ -1021,18 +1021,22 @@ See also:
                               (and (not bitpos-string) value-string (not offset-string))
                               (and (not bitpos-string) (not value-string) offset-string))
                           () "exactly one of bitpos = <~a>, offset = <~a>, and value = <~a> is supposed to be set" bitpos-string offset-string value-string)
-                  (push (make-instance 'enum-value
-                                       :name name
-                                       :number-value (* dir
-                                                        (or (and offset (+ +ext-base+
-                                                                           (* +ext-block-size+ (1- extension-number))
-                                                                           offset))
-                                                            value
-                                                            (ash 1 bitpos)))
-                                       :string-value (or value-string bitpos-string offset-string)
-                                       :vk-hpp-name (create-enum-vk-hpp-name name prefix postfix (is-bitmask-p enum) tag)
-                                       :single-bit-p (not value))
-                        (enum-values enum))))
+                  (unless (find-if (lambda (v) (string= (name v) name)) (enum-values enum))
+                    (push (make-instance 'enum-value
+                                         :name name
+                                         :number-value (* dir
+                                                          (or (and offset (+ +ext-base+
+                                                                             (* +ext-block-size+ (1- extension-number))
+                                                                             offset))
+                                                              value
+                                                              (ash 1 bitpos)))
+                                         :string-value (or value-string bitpos-string offset-string)
+                                         :vk-hpp-name (create-enum-vk-hpp-name name prefix postfix (is-bitmask-p enum) tag)
+                                         :single-bit-p (not value))
+                          (enum-values enum))
+                  (setf (enum-values enum)
+                        (sort (enum-values enum)
+                              (lambda (a b) (< (number-value a) (number-value b))))))))
               (unless value-string
                 (assert (gethash name (constants vk-spec))
                         () "unknown required enum <~a>" name)))))))

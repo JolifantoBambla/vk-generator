@@ -75,7 +75,7 @@
    :base-types
    :bitmasks
    :commands
-   :constatns
+   :constants
    :defines
    :enums
    :extended-structs
