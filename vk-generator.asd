@@ -40,7 +40,8 @@
       :depends-on ("vk-spec")
       :serial t
       :components
-      ((:file "write-types-file")
+      ((:file "make-keyword")
+       (:file "write-types-file")
        (:file "writer")))
      (:file "generate")))))
 

@@ -370,6 +370,7 @@ See DELETE-POOL
   ((len
     :initarg :len
     :type list ;; string
+    :initform nil
     :accessor len)
    (no-autovalidity-p
     :initarg :no-autovalidity-p
@@ -401,7 +402,10 @@ See DELETE-POOL
     :type string
     :initform nil
     :accessor used-constant))
-  (:documentation "TODO"))
+  (:documentation "TODO
+
+Slots:
+See MEMBER-VALUES    a list of allowed values for this MEMBER-DATA instance."))
 
 (defclass platform (vk-element)
   ((protect
@@ -447,7 +451,10 @@ See DELETE-POOL
     :type string
     :initform nil
     :accessor sub-struct))
-  (:documentation "TODO"))
+  (:documentation "TODO
+
+Slots:
+See MEMBER-VALUES    a list of MEMBER-DATA instances describing members of this STRUCT instance."))
 
 (deftype type-category ()
   "TODO: documentation"

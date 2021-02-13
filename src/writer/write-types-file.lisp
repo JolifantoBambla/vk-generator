@@ -48,6 +48,15 @@
             primitive-type
             fixed-type-name))))
 
+(defun prepare-array-sizes (array-sizes vk-spec)
+  (cond
+    ;; TODO: I'll probably have to fix the array size for multidimensional arrays
+    ((= (length array-sizes) 1)
+     (if (alexandria:starts-with-subseq "VK_" (first array-sizes))
+         (fix-bit-name (first array-sizes) (tags vk-spec))
+         (parse-integer (first array-sizes))))
+    (t array-sizes)))
+
 (defun write-extension-names (out vk-spec)
   (format out "(defparameter *extension-names*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
           (loop for name in (sorted-names (alexandria:hash-table-values (extensions vk-spec)))
@@ -196,16 +205,9 @@
                   (loop for member-value in (member-values struct)
                         for name = (fix-type-name (name member-value) (tags vk-spec))
                         for member-type = (make-arg-type name (type-name (type-info member-value)) vk-spec)
-                        for array-count = (array-sizes member-value)
+                        for array-count = (prepare-array-sizes (array-sizes member-value) vk-spec)
                         ;; TODO: what exactly should bit-count do? see VkAccelerationStructureInstanceKHR
                         do
-                          (cond
-                            ;; TODO: I'll probably have to fix the array size for multidimensional arrays
-                            ((= (length array-count) 1)
-                             (setf array-count
-                                   (if (alexandria:starts-with-subseq "VK_" (first array-count))
-                                       (fix-bit-name (first array-count) (tags vk-spec))
-                                       (parse-integer (first array-count))))))
                           (format out "~%  ~1{(:~(~a ~s~@[ :count ~a~])~)~}"
                                        (list name member-type array-count)))
                   (format out "~:[)~;~]~%~%" nil)))
