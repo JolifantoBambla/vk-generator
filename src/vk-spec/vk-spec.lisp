@@ -16,7 +16,10 @@
     :type string
     :initform (error "name not supplied")
     :accessor name))
-  (:documentation ""))
+  (:documentation "Provides a required NAME slot.
+
+Slots:
+See NAME    the name of the instance in the Vulkan API registry."))
 
 (defclass has-alias ()
   ((alias
@@ -24,7 +27,10 @@
     :type string
     :initform nil
     :accessor alias))
-  (:documentation ""))
+  (:documentation "Provides an optional ALIAS slot.
+
+Slots:
+See ALIAS   the alias for this instance."))
 
 (defclass has-extensions ()
   ((extensions
@@ -32,7 +38,10 @@
     :type list ;; string
     :initform nil
     :accessor extensions))
-  (:documentation "TODO"))
+  (:documentation "Provides an optional EXTENSIONS slot.
+
+Slots:
+See EXTENSIONS    a list of names for extensions this instance belongs to."))
 
 (defclass has-type-name ()
   ((type-name
@@ -40,7 +49,10 @@
     :type string
     :initform (error "type-name not supplied")
     :accessor type-name))
-  (:documentation "TODO"))
+  (:documentation "Provides a requiered TYPE-NAME slot.
+
+Slots:
+See TYPE-NAME    the name of a type in the Vulkan API registry or a primitive C type."))
 
 (defclass has-feature ()
   ((feature
@@ -113,6 +125,17 @@ See COMMENT    a comment describing the element.
     (with-accessors ((name name))
         obj
       (format stream "name: ~a" name))))
+
+(defun sorted-elements (vk-elements)
+  "Returns a sorted list of VK-ELEMENT instances, sorted by their ID in increasing order."
+  (sort vk-elements #'< :key #'id))
+
+(defun sorted-names (vk-elements)
+  "Returns a sorted list of names of VK-ELEMENT instances, sorted by their ID in increasing order.
+
+See SORTED-ELEMENTS
+"
+  (map 'list #'name (sorted-elements vk-elements)))
 
 
 (defclass base-type (vk-element has-type-name)
@@ -218,7 +241,12 @@ See *VK-PLATFORM*
     :type list ;; string
     :initform nil
     :accessor success-codes))
-  (:documentation "TODO"))
+  (:documentation "TODO
+
+See VK-ELEMENT
+See HAS-EXTENSIONS
+See HAS-FEATURE
+"))
 
 (defclass enum-value (vk-element)
   ((number-value

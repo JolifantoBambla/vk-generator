@@ -67,6 +67,8 @@
    :is-struct-p
    :calls
    :args
+   :sorted-elements
+   :sorted-names
    
    ;; vulkan-spec
    :vulkan-spec
