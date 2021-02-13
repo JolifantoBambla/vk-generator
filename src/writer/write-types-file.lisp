@@ -28,16 +28,25 @@
 
 (in-package :vk-generator/writer)
 
-(defun sorted-elements (vk-elements)
-  "Returns a sorted list of VK-ELEMENT instances, sorted by their ID in increasing order."
-  (sort vk-elements #'< :key #'id))
 
-(defun sorted-names (vk-elements)
-  "Returns a sorted list of names of VK-ELEMENT instances, sorted by their ID in increasing order.
-
-See SORTED-ELEMENTS
-"
-  (map 'list #'name (sorted-elements vk-elements)))
+(defun make-arg-type (arg-name type-name vk-spec)
+  "TODO"
+  (let ((primitive-type (gethash type-name *vk-platform*))
+        (fixed-type-name (fix-type-name type-name (tags vk-spec)))
+        (vk-type (gethash type-name (types vk-spec))))
+    (if (alexandria:starts-with-subseq "P-" (string arg-name))
+        (if (and primitive-type
+                 (eq primitive-type :char))
+            :string
+            (list :pointer
+                  (if primitive-type
+                      primitive-type
+                      (if (member (category vk-type) '(:struct :union))
+                          (list (category vk-type) fixed-type-name)
+                          fixed-type-name))))
+        (if primitive-type
+            primitive-type
+            fixed-type-name))))
 
 (defun write-extension-names (out vk-spec)
   (format out "(defparameter *extension-names*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
@@ -186,21 +195,10 @@ See SORTED-ELEMENTS
                           (fix-type-name (name struct) (tags vk-spec)))
                   (loop for member-value in (member-values struct)
                         for name = (fix-type-name (name member-value) (tags vk-spec))
-                        for member-type = (type-name (type-info member-value)) 
+                        for member-type = (make-arg-type name (type-name (type-info member-value)) vk-spec)
                         for array-count = (array-sizes member-value)
                         ;; TODO: what exactly should bit-count do? see VkAccelerationStructureInstanceKHR
                         do
-                          (let ((primitive-type (gethash member-type *vk-platform*))
-                                (fixed-type-name (fix-type-name member-type (tags vk-spec))))
-                            (setf member-type
-                                  (if (alexandria:starts-with-subseq "P-" (string name))
-                                      (list :pointer
-                                            (if primitive-type
-                                                primitive-type
-                                                (list :struct fixed-type-name)))
-                                      (if primitive-type
-                                          primitive-type
-                                          fixed-type-name))))
                           (cond
                             ;; TODO: I'll probably have to fix the array size for multidimensional arrays
                             ((= (length array-count) 1)
