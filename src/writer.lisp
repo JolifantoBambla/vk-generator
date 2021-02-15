@@ -26,7 +26,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/writer)
+(in-package :vk-generator)
 
 (defparameter *in-package-name* "vulkan")
 (defparameter *package-nicknames* "#:%vk")
@@ -73,7 +73,7 @@
                    for comment = (comment param)
                    do (format out "~&  ~((~a ~s)~)"
                               arg-name
-                              (make-arg-type arg-name (type-name (type-info param)) vk-spec))
+                              (make-arg-type arg-name (type-info param) vk-spec))
                    unless (string= comment "") do (format out " ;; ~s ~%" comment))
              (format out ")~%~%"))))
 
@@ -135,7 +135,7 @@
                    (setf options (reverse options))
                      (format out "~&  ~((:~a ~s ~a~{ ~s~^~})~)"
                              member-name
-                             (make-arg-type member-name (type-name (type-info m)) vk-spec)
+                             (make-arg-type member-name (type-info m) vk-spec)
                              (prepare-array-sizes (array-sizes m) vk-spec)
                              options))
              (format out ")~%~%"))) )
@@ -143,7 +143,7 @@
 (defun write-vk-package (vk-spec vk-package-dir)
   (let* ((additional-files-dir
            (asdf:system-relative-pathname 'vk-generator
-                                          (make-pathname :directory '(:relative "src" "writer" "additional-files"))))
+                                          (make-pathname :directory '(:relative "src" "additional-files"))))
          (vk-dir (merge-pathnames (make-pathname :directory '(:relative "src")) vk-package-dir))
          (package-file (merge-pathnames "package.lisp" vk-dir))
          (translators-file (merge-pathnames "translators.lisp" vk-dir))

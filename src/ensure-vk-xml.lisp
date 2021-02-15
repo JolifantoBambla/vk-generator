@@ -1,6 +1,6 @@
-;;;; fetch-vk-xml.lisp
+;;;; ensure-vk-xml.lisp
 
-(in-package :vk-generator/ensure-vk-xml)
+(in-package :vk-generator)
 
 (defun make-vk-xml-name (version)
   (declare (type string version))

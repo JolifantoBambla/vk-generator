@@ -6,7 +6,7 @@
  SPDX-License-Identifier: Apache-2.0
 |#
 
-(in-package :vk-generator/vk-spec)
+(in-package :vk-generator)
 
 ;;; CLASSES WITH HEAVILY REUSED SLOTS
 

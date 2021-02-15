@@ -1,16 +1,12 @@
-(uiop:define-package :vk-generator/versions
-    (:use :cl)
-  (:export :*versions*
-           :get-xml-path))
-
-(uiop:define-package :vk-generator/ensure-vk-xml
-    (:use :cl
-          :vk-generator/versions)
-  (:export :ensure-vk-xml))
-
-(uiop:define-package :vk-generator/vk-spec
+(uiop:define-package :vk-generator
     (:use :cl)
   (:export
+   ;; vk.xml related
+   :*versions*
+   :get-xml-path
+   :ensure-vk-xml
+
+   ;; vulkan-spec related
    ;; other accessors
    :name
    :alias
@@ -25,7 +21,7 @@
    :requires
    :prefix
    :postfix
-   :type-infor
+   :type-info
    :len
    :optional-p
    :error-codes
@@ -106,23 +102,10 @@
    :fix-function-name
    :fix-bit-name
 
-   ;; type-utils
-   :get-type
-   :get-type/f
-   :set-type
-
    ;; parse spec
-   :parse-vk-xml))
+   :parse-vk-xml
 
-(uiop:define-package :vk-generator/writer
-    (:use :cl
-          :vk-generator/vk-spec)
-  (:export :write-vk-package))
-
-(uiop:define-package :vk-generator
-    (:use :cl
-          :vk-generator/versions
-          :vk-generator/ensure-vk-xml
-          :vk-generator/vk-spec
-          :vk-generator/writer)
-  (:export :generate))
+   ;; write package
+   :write-vk-package
+   
+   :generate))

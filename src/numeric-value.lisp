@@ -22,7 +22,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/vk-spec)
+(in-package :vk-generator)
 
 (defun numeric-value (str)
   (cond

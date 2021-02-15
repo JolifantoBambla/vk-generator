@@ -26,8 +26,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/vk-spec)
-
+(in-package :vk-generator)
 
 (defun fix-type-name (name vendor-ids)
   "Converts a given camel-cased NAME of a type from the C Vulkan API to a lispy name.

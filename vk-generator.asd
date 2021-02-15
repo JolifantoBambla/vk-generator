@@ -26,22 +26,14 @@
     ((:file "package")
      (:file "versions")
      (:file "ensure-vk-xml")
-     (:module "vk-spec"
-      :serial t
-      :components
-      ((:file "vk-spec")
-       (:file "constants")
-       (:file "fix-name")
-       (:file "type-utils")
-       (:file "xml-utils")
-       (:file "numeric-value")
-       (:file "parse")))
-     (:module "writer"
-      :depends-on ("vk-spec")
-      :serial t
-      :components
-      ((:file "make-keyword")
-       (:file "write-types-file")
-       (:file "writer")))
+     (:file "vk-spec")
+     (:file "constants")
+     (:file "fix-name")
+     (:file "xml-utils")
+     (:file "numeric-value")
+     (:file "parse")
+     (:file "make-keyword")
+     (:file "write-types-file")
+     (:file "writer")
      (:file "generate")))))
 

@@ -6,7 +6,7 @@
  SPDX-License-Identifier: Apache-2.0
 |#
 
-(in-package :vk-generator/vk-spec)
+(in-package :vk-generator)
 
 (defun tokenize (str)
   "Splits a comma-separated string."
@@ -263,7 +263,7 @@ See also:
                     () "enum with unknown alias <~a>" alias)
             (assert (= (length (alias enum)) 0)
                     () "enum <~a> already has an alias <~a>" (name enum) (alias enum))
-            (setf (alias enum) alias)))
+            (setf (alias enum) name)))
         (progn
           (assert (not (gethash name (enums vk-spec)))
                   () "enum <~a> already specified" name)

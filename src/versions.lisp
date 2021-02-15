@@ -1,6 +1,6 @@
 ;;;; Contains all supported versions and some related functions
 
-(in-package :vk-generator/versions)
+(in-package :vk-generator)
 
 ;; NOTE: this is ordered - do not change
 (defparameter *versions*

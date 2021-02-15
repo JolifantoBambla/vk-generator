@@ -26,13 +26,12 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
+(in-package :vk-generator)
 
-(in-package :vk-generator/writer)
+(defun xps (node)
+  (let ((s (string-trim '(#\space #\tab) (xpath:string-value node))))
+    (unless (string= s "") s)))
 
-(defun make-keyword (name)
-  (alexandria:make-keyword (string-upcase name)))
+(defun attrib-names (node)
+  (mapcar 'cxml-stp:local-name (cxml-stp:list-attributes node)))
 
-(defun make-const-keyword (name)
-  (let ((start (if (alexandria:starts-with-subseq "VK_" name) 3 0)))
-    (alexandria:make-keyword
-     (subseq (substitute #\- #\_ name) start))))
