@@ -42,7 +42,8 @@
     (cond
       ;; not a pointer
       ((and (not (string= (postfix type-info) "*"))
-            (not (string= (postfix type-info) "**")))
+            (not (string= (postfix type-info) "**"))
+            (not (string= (postfix type-info) "* const*")))
        (if primitive-type
            primitive-type
            fixed-type-name))
@@ -53,7 +54,9 @@
        :string)
       ;; pointer types
       ((string= (postfix type-info) "*") (list :pointer pointer-type))
-      ((string= (postfix type-info) "**") (list :pointer (list :pointer pointer-type))))))
+      ((or (string= (postfix type-info) "**")
+           (string= (postfix type-info) "* const*"))
+       (list :pointer (list :pointer pointer-type))))))
 
 (defun prepare-array-sizes (array-sizes vk-spec)
   (cond

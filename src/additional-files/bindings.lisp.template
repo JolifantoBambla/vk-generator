@@ -27,9 +27,9 @@
 (in-package #:vulkan)
 
 (define-foreign-library vulkan
-  #++(:darwin (:framework "?"))
-  (:windows "vulkan-1.dll")
-  (:unix (:or "libvulkan.so")))
+  (:darwin (:and "libvulkan.1.dylib" "libMoltenVK.dylib"))
+  (:unix (:or "libvulkan.so"))
+  (:windows "vulkan-1.dll"))
 
 (use-foreign-library vulkan)
 
@@ -74,7 +74,8 @@
                   (ignore-errors (cffi:foreign-bitfield-symbol-list (car len)))))))
              (if (stringp (car len))
                  (cond
-                   ((string= (car len) "latexmath:[codesize \\over 4]")
+                   ((or (string= (car len) "codesize/4")
+                        (string= (car len) "latexmath:[\\textrm{codesize} \\over 4]"))
                     `(floor (foreign-slot-value p ',struct-type :code-size) 4))
                    ((string= (car len) "latexmath:[\\lceil{\\mathit{rasterizationsamples} \\over 32}\\rceil]")
                     ;; slot is an enum (which happens to mean same
@@ -83,6 +84,10 @@
                     `(ceiling (mem-aref ,(slot-pointer :rasterization-samples)
                                         :int)
                               32))
+                   ;; no idea if this is correct -> test
+                   ((string= (car len) "2*vk_uuid_size")
+                    `(setf (foreign-slot-value p ',struct-type :version-data)
+                           (* 2 uuid-size)))
                    (t (error "unhandled len='~s'" len)))
                  `(foreign-slot-value p ',struct-type ,(first len))))
            (slot-pointer (slot &key offset)
@@ -200,6 +205,12 @@
                                                        (* i ,(foreign-type-size
                                                               atype)))))))))))
                    ;; todo
+                   ((and (consp type)
+                         (eql (first type) :pointer)
+                         (consp (second type))
+                         (typep (second (second type)) '(cons (member :struct :union))))
+                    (warn "Skipping for now: ~s ~s ~s ~s ~s" name type count len optional))
+                   ;; todo
                    (t (error "not done yet? ~s ~s ~s ~s ~s" name type count len optional)))))))
     (let ((forms (mapcan #'make-reader members)))
       `(defun ,function-name (p)
@@ -234,13 +245,18 @@
              (len-writer (len val)
                (if (stringp (car len))
                    (cond
-                     ((string= (car len) "codesize/4")
+                     ((or (string= (car len) "codesize/4")
+                          (string= (car len) "latexmath:[\\textrm{codesize} \\over 4]"))
                       `(setf (foreign-slot-value ,p ',struct-type :code-size)
                              (* ,val 4)))
                      ((string= (car len) "latexmath:[$\\lceil{\\mathit{rasterizationsamples} \\over 32}\\rceil$]")
                       ;; can't invert the equation, so just require the
                       ;; user to set it
                       nil)
+                     ;; no idea if this is correct -> test
+                     ((string= (car len) "2*vk_uuid_size")
+                      `(setf (foreign-slot-value ,p ',struct-type :version-data)
+                             (* 2 uuid-size)))
                      (t (error "unhandled len='~s'" len)))
                    `(setf (foreign-slot-value ,p ',struct-type ,(first len))
                           ,val))))
@@ -430,6 +446,12 @@
                                         (* i ,(foreign-type-size atype)))
                            v))
                         (t (error "unexpected type ~s?" type))))))))
+        ;; TODO
+        ((and (consp type)
+              (eql (first type) :pointer)
+              (consp (second type))
+              (typep (second (second type)) '(cons (member :struct :union))))
+         (warn "Skipping for now: ~s ~s ~s ~s ~s" name type count len optional))
         (t (error "not done yet? ~s ~s ~s ~s ~s" name type count len optional))))))
 
 (defun generate-filler (struct-name function-name members)

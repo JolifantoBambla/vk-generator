@@ -133,6 +133,7 @@
                      name)
              (loop for m in members
                    for member-name = (fix-type-name (name m) (tags vk-spec))
+                   for arg-type = (make-arg-type member-name (type-info m) vk-spec)
                    for options = nil
                    do
                      (when (optional-p m)
@@ -140,22 +141,32 @@
                        (push '(:true) options))
                      (when (len m)
                        (push :len options)
-                       (push (list (cond
-                                     ((string= (first (len m)) "null-terminated") :null-terminated)
-                                     ((or (alexandria:starts-with-subseq "latexmath" (first (len m)))
-                                          (ppcre:scan "[:+-/*]" (first (len m)))) ;; try to catch unmarked equations
-                                      (first (len m)))
-                                     (t (make-keyword (fix-type-name (first (len m)) (tags vk-spec))))))
+                       (push (mapcar (lambda (len)
+                                       (cond
+                                         ((string= len "null-terminated") :null-terminated)
+                                         ((or (alexandria:starts-with-subseq "latexmath" len)
+                                              (ppcre:scan "[:+-/*]" len)) ;; try to catch unmarked equations
+                                          len)
+                                         (t (make-keyword (fix-type-name len (tags vk-spec))))))
+                                     (len m))
                              options))
                      (when (member-values m)
                        (push :must-be options)
                        ;; TODO: there was a *fix-must-be* in the original version. must have been a fix for typos in the XML. Fix this for compatibility with older versions
                        ;; TODO: this must be fixed if there is a case where multiple values are allowed
                        (push (make-keyword (fix-bit-name (first (member-values m)) (tags vk-spec))) options))
-                   (setf options (reverse options))
+                     (when (let* ((type-name (type-name (type-info m)))
+                                  (fixed-type-name (fix-type-name type-name (tags vk-spec))))
+                             (or (find fixed-type-name *opaque-types* :test 'string-equal)
+                                 (find fixed-type-name *opaque-struct-types* :test 'string-equal)
+                                 (gethash type-name (handles vk-spec))
+                                 (string= type-name "void")))
+                       (push :opaque options)
+                       (push t options))
+                     (setf options (reverse options))
                      (format out "~&  ~((:~a ~s ~a~{ ~s~^~})~)"
                              member-name
-                             (make-arg-type member-name (type-info m) vk-spec)
+                             (if (eq arg-type :string) (list :pointer :char) arg-type)
                              (prepare-array-sizes (array-sizes m) vk-spec)
                              options))
              (format out ")~%~%"))) )
