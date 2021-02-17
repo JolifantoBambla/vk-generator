@@ -366,18 +366,18 @@ See also:
   "TODO"
   (loop for other-struct being each hash-values of (structures vk-spec)
         when (and (string= (name structure) (name other-struct))
-                      (< (length (member-values other-struct))
-                         (length (member-values structure)))
-                      (not (string= (first (member-values other-struct))
+                      (< (length (members other-struct))
+                         (length (members structure)))
+                      (not (string= (first (members other-struct))
                                     "sType"))
                       (every (lambda (m1 m2)
                                (and (string= (type-name m1)
                                              (type-name m2))
                                     (string= (name m1)
                                              (name m2))))
-                             (member-values other-struct)
-                             (subseq (member-values structure)
-                                     0 (length (member-values other-struct)))))
+                             (members other-struct)
+                             (subseq (members structure)
+                                     0 (length (members other-struct)))))
         return (name other-struct)))
 
 (defparameter *ignore-lens*
@@ -409,9 +409,9 @@ See also:
                                      :optional-p optional-p
                                      :selection selection
                                      :selector selector
-                                     :member-values member-values)))
+                                     :allowed-values member-values)))
     (assert (not (find-if (lambda (m) (string= (name member-data) (name m)))
-                          (member-values structure)))
+                          (members structure)))
             () "structure member name <~a> already used" (name member-data))
     (when enum
       ;; this is fucked up: enum/preceding-sibling::text() is always NIL, so let's hope that <name> always comes before <enum>...
@@ -427,7 +427,7 @@ See also:
               () "member attribute <len> holds unknown number of data: ~a" (length (len member-data)))
       (let* ((first-len (first (len member-data)))
              (len-member (find-if (lambda (m) (string= first-len (name m)))
-                                  (member-values structure))))
+                                  (members structure))))
         (assert (or len-member
                     (find first-len *ignore-lens* :test #'string=)
                     (string= first-len "latexmath:[\\textrm{codeSize} \\over 4]"))
@@ -444,7 +444,7 @@ See also:
               () "attribute <selection> is used with non-union structure."))
     (when selector
       (let ((member-selector (find-if (lambda (m) (string= selector (name m)))
-                                      (member-values structure))))
+                                      (members structure))))
         (assert member-selector
                 () "member attribute <selector> holds unknown value <~a>" selector)
         (assert (gethash (type-name (type-info member-selector)) (enums vk-spec))
@@ -495,9 +495,9 @@ See also:
             (push (parse-struct-member member-node
                                        (gethash name (structures vk-spec))
                                        vk-spec)
-                  (member-values (gethash name (structures vk-spec)))))
-          (setf (member-values (gethash name (structures vk-spec)))
-                (reverse (member-values (gethash name (structures vk-spec)))))
+                  (members (gethash name (structures vk-spec)))))
+          (setf (members (gethash name (structures vk-spec)))
+                (reverse (members (gethash name (structures vk-spec)))))
           (setf (sub-struct (gethash name (structures vk-spec)))
                 (determine-sub-struct (gethash name (structures vk-spec))
                                       vk-spec))
@@ -857,7 +857,7 @@ See also:
             (when struct
               (find-if (lambda (m)
                          (string= (name m) param-member))
-                       (member-values struct)))))))))
+                       (members struct)))))))))
 
 (defun parse-command-param (node params vk-spec)
   "TODO"

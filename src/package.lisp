@@ -49,7 +49,8 @@
    :no-autovalidity-p
    :selection
    :selector
-   :member-values
+   :allowed-values
+   :members
    :used-constant
    :protect
    :allow-duplicate-p

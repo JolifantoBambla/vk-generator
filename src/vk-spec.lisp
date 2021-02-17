@@ -392,11 +392,11 @@ See DELETE-POOL
     :type string
     :initform nil
     :accessor selector)
-   (member-values
-    :initarg :member-values
+   (allowed-values
+    :initarg :allowed-values
     :type list ;; string
     :initform nil
-    :accessor member-values)
+    :accessor allowed-values)
    (used-constant
     :initarg :used-constant
     :type string
@@ -405,7 +405,7 @@ See DELETE-POOL
   (:documentation "TODO
 
 Slots:
-See MEMBER-VALUES    a list of allowed values for this MEMBER-DATA instance."))
+See ALLOWED-VALUES    a list of allowed values for this MEMBER-DATA instance."))
 
 (defclass platform (vk-element)
   ((protect
@@ -431,11 +431,11 @@ See MEMBER-VALUES    a list of allowed values for this MEMBER-DATA instance."))
     :type boolean
     :initform nil
     :accessor returned-only-p)
-   (member-values
-    :initarg :member-values
-    :type list ;; member
+   (members
+    :initarg :members
+    :type list ;; member-data
     :initform nil
-    :accessor member-values)
+    :accessor members)
    (struct-extends
     :initarg :struct-extends
     :type list ;; string
@@ -454,7 +454,7 @@ See MEMBER-VALUES    a list of allowed values for this MEMBER-DATA instance."))
   (:documentation "TODO
 
 Slots:
-See MEMBER-VALUES    a list of MEMBER-DATA instances describing members of this STRUCT instance."))
+See MEMBERS    an ordered list of MEMBER-DATA instances describing members of this STRUCT instance."))
 
 (deftype type-category ()
   "TODO: documentation"

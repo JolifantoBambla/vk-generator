@@ -125,7 +125,7 @@
     (format out "(in-package :~a)~%~%" *in-package-name*)
     (loop for struct in (sorted-elements (alexandria:hash-table-values (structures vk-spec)))
           for name = (fix-type-name (name struct) (tags vk-spec))
-          for members = (member-values struct)
+          for members = (members struct)
           do (format out "~((def-translator ~a (deref-~a ~:[:fill fill-~a~;~])~)~%"
                      name
                      name
@@ -150,11 +150,11 @@
                                          (t (make-keyword (fix-type-name len (tags vk-spec))))))
                                      (len m))
                              options))
-                     (when (member-values m)
+                     (when (allowed-values m)
                        (push :must-be options)
                        ;; TODO: there was a *fix-must-be* in the original version. must have been a fix for typos in the XML. Fix this for compatibility with older versions
                        ;; TODO: this must be fixed if there is a case where multiple values are allowed
-                       (push (make-keyword (fix-bit-name (first (member-values m)) (tags vk-spec))) options))
+                       (push (make-keyword (fix-bit-name (first (allowed-values m)) (tags vk-spec))) options))
                      (when (let* ((type-name (type-name (type-info m)))
                                   (fixed-type-name (fix-type-name type-name (tags vk-spec))))
                              (or (find fixed-type-name *opaque-types* :test 'string-equal)
@@ -186,7 +186,7 @@
            (list
             (list (merge-pathnames "bindings.lisp.template" additional-files-dir)
                   (merge-pathnames "bindings.lisp" vk-dir))
-            (list (merge-pathnames "define-conditions.template" additional-files-dir)
+            (list (merge-pathnames "define-conditions.lisp.template" additional-files-dir)
                   (merge-pathnames "define-conditions.lisp" vk-dir))
             (list (merge-pathnames "extra-types.lisp.template" additional-files-dir)
                   (merge-pathnames "extra-types.lisp" vk-dir))  

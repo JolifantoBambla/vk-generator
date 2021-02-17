@@ -220,7 +220,7 @@
                ((dump (struct struct-name)
                   (unless (gethash struct-name dumped)
                     (setf (gethash struct-name dumped) t)
-                    (loop for member-value in (member-values struct)
+                    (loop for member-value in (members struct)
                           for member-type = (type-name (type-info member-value))
                           when (and (gethash member-type (structures vk-spec))
                                     (not (gethash (type-name (type-info member-value)) dumped)))
@@ -228,7 +228,7 @@
                     (format out "(defc~(~a~) ~(~a~)"
                             (if (is-union-p struct) "union" "struct")
                             (fix-type-name struct-name (tags vk-spec)))
-                    (loop for member-value in (member-values struct)
+                    (loop for member-value in (members struct)
                           for name = (fix-type-name (name member-value) (tags vk-spec))
                           for member-type = (make-arg-type name (type-info member-value) vk-spec)
                           for array-count = (prepare-array-sizes (array-sizes member-value) vk-spec)

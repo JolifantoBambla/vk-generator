@@ -25,6 +25,7 @@
 (in-package :vk-generator)
 
 (defun numeric-value (str)
+  "Parses a string into a numeric value."
   (cond
     ((not str) nil)
     ((alexandria:starts-with-subseq "0x" str)
@@ -53,3 +54,11 @@
     (t
      (error "~s" str))))
 
+(defun xps (node)
+  "Extracts a trimmed string from a XPATH:NODE. If the given node does not contain a string NIL is returned."
+  (let ((s (string-trim '(#\space #\tab) (xpath:string-value node))))
+    (unless (string= s "") s)))
+
+(defun attrib-names (node)
+  "Returns a list of attribute names from an XPATH:NODE."
+  (mapcar 'cxml-stp:local-name (cxml-stp:list-attributes node)))
