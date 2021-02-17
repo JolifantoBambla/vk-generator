@@ -8,7 +8,10 @@
     :serial t
     :components ((:file "package")
                  (:file "bindings")
+                 (:file "api-constants")
                  (:file "types")
+                 (:file "define-conditions")
+                 (:file "errors")
                  (:file "extra-types")
                  (:file "funcs")
                  (:file "translators")))))

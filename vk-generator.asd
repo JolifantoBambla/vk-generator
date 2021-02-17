@@ -15,6 +15,7 @@
                #:cl-ppcre
                #:cxml
                #:cxml-stp
+               #:kebab
                #:split-sequence
                #:trivial-download
                #:xpath)
@@ -25,29 +26,12 @@
     ((:file "package")
      (:file "versions")
      (:file "ensure-vk-xml")
-     (:module "vk-spec"
-      :serial t
-      :components
-      ((:file "vk-spec")
-       (:file "constants")
-       (:file "fix-name")
-       (:file "type-utils")))
-     (:module "parser"
-      :depends-on ("vk-spec")
-      :serial t
-      :components
-      ((:file "constants")
-       (:file "make-keyword")
-       (:file "xml-utils")
-       (:file "extract-vendor-ids")
-       (:file "parse-arg-type")
-       (:file "numeric-value")
-       (:file "parser")))
-     (:module "writer"
-      :depends-on ("vk-spec")
-      :serial t
-      :components
-      ((:file "write-types-file")
-       (:file "writer")))
+     (:file "vk-spec")
+     (:file "constants")
+     (:file "parse-utils")
+     (:file "parse")
+     (:file "write-utils")
+     (:file "write-types-file")
+     (:file "write-vk-package")
      (:file "generate")))))
 

@@ -26,8 +26,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/vk-spec)
-
+(in-package :vk-generator)
 
 (defun fix-type-name (name vendor-ids)
   "Converts a given camel-cased NAME of a type from the C Vulkan API to a lispy name.
@@ -35,7 +34,7 @@
 E.g.: \"VkPhysicalDevice\" becomes \"PHYSICAL-DEVICE\"
 
 See *SPECIAL-WORDS*
-See VENDOR-IDS
+See TAGS
 "
   (if (not (stringp name))
       name
@@ -52,7 +51,7 @@ See VENDOR-IDS
 E.g.: \"vkGetPhysicalDeviceMemoryProperties\" becomes \"GET-PHYSICAL-DEVICE-MEMORY-PROPERTIES\"
 
 See *SPECIAL-WORDS*
-See VENDOR-IDS
+See TAGS
 "
   (let* ((start (if (alexandria:starts-with-subseq "vk" name) 2 0)))
     (cffi:translate-camelcase-name (subseq name start)
@@ -64,10 +63,18 @@ See VENDOR-IDS
 
 E.g.: \"VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT\" becomes \"MEMORY-PROPERTY-DEVICE-LOCAL\"
 
-See VENDOR-IDS
+See TAGS
 "
   ;; fixme: cache compiled regex instead of rebuilding from string on every call
   (substitute #\- #\_
               (ppcre:regex-replace-all (format nil "(^~a|_BIT(~{_~a~^|~})?$)"
                                                prefix vendor-ids)
                                        name "")))
+
+(defun make-keyword (name)
+  (alexandria:make-keyword (string-upcase name)))
+
+(defun make-const-keyword (name)
+  (let ((start (if (alexandria:starts-with-subseq "VK_" name) 3 0)))
+    (alexandria:make-keyword
+     (subseq (substitute #\- #\_ name) start))))

@@ -1,32 +1,94 @@
-(uiop:define-package :vk-generator/versions
-    (:use :cl)
-  (:export :*versions*
-           :get-xml-path))
-
-(uiop:define-package :vk-generator/ensure-vk-xml
-    (:use :cl
-          :vk-generator/versions)
-  (:export :ensure-vk-xml))
-
-(uiop:define-package :vk-generator/vk-spec
+(uiop:define-package :vk-generator
     (:use :cl)
   (:export
-   ;; vk-spec
-   :vk-spec
-   :version
-   :copyright
-   :vendor-ids
-   :vk-api-version
-   :api-constants
-   :types
-   :bitfields
+   ;; vk.xml related
+   :*versions*
+   :get-xml-path
+   :ensure-vk-xml
+
+   ;; vulkan-spec related
+   ;; other accessors
+   :name
+   :alias
+   :type-info
+   :type-name
+   :feature
+   :array-sizes
+   :bit-count
+   :comment
+   :id
+   :count
+   :requires
+   :prefix
+   :postfix
+   :type-info
+   :len
+   :optional-p
+   :error-codes
+   :handle
+   :params
+   :return-type
+   :success-codes
+   :number-value
+   :string-value
+   :vk-hpp-name
+   :single-bit-p
+   :aliases
+   :is-bitmask-p
+   :enum-values
+   :deprecated-by
+   :obsoleted-by
+   :platform
+   :promoted-to
+   :requirements
+   :children
+   :parents
+   :non-dispatch-handle-p
+   :delete-command
+   :delete-pool
+   :no-autovalidity-p
+   :selection
+   :selector
+   :allowed-values
+   :members
+   :used-constant
+   :protect
+   :allow-duplicate-p
+   :is-union-p
+   :returned-only-p
+   :struct-extends
+   :sub-struct
+   :member
+   :category
+   :is-value-p
+   :is-struct-p
+   :calls
+   :args
+   :sorted-elements
+   :sorted-names
+   
+   ;; vulkan-spec
+   :vulkan-spec
+   :base-types
+   :bitmasks
+   :commands
+   :constants
+   :defines
    :enums
-   :structs
-   :functions
-   :function-apis
-   :extension-names
-   :handle-types
-   :alias-names
+   :extended-structs
+   :extensions
+   :features
+   :func-pointers
+   :handles
+   :includes
+   :platforms
+   :stucture-aliases
+   :structures
+   :tags
+   :types
+   :typesafe-check
+   :version
+   :vulkan-license-header
 
    ;; constants
    :*special-words*
@@ -41,25 +103,10 @@
    :fix-function-name
    :fix-bit-name
 
-   ;; type-utils
-   :get-type
-   :get-type/f
-   :set-type))
+   ;; parse spec
+   :parse-vk-xml
 
-(uiop:define-package :vk-generator/parser
-    (:use :cl
-          :vk-generator/vk-spec)
-  (:export :parse-vk-xml))
-
-(uiop:define-package :vk-generator/writer
-    (:use :cl
-          :vk-generator/vk-spec)
-  (:export :write-vk-package))
-
-(uiop:define-package :vk-generator
-    (:use :cl
-          :vk-generator/versions
-          :vk-generator/ensure-vk-xml
-          :vk-generator/parser
-          :vk-generator/writer)
-  (:export :generate))
+   ;; write package
+   :write-vk-package
+   
+   :generate))

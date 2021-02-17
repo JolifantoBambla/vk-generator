@@ -26,16 +26,21 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator/vk-spec)
-
+(in-package :vk-generator)
 
 (defparameter *special-words*
   '("Bool32" "Win32"
     "16" "32" "64"
     "3d" "2d" "1d"
     "3D" "2D" "1D"
-    "ID" "UUID"
-    "HINSTANCE" "HWND" "HANDLE" "DWORD" "LPCWSTR" "SECURITY_ATTRIBUTES"
+    "b32" "i64" "u64" "f64"
+    "AABB" "AABBS" "AABBs"
+    "RTE" "RTZ"
+    "4444" "A4R4G4B4" "A4B4G4R4" ;; VK_EXT_4444_FORMATS
+    "ID" "UUID" "LUID"
+    "HINSTANCE" "HWND" "HMONITOR" "HANDLE" "SECURITY_ATTRIBUTES" "DWORD" "LPCWSTR" ;; windows.h
+    "FB" ;; directfb.h
+    "CA" ;; CAMetalLayer
     "ETC2" "ASTC" "ASTC_" "LDR" "BC" "RR")
   "A sequence of special words that are used in the specification of the Vulkan API.")
 
@@ -61,6 +66,9 @@
     "mir-connection"
     "mir-surface"
     "xcb_connection_t"
+    "i-direct-fb"
+    "i-direct-fb-surface"
+    "ca-metal-layer"
     "display"))
 
 (defparameter *opaque-struct-types*
@@ -76,13 +84,21 @@
       . :debug-report-create-info-ext))))
 
 (defparameter *misc-os-types*
-  '("hinstance" (:pointer :void)
+  '("ggp-stream-descriptor" (:pointer :void)
+    "ggp-frame-token" (:pointer :void)
+    "hinstance" (:pointer :void)
     "hwnd" (:pointer :void)
     "HANDLE" (:pointer :void)
+    "HMONITOR" (:pointer :void)
     "DWORD" :uint32
     "LPCWSTR" (:pointer :void)
     "RROutput" :ulong
     "xcb_window_t" :uint32
     "xcb_visualid_t" :uint32
+    "zx_handle_t" (:pointer :void)
     "window" :ulong
     "visual-id" :ulong))
+
+;; from generator.py
+(defconstant +ext-base+ 1000000000)
+(defconstant +ext-block-size+ 1000)

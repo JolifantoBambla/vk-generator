@@ -2,7 +2,6 @@
 
 (in-package :vk-generator)
 
-
 (defun generate (&key
                    (version (car (last *versions*)))
                    (package-dir (first ql:*local-project-directories*) package-dir-supplied-p)
