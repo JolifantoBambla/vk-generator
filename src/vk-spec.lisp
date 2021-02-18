@@ -186,6 +186,24 @@ See *VK-PLATFORM*
         obj
       (format stream "~@[~a ~]~a~@[ ~a~]" prefix type-name postfix))))
 
+(defun const-pointer-p (type-info)
+  "Checks whether or not a TYPE-INFO describes a const pointer."
+  (when (and (search "const" (prefix type-info))
+             (search "*" (postfix type-info)))
+    t))
+
+(defun non-const-pointer-p (type-info)
+  "Checks whether or not a TYPE-INFO describes a non-const pointer."
+  (when (and (not (search "const" (prefix type-info)))
+             (search "*" (postfix type-info)))
+    t))
+
+(defun value-p (type-info)
+  "Checks whether or not a TYPE-INFO describes a value rather than a pointer."
+  (when (and (not (search "*" (prefix type-info)))
+             (not (search "*" (postfix type-info))))
+    t))
+
 (defclass has-type-info ()
   ((type-info
     :initarg :type-info
@@ -247,6 +265,19 @@ See VK-ELEMENT
 See HAS-EXTENSIONS
 See HAS-FEATURE
 "))
+
+(defun make-aliased-command (command command-alias)
+  "Creates an aliased command from a COMMAND and a COMMAND-ALIAS instance."
+  (make-instance 'command
+                 :name (name command-alias)
+                 :extensions (extensions command-alias)
+                 :feature (feature command-alias)
+                 :comment (comment command-alias)
+                 :error-codes (error-codes command)
+                 :handle (handle command)
+                 :params (params command)
+                 :return-type (return-type command)
+                 :success-codes (success-codes command)))
 
 (defclass enum-value (vk-element)
   ((number-value
