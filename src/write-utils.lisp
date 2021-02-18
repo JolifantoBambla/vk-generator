@@ -66,10 +66,31 @@ E.g.: \"VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT\" becomes \"MEMORY-PROPERTY-DEVICE-L
 See TAGS
 "
   ;; fixme: cache compiled regex instead of rebuilding from string on every call
-  (substitute #\- #\_
-              (ppcre:regex-replace-all (format nil "(^~a|_BIT(~{_~a~^|~})?$)"
-                                               prefix vendor-ids)
-                                       name "")))
+  (string-trim
+   '(#\-)
+   (substitute #\- #\_
+               (ppcre:regex-replace-all (format nil "(^~a|_BIT(~{_~a~^|~})?$)"
+                                                prefix vendor-ids)
+                                        name ""))))
+
+(defun find-enum-prefix (fixed-name enum-values tags)
+  ;; find longest prefix out of VK_, name - vendor
+  (let* ((prefix "VK_")
+         (p (loop for v in tags
+                  thereis (when (and
+                                 (>= (length fixed-name) (length v))
+                                 (string= v (subseq fixed-name (- (length fixed-name) (length v)))))
+                            (search v fixed-name :from-end t))))
+         (n (format nil "VK_~a"
+                    (substitute #\_ #\-
+                                (if p
+                                    (subseq fixed-name 0 (- p 1))
+                                    fixed-name))))
+         (l (loop for enum-value in enum-values
+                  minimize (or (mismatch n (name enum-value)) 0))))
+    (when (> l (length prefix))
+      (setf prefix (subseq n 0 l)))
+    prefix))
 
 (defun make-keyword (name)
   (alexandria:make-keyword (string-upcase name)))

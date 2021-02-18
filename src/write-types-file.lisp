@@ -167,25 +167,11 @@
         (format out "(defcenum (~(~a :int~))" fixed-name)
         (format out "(defcenum (~(~a~))" fixed-name))
     (when values
-      ;; find longest prefix out of VK_, name - vendor
-      (let* ((p (loop for v in (tags vk-spec)
-                      thereis (when (and
-                                     (>= (length fixed-name) (length v))
-                                     (string= v (subseq fixed-name (- (length fixed-name) (length v)))))
-                                (search v fixed-name :from-end t))))
-             (n (format nil "VK_~a"
-                        (substitute #\_ #\-
-                                    (if p
-                                        (subseq fixed-name 0 (- p 1))
-                                        fixed-name))))
-             (l (loop for enum-value in values
-                      minimize (or (mismatch n (name enum-value)) 0))))
-        (when (> l (length prefix))
-          (setf prefix (subseq n 0 l)))))
+      (setf prefix (find-enum-prefix fixed-name values (tags vk-spec))))
     (loop for enum-value in values
           for comment = (comment enum-value)
           do (format out "~%  (:~(~a~) ~:[#x~x~;~d~])"
-                     (string-trim '(#\-) (fix-bit-name (name enum-value) (tags vk-spec) :prefix prefix))
+                     (fix-bit-name (name enum-value) (tags vk-spec) :prefix prefix)
                      (minusp (number-value enum-value)) (number-value enum-value))
           when (string= (name last-value) (name enum-value))
           do (format out ")")
@@ -197,7 +183,7 @@
       ;; enough to print out to users in errors
       (format out "(defparameter *result-comments*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
               (loop for enum-value in values
-                    collect (string-trim '(#\-) (fix-bit-name (name enum-value) (tags vk-spec) :prefix prefix))
+                    collect (fix-bit-name (name enum-value) (tags vk-spec) :prefix prefix)
                     collect (comment enum-value))))))
 
 (defun write-enums (out vk-spec)

@@ -152,9 +152,17 @@
                              options))
                      (when (allowed-values m)
                        (push :must-be options)
-                       ;; TODO: there was a *fix-must-be* in the original version. must have been a fix for typos in the XML. Fix this for compatibility with older versions
-                       ;; TODO: this must be fixed if there is a case where multiple values are allowed
-                       (push (make-keyword (fix-bit-name (first (allowed-values m)) (tags vk-spec))) options))
+                       (let* ((type-name (type-name (type-info m)))
+                              (fixed-type-name (string (fix-type-name type-name (tags vk-spec)))))
+                         ;; TODO: there was a *fix-must-be* in the original version. must have been a fix for typos in the XML. Fix this for compatibility with older versions
+                         ;; TODO: this must be fixed if there is a case where multiple values are allowed
+                         (push (make-keyword
+                                (fix-bit-name (first (allowed-values m))
+                                              (tags vk-spec)
+                                              :prefix (find-enum-prefix fixed-type-name
+                                                                        (enum-values (gethash type-name (enums vk-spec)))
+                                                                        (tags vk-spec))))
+                               options)))
                      (when (let* ((type-name (type-name (type-info m)))
                                   (fixed-type-name (fix-type-name type-name (tags vk-spec))))
                              (or (find fixed-type-name *opaque-types* :test 'string-equal)
