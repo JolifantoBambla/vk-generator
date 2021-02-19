@@ -225,9 +225,10 @@
                           when (and (gethash member-type (structures vk-spec))
                                     (not (gethash (type-name (type-info member-value)) dumped)))
                           do (dump (gethash member-type (structures vk-spec)) member-type))
-                    (format out "(defc~(~a~) ~(~a~)"
-                            (if (is-union-p struct) "union" "struct")
-                            (fix-type-name struct-name (tags vk-spec)))
+                    (let ((fixed-type-name (fix-type-name struct-name (tags vk-spec))))
+                      (if (is-union-p struct)
+                          (format out "(defcunion ~(~a~)" fixed-type-name)
+                          (format out "(defcstruct (~(~a :class c-~a~))" fixed-type-name fixed-type-name)))
                     (loop for member-value in (members struct)
                           for name = (fix-type-name (name member-value) (tags vk-spec))
                           for member-type = (make-arg-type name (type-info member-value) vk-spec)

@@ -13,5 +13,4 @@
                  (:file "define-conditions")
                  (:file "errors")
                  (:file "extra-types")
-                 (:file "funcs")
-                 (:file "translators")))))
+                 (:file "funcs")))))

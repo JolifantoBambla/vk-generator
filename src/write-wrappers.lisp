@@ -68,6 +68,9 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
           unless (find param-index non-const-pointer-param-indices)
           collect param-index)))
 
+(defun construct-command-standard (name command-data definition-p)
+  )
+
 (defun append-command (out name command-data definition-p vk-spec)
   "Writes a command to an output stream."
   (let ((appended-function nil)
