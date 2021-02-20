@@ -39,7 +39,7 @@
     (format out "#||~%~a~%||#~%~%" (vulkan-license-header vk-spec))
     (format out "(in-package :~a)~%~%" *in-package-name*)
     (loop for api-constant in (sorted-elements (alexandria:hash-table-values (constants vk-spec)))
-          do (format out "(defparameter ~(~a~) ~a) ~%~%"
+          do (format out "(defconstant ~(~a ~a~)) ~%~%"
                      (fix-bit-name (name api-constant) (tags vk-spec))
                      (if (alias api-constant)
                          (fix-bit-name (alias api-constant) (tags vk-spec))

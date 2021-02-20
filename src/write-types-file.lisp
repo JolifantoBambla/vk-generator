@@ -221,7 +221,7 @@
                           for array-count = (prepare-array-sizes (array-sizes member-value) vk-spec)
                           ;; TODO: what exactly should bit-count do? see VkAccelerationStructureInstanceKHR
                           do
-                          (format out "~%  ~1{(:~(~a ~s~@[ :count ~a~])~)~}"
+                          (format out "~%  ~1{(~(~a ~s~@[ :count ~a~])~)~}"
                                   (list name member-type array-count)))
                     (format out "~:[)~;~]~%~%" nil)
                     (loop for struct-alias in (aliases structure)
