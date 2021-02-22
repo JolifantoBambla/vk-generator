@@ -1,8 +1,8 @@
 (defsystem vk
-  :description "Common Lisp bindings for Vulkan API."
+  :description "Common Lisp bindings for the Vulkan API."
   :depends-on (cffi alexandria)
   :license "MIT"
-  :author "Bart Botta <00003b at gmail.com>"
+  :author "Lukas Herzberger <herzberger.lukas at gmail.com>"
   :components
   ((:module "src"
     :serial t
@@ -11,6 +11,7 @@
                  (:file "bindings")
                  (:file "api-constants")
                  (:file "types")
+                 (:file "vk-types")
                  (:file "define-conditions")
                  (:file "errors")
                  (:file "extra-types")

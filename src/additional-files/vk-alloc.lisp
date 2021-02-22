@@ -52,7 +52,7 @@ See *FREE-FOREIGN-OBJECT-FUNC*"
 
 See FREE-ALLOCATED-FOREIGN-CHAIN"
   (dolist (child (gethash foreign-obj *allocated-foreign-objects*)) (free-allocated-foreign-chain child))
-  (dolist (str (gethash foreign-obj *allocated-foreign-strings*)) (funcall *free-foreign-string-funct* str))
+  (dolist (str (gethash foreign-obj *allocated-foreign-strings*)) (funcall *free-foreign-string-func* str))
   (remhash foreign-obj *allocated-foreign-strings*)
   (remhash foreign-obj *allocated-foreign-objects*))
 

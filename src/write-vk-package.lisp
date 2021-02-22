@@ -116,7 +116,7 @@
                        "foreign-allocate-and-fill"
                        "with-foreign-allocated-object"
                        "with-foreign-allocated-objects")
-          do (format out "~(  #:~a~)~%" sym))
+          do (format out "~(    #:~a~)~%" sym))
     (format out "))~%~%")
 
     ;; write vulkan/%vk
@@ -133,6 +133,18 @@
       (format out "~%")
       (loop for command in (sort-alphabetically (alexandria:hash-table-values (commands vk-spec)))
             do (format out "~(    #:~a~)~%" (fix-function-name (name command) (tags vk-spec)))))
+    (format out "))~%~%")
+
+    ;; write vk
+    ;; todo: write commands, other types, accessors
+    (format out "(defpackage :vk~%  (:use #:cl)~%  (:shadow~%    #:format~%    #:stream~%    #:set~%    #:type~%    #:values)~%  (:export~%")
+    (labels ((sort-alphabetically (elements)
+               (sort elements (lambda (a b) (string< (name a) (name b))))))
+      (loop for type in (sort-alphabetically (alexandria:hash-table-values (structures vk-spec)))
+            do (format out "~(    #:~a ;; ~s~)~%"
+                       (fix-type-name (name type) (tags vk-spec))
+                       :class))
+      (format out "~%"))
     (format out "))~%")))
 
 (defun write-struct-translators (translators-file vk-spec)
@@ -209,6 +221,7 @@
          (errors-file (merge-pathnames "errors.lisp" vk-dir))
          (types-file (merge-pathnames "types.lisp" vk-dir))
          (funcs-file (merge-pathnames "funcs.lisp" vk-dir))
+         (vk-types-file (merge-pathnames "vk-types.lisp" vk-dir))
          (copy-files ;; todo: clean this up
            (list
             (list (merge-pathnames "vk-alloc.lisp" additional-files-dir)
@@ -231,6 +244,9 @@
     ;; possibly should do this while dumping struct types?
     ;; (write-struct-translators translators-file vk-spec) - I'm replacing this now...
 
+
+    (write-vk-types-file vk-types-file vk-spec)
+    
     ;; copy additional files
     (loop for to-copy in copy-files
           do (cl-fad:copy-file (first to-copy) (second to-copy) :overwrite t))

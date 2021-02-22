@@ -10,6 +10,14 @@ Support for Windows and MacOS is completely untested.
 I'm currently testing with SDK version 1.2.153 only.
 Support for other versions is not guaranteed at the moment, but the goal is to support at least every new version of the SDK.
 
+## Memory Management in VK
+
+TODO: describe vk-alloc stuff, special care when multithreading (e.g. bordeaux-threads:*default-special-bindings*)
+
+## Misc
+
+`VK` shadows: `format`, `set`, `stream`, `type` `values`
+
 ## Known Issues
 
 ### Pointers to Arrays of Pointers
@@ -23,7 +31,7 @@ Because of this issue Vulkan ray tracing is currently not supported.
 
 If `generate` is not called from within the package `vk-generator` the type `size-t` will currently be incorrectly written as `vk-generator:size-t`.
 
-## Acknowledgement
+## Acknowledgements
 
 The project has been forked from [cl-vulkan](https://github.com/3b/cl-vulkan).
 
