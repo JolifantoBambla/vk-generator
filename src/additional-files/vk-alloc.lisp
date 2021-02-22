@@ -61,6 +61,7 @@ See FREE-ALLOCATED-FOREIGN-CHAIN"
 
 See *ALLOCATED-FOREIGN-OBJECTS*
 See *ALLOCATE-FOREIGN-FUNC*"
+  ;; todo: this doesn't handle strings yet
   (let* ((sequence-p (or (listp content)
                          (arrayp content)))
          (count (if sequence-p (length content) 1))
