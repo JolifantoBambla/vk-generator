@@ -7,6 +7,7 @@
   ((:module "src"
     :serial t
     :components ((:file "package")
+                 (:file "vk-alloc")
                  (:file "bindings")
                  (:file "api-constants")
                  (:file "types")
