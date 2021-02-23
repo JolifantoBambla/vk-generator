@@ -466,3 +466,19 @@ E.g.
       (destroy-instance instance (null-pointer)))))
 
 
+
+;; in the end it will probably look something like this:
+(defun create-instance (instance-create-info &optional (allocator *default-allocator*))
+                (vk-alloc:with-foreign-allocated-objects ((p-instance-create-info '(:struct %vk:instance-create-info) instance-create-info))
+                  (cffi:with-foreign-object (p-instance '%vk:instance)
+                    (%vk:create-instance p-instance-create-info allocator p-instance)
+                    (cffi:mem-aref p-instance '%vk:instance))))
+
+(destroy-instance (create-instance (make-instance 'vk:instance-create-info
+                                                                :flags 0
+                                                                :application-info (make-instance 'vk:application-info
+                                                                                                 :application-name "test"
+                                                                                                 :application-version 0
+                                                                                                 :engine-name "test"
+                                                                                                 :engine-version 0
+                                                                                                 :api-version 4202644))))

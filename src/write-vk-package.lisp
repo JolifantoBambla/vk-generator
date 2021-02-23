@@ -144,6 +144,18 @@
             do (format out "~(    #:~a ;; ~s~)~%"
                        (fix-type-name (name type) (tags vk-spec))
                        :class))
+      (format out "~%")
+      (loop for m in (remove-duplicates
+                          (mapcar (lambda (m)
+                                    (fix-slot-name (name m) (type-name (type-info m)) vk-spec))
+                                  (sort-alphabetically
+                                   (alexandria:flatten
+                                    (loop for struct in (alexandria:hash-table-values (structures vk-spec))
+                                          collect (members struct)))))
+                          :test #'string=)
+            do (format out "~(    #:~a ;; ~s~)~%"
+                       m
+                       :accessor))
       (format out "~%"))
     (format out "))~%")))
 
@@ -246,6 +258,7 @@
 
 
     (write-vk-types-file vk-types-file vk-spec)
+    (write-vk-struct-translators-file translators-file vk-spec)
     
     ;; copy additional files
     (loop for to-copy in copy-files

@@ -5,6 +5,32 @@
 
 (in-package :vk-alloc)
 
+(defclass translatable-object ()
+  ((data
+    :initarg :data
+    :initform nil
+    :accessor data)
+   (foreign-type-specifier
+    :initarg :foreign-type-specifier
+    :initform nil
+    :accessor foreign-type-specifier))
+  (:documentation "A helper class storing DATA along with a FOREIGN-TYPE-SPECIFIER which can be used to translate the object to/from foreign memory.
+
+E.g. (using CFFI):
+(defcstruct (foo :class c-foo)
+  (a :double))
+
+(defstruct foo
+  (a 0.0 :type double-float))
+
+(defmethod translate-into-foreign-memory (value (type c-foo) ptr) ...)
+
+(defparameter *my-foo* (make-instance 'translatable-object :data (make-foo) :foreign-type-specifier '(:struct foo))) 
+
+(with-foreign-object (ptr (foreign-type-specifier *my-foo*))
+  (setf (mem-aref ptr (foreign-type-specifier *my-foo*)) (data *my-foo*)))
+"))
+
 (defparameter *allocated-foreign-objects* (make-hash-table)
   "A hash table storing allocated foreign objects and dependencies between them.
 Each foreign object (key) is associated with a list of other foreign objects that were allocated during allocation of the key and should be freed when the key is freed.
@@ -37,7 +63,7 @@ A not on multithreading: Hash tables are by default not thread safe. Since entri
   "Configures how foreign strings are freed. You might want to use this for implementing a memory pool to reuse allocated resources, etc.")
 
 (defun free-allocated-foreign-chain (foreign-obj)
-  "Frees all foreign objects ...
+  "Frees all foreign objects associated with FOREIGN-OBJ.
 
 See *ALLOCATED-FOREIGN-OBJECTS*
 See *FREE-FOREIGN-OBJECT-FUNC*"
@@ -56,26 +82,34 @@ See FREE-ALLOCATED-FOREIGN-CHAIN"
   (remhash foreign-obj *allocated-foreign-strings*)
   (remhash foreign-obj *allocated-foreign-objects*))
 
-(defun foreign-allocate-and-fill (type content)
-  "Allocates a foreign object of TYPE and fill it with CONTENT.
+(defun foreign-allocate-and-fill (type content parent-ptr)
+  "Allocates a foreign resource of TYPE and fill it with CONTENT.
+
+The allocated foreign resource is stored in *ALLOCATED-FOREIGN-OBJECTS*, where it is associated with PARENT-PTR.
+
+If CONTENT is NIL, no resource is allocated and a CFFI:NULL-POINTER is returned.
 
 See *ALLOCATED-FOREIGN-OBJECTS*
 See *ALLOCATE-FOREIGN-FUNC*"
   ;; todo: this doesn't handle strings yet
-  (let* ((sequence-p (or (listp content)
-                         (arrayp content)))
-         (count (if sequence-p (length content) 1))
-         (p-resource (funcall *allocate-foreign-object-func* type count)))
-    (cond
-      ((not sequence-p)
-       (setf (cffi:mem-aref p-resource type) content))
-      ((listp content)
-       (loop for i from 0 below count
-             for c in content
-             do (setf (cffi:mem-aref p-resource type i) c)))
-      ((arrayp content)
-       (cffi:lisp-array-to-foreign content p-resource type)))
-    p-resource))
+  ;; todo: check out if most of this can be replaced with :initial-contents
+  (if content
+      (let* ((sequence-p (or (listp content)
+                             (arrayp content)))
+             (count (if sequence-p (length content) 1))
+             (p-resource (funcall *allocate-foreign-object-func* type count)))
+        (push (gethash parent-ptr *allocated-foreign-objects*) p-resource)
+        (cond
+          ((not sequence-p)
+           (setf (cffi:mem-aref p-resource type) content))
+          ((listp content)
+           (loop for i from 0 below count
+                 for c in content
+                 do (setf (cffi:mem-aref p-resource type i) c)))
+          ((arrayp content)
+           (cffi:lisp-array-to-foreign content p-resource type)))
+        p-resource)
+      (cffi:null-pointer)))
 
 (defmacro with-foreign-allocated-object ((var type content) &body body)
   "Bind VAR and translate CONTENT to a foreign pointer of TYPE during BODY.
