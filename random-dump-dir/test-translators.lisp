@@ -482,3 +482,13 @@ E.g.
                                                                                                  :engine-name "test"
                                                                                                  :engine-version 0
                                                                                                  :api-version 4202644))))
+
+ (destroy-instance (create-instance (make-instance 'vk:instance-create-info
+                                                                :flags 0
+                                                                :application-info (make-instance 'vk:application-info
+                                                                                                 :application-name "test"
+                                                                                                 :application-version 0
+                                                                                                 :engine-name "test"
+                                                                                                 :engine-version 0
+                                                                                                 :api-version 4202644)
+                                                                 :enabled-layer-names '("VK_LAYER_KHRONOS_validation"))))
