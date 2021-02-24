@@ -15,4 +15,5 @@
                  (:file "define-conditions")
                  (:file "errors")
                  (:file "extra-types")
+                 (:file "translators")
                  (:file "funcs")))))

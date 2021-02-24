@@ -91,23 +91,17 @@ If CONTENT is NIL, no resource is allocated and a CFFI:NULL-POINTER is returned.
 
 See *ALLOCATED-FOREIGN-OBJECTS*
 See *ALLOCATE-FOREIGN-FUNC*"
-  ;; todo: this doesn't handle strings yet
-  ;; todo: check out if most of this can be replaced with :initial-contents
   (if content
-      (let* ((sequence-p (or (listp content)
-                             (arrayp content)))
-             (count (if sequence-p (length content) 1))
-             (p-resource (funcall *allocate-foreign-object-func* type count)))
-        (push (gethash parent-ptr *allocated-foreign-objects*) p-resource)
+      (let ((p-resource nil))
         (cond
-          ((not sequence-p)
-           (setf (cffi:mem-aref p-resource type) content))
           ((listp content)
-           (loop for i from 0 below count
-                 for c in content
-                 do (setf (cffi:mem-aref p-resource type i) c)))
+           (setf p-resource (funcall *allocate-foreign-object-func* type :initial-contents content)))
           ((arrayp content)
-           (cffi:lisp-array-to-foreign content p-resource type)))
+           (setf p-resource (funcall *allocate-foreign-object-func* type :count (length content))))
+          (t (setf p-resource (funcall *allocate-foreign-object-func* type :initial-element content))))
+        (push p-resource (gethash parent-ptr *allocated-foreign-objects*))
+        ;; this should probably go in an unwind-protect
+        (when (arrayp content) (cffi:lisp-array-to-foreign content p-resource type))
         p-resource)
       (cffi:null-pointer)))
 
