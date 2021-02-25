@@ -112,10 +112,35 @@ template <typename ExtensionPropertiesAllocator, typename Dispatch>
 
 (defparameter *result-var-name* "vk-call-result")
 
+(defun append-setting-allocated-param (p command vector-params vector-count-params vk-spec)
+  (let ((fixed-param-name (fix-slot-name (name p) (type-name (type-info p)) vk-spec))
+        (param-type-name (if (string= (type-name (type-info p)) "char")
+                             ":string"
+                             (format nil "~(~s~)"
+                                     (gethash (type-name (type-info p)) *vk-platform*)))))
+    (cond
+      ((find p vector-params)
+       (format nil "~((loop for i from 0 below ~a do (setf (cffi:mem-aref p-~a ~a i) (nth i ~a)))~)"
+               (let ((count-param (nth (position p (params command)) (params command))))
+                 (fix-slot-name (name count-param) (type-name (type-info count-param)) vk-spec))
+               fixed-param-name
+               param-type-name
+               fixed-param-name))
+      (t (format nil "(setf (cffi:mem-aref p-~a ~a) ~a)"
+                 fixed-param-name
+                 param-type-name
+                 (if (find p vector-count-params)
+                     (format nil "(reduce #'max (list~{ (length ~a)~}))"
+                             ;;todo: find all params with this param as len param
+                             )
+                     fixed-param-name))))))
+
 (defun COMMAND! (out command vk-spec)
   (let* ((fixed-function-name (fix-function-name (name command) (tags vk-spec)))
          ;; maps from array-param to array-count-param
          (vector-param-indices (determine-vector-param-indices (params command) vk-spec))
+         (vector-params (loop for i in (alexandria:hash-table-keys vector-param-indices)
+                              collect (nth i (params command))))
          (vector-count-params (loop for i in (alexandria:hash-table-values vector-param-indiecs)
                                     collect (nth i (params command))))
          (non-const-pointer-param-indices (determine-non-const-pointer-param-indices (params command)))
@@ -156,10 +181,15 @@ template <typename ExtensionPropertiesAllocator, typename Dispatch>
             (loop for p in (sorted-elements required-params)
                   collect (fix-slot-name (name p) (type-name (type-info p)) (tags vk-spec)))
             (loop for p in (sorted-elements optional-params)
-                  collect (if (string= (name p) "pAllocator")
-                              "(p-allocator *default-allocator*)"
-                              (format nil "(~(~a ~a-supplied-p (cffi:null-pointer)~))"
-                                      (fix-slot-name (name p) (type-name (type-info p)) (tags vk-spec)))))
+                  collect (cond
+                            ((string= (name p) "pAllocator")
+                             "(p-allocator *default-allocator*)")
+                            ((gethash (type-name (type-info p)) (structures vk-spec))
+                             (format nil "(~(~a nil~))"
+                                     (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))
+                            ;; todo: struct inputs should have nil as their default arguments
+                            (t (format nil "(~(~a ~a-supplied-p (cffi:null-pointer)~))"
+                                       (fix-slot-name (name p) (type-name (type-info p)) (tags vk-spec))))))
             (make-command-docstring command required-params optional-params vk-spec))
 
     ;; if the function has a return value (this will be VkResult or VkBool32) prepare a variable to store it
@@ -171,6 +201,7 @@ template <typename ExtensionPropertiesAllocator, typename Dispatch>
               *result-var-name*))
 
     ;; TODO: YOU ARE HERE!!
+    ;; oh man, I'm way past ballmer... hope this'll work
     ;; if the function has primitive input args they need to be allocated
     (when non-struct-params
       (setf accumulated-indent (concatenate 'string "  " accumulated-indent))
@@ -178,28 +209,47 @@ template <typename ExtensionPropertiesAllocator, typename Dispatch>
       (format out "~a(cffi:with-foreign-objects (~(~{~a~}~))"
               accumulated-indent
               (loop for p in non-struct-params
-                    collect (format nil "(~(p-~a ~a~))"
-                                    ;; todo: determine type of param
-                                    ;; todo: determine if its an array, if so: :count!
-                                    )))
-      ;; todo: map input params to allocated memory
+                    collect (format nil "(~(p-~a ~a~@[ :count ~a~]~))"
+                                    (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
+                                    (if (string= (type-name (type-info p)) "char")
+                                        ":string"
+                                        (format nil "~(~s~)"
+                                                (gethash (type-name (type-info p)) *vk-platform*)))
+                                    (if (find p vector-params)
+                                        (format nil "~(~a~)"
+                                                (let ((count-param (nth (position p (params command)) (params command))))
+                                                  (fix-slot-name (name count-param) (type-name (type-info count-param)) vk-spec)))
+                                        nil))))
 
-      ;; map optional input params to allocated memory (for the actual function call ~a-supplied-p must be checked again!)
-      (when optional-non-struct-input-args
+      ;; todo: handle count params!
+      ;; map input params to allocated memory
+      (when required-non-struct-params
         (format out "~a~(~{~%  ~a~}~)"
                 accumulated-indent
-                (loop for arg in optional-non-struct-input-args
-                      collect (format nil "(when ~a-supplied-p (setf (cffi:mem-aref p-~a ~a) ~a))"
-                                      fixed-arg-name
-                                      fixed-arg-name
-                                      arg-type
-                                      fixed-arg-name)))))
-    (when struct-input-args
+                (loop for p in required-non-struct-params
+                      collect (append-setting-allocated-param p command vector-params vector-count-params vk-spec))))
+
+      ;; todo: handle count params!
+      ;; map optional input params to allocated memory (for the actual function call ~a-supplied-p must be checked again!)
+      (when optional-non-struct-params
+        (format out "~a~(~{~%  ~a~}~)"
+                accumulated-indent
+                (loop for p in optional-non-struct-params
+                      collect (format nil "(when ~a-supplied-p ~a)"
+                                      (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
+                                      (append-setting-allocated-param p command vector-params vector-count-params vk-spec))))))
+
+    ;; allocate and fill struct params
+    (when struct-params
       (setf accumulated-indent (concatenate 'string "  " accumulated-indent))
       (incf closing-parens)
       (format out "~a(vk-alloc:with-foreign-allocated-objects (~(~{~a~}~))"
               accumulated-indent
-              struct-input-args))
+              (loop for p in struct-params
+                    collect (format nil "(p-~a '(:struct ~a) ~a)"
+                                    (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
+                                    (fix-type-name (type-name (type-info p)) (tags vk-spec))
+                                    (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))))
 
  ;; insert stuff from APPEND-COMMAND here
 
