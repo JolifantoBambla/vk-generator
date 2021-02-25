@@ -97,7 +97,7 @@ See *ALLOCATE-FOREIGN-FUNC*"
           ((listp content)
            (setf p-resource (funcall *allocate-foreign-object-func* type :initial-contents content)))
           ((arrayp content)
-           (setf p-resource (funcall *allocate-foreign-object-func* type :count (length content))))
+           (setf p-resource (funcall *allocate-foreign-object-func* type :count (array-total-size content))))
           (t (setf p-resource (funcall *allocate-foreign-object-func* type :initial-element content))))
         (push p-resource (gethash parent-ptr *allocated-foreign-objects*))
         ;; this should probably go in an unwind-protect
