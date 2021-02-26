@@ -234,6 +234,7 @@
          (types-file (merge-pathnames "types.lisp" vk-dir))
          (funcs-file (merge-pathnames "funcs.lisp" vk-dir))
          (vk-types-file (merge-pathnames "vk-types.lisp" vk-dir))
+         (vk-functions-file (merge-pathnames "vk-functions.lisp" vk-dir))
          (copy-files ;; todo: clean this up
            (list
             (list (merge-pathnames "vk-alloc.lisp" additional-files-dir)
@@ -259,6 +260,7 @@
 
     (write-vk-types-file vk-types-file vk-spec)
     (write-vk-struct-translators-file translators-file vk-spec)
+    (write-vk-functions vk-functions-file vk-spec)
     
     ;; copy additional files
     (loop for to-copy in copy-files

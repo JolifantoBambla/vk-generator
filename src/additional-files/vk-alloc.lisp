@@ -109,13 +109,18 @@ See *ALLOCATE-FOREIGN-FUNC*"
   "Bind VAR and translate CONTENT to a foreign pointer of TYPE during BODY.
 The pointer in VAR is invalid beyond the dynamic extent of BODY.
 
-See CFFI:WITH-FOREIGN-OBJECT"
+If the supplied CONTENT satisfies CFFI:NULL-POINTER-P the CONTENT is returned as is and no resources are allocated. 
+
+See CFFI:WITH-FOREIGN-OBJECT
+See CFFI:NULL-POINTER-P"
   `(cffi:with-foreign-object (,var ,type)
-     (unwind-protect
-          (progn
-            (setf (cffi:mem-aref ,var ,type) ,content)
-            ,@body)
-       (free-allocated-children ,var))))
+     (if (cffi:null-pointer-p ,content)
+         ,content
+         (unwind-protect
+              (progn
+                (setf (cffi:mem-aref ,var ,type) ,content)
+                ,@body)
+           (free-allocated-children ,var)))))
 
 (defmacro with-foreign-allocated-objects (bindings &rest body)
   "Behaves like WITH-FOREIGN-ALLOCATED-OBJECT but for multiple BINDINGS instead of just one.

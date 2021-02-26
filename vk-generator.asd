@@ -33,6 +33,7 @@
      (:file "write-utils")
      (:file "write-types-file")
      (:file "write-vk-types")
+     (:file "write-wrappers")
      (:file "write-vk-package")
      (:file "generate")))))
 
