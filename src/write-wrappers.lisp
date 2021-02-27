@@ -40,7 +40,7 @@ E.g.: In \"vkAllocateDescriptorSets\" the \"len\" \"pAllocateInfo->descriptorSet
         (assert struct
                 () "Undefined structure <~a>" (type-name (type-info param)))
         (assert (find-if (lambda (m)
-                           (string= (second name-data) (name struct)))
+                           (string= (second name-parts) (name m)))
                          (members struct))
                 () "Structure <~a> has no member named <~a>" (name struct) (second name-parts))
         t))))
@@ -53,7 +53,7 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
   (let ((vector-param-indices (make-hash-table :test 'equal)))
     (loop for param in params and param-index from 0
           for len = (len param)
-          unless len
+          when len
           do (let ((len-param-index
                      (position-if
                       (lambda (p)
@@ -275,19 +275,20 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                               (concatenate 'list required-params optional-params)))
          (accumulated-indent "")
          (closing-parens 1))
-    (print "hello")
-    (format t "~%handle: ~{~a, ~}~%"
-            (loop for p in handle-params 
-                  collect (name p)))
-    (format t "~%non-struct: ~{~a, ~}~%"
-            (loop for p in non-struct-params
-                  collect (name p)))
-    (format t "~%struct: ~{~a, ~}~%"
-            (loop for p in struct-params
-                  collect (name p)))
-    (format t "~%output: ~{~a, ~}~%"
-            (loop for p in output-params
-                  collect (name p)))
+
+    (when nil
+      (format t "~%handle: ~{~a, ~}~%"
+             (loop for p in handle-params 
+                   collect (name p)))
+     (format t "~%non-struct: ~{~a, ~}~%"
+             (loop for p in non-struct-params
+                   collect (name p)))
+     (format t "~%struct: ~{~a, ~}~%"
+             (loop for p in struct-params
+                   collect (name p)))
+     (format t "~%output: ~{~a, ~}~%"
+             (loop for p in output-params
+                   collect (name p))))
     
     ;; base defun
     (format out
@@ -308,7 +309,6 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
               *result-var-name*)
       (setf accumulated-indent (concatenate 'string "  " accumulated-indent)))
 
-     (print "hello3")
     ;; if the function has primitive input args they need to be allocated
     (when non-struct-params
       (incf closing-parens)
@@ -332,7 +332,6 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                         nil))))
       (setf accumulated-indent (concatenate 'string "  " accumulated-indent))
 
-       (print "hello4")
       ;; map input params to allocated memory
       (when required-non-struct-params
         (format out "~(~{~a~%~}~)"
@@ -346,7 +345,6 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                                                                 output-params
                                                                                 vk-spec)))))
 
-      (print "hello5")
       ;; map optional input params to allocated memory (for the actual function call ~a-supplied-p must be checked again!)
       (when optional-non-struct-params
         (format out "~(~{~a~%~}~)"
@@ -361,14 +359,12 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                                                                 output-params
                                                                                 vk-spec))))))
 
-     (print "hello6")
     ;; allocate and fill struct params
     (when struct-params
       (incf closing-parens)
       (format out (create-with-foreign-allocated-bloc struct-params accumulated-indent vk-spec))
       (setf accumulated-indent (concatenate 'string "  " accumulated-indent)))
 
-    (print "hello7")
  ;; insert stuff from APPEND-COMMAND here
     ;; todo:
     (cond
@@ -402,24 +398,42 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                            accumulated-indent
                            (create-call command output-params nil vk-spec (string= (return-type command) "VkResult")))
                    (if (string= (return-type command) "VkResult")
-                       ;; 1a-1) single handle
+                       ;; 1a-1) single handle - e.g. vkCreateInstance
                        (format out "~a~a"
                                accumulated-indent
                                (create-return-form
                                 (list (format nil "(cffi:mem-aref ~(p-~a '%vk:~a~))"
                                               (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
                                               (fix-type-name (type-name (type-info ret)) (tags vk-spec))))))
-                       ;; 1a-2) single handle but it is not created but "vkGet"-prefixed instead
-                       nil)
-                   )
-                 ;; 1b-1) vector of handles using 2 vector param indices
-                 ;; 1b-2) vector of handles using len-by-struct-member
-                 nil)
+                       ;; 1a-2) single handle but it is not created but "vkGet"-prefixed instead - e.g. vkGetInstanceProcAddr
+                       (format out "~a(cffi:mem-aref ~(p-~a '%vk:~a~))"
+                               accumulated-indent
+                               (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
+                                              (fix-type-name (type-name (type-info ret)) (tags vk-spec)))))
+                 (if (= (length vector-params) 2)
+                     ;; 1b-1) vector of handles, where the output vector uses the same len as an input vector - e.g. vkCreateGraphicsPipelines
+                     (progn
+                       (incf closing-parens)
+                       (format out "~a(cffi:with-foreign-object (p-~(~a '%vk:~a (length ~a~))))~%"
+                               accumulated-indent
+                               (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
+                               (fix-type-name (type-name (type-info ret)) (tags vk-spec))
+                               (let ((other-vec-param (find-if-not (lambda (p)
+                                                                     (string= (name p) (name ret)))
+                                                                   vector-params)))
+                                 (fix-slot-name (name other-vec-param) (type-name (type-info other-vec-param)) vk-spec)))
+                       ;; todo: set result
+                       ;; collect pipelines in a loop (loop for i from 0 below (length ~a) collect (cffi:mem-aref p-~a '%vk:~a i))
+                       )
+                     ;; 1b-2) vector of handles using len-by-struct-member - e.g. vkAllocateCommandBuffers
+                     ;;(format t "1b-1/2) ~a ~a~%" (name command) vector-params)
+                     ))
              ;; 2) structure chain anchor (wat?)
              ;; 2a)   appendCommandChained
              ;; 2b-1) returns VkBool32 || VkResult || void -> appendCommandStandardAndEnhanced
              ;; 2b-2) appendCommandSingular
-             nil)))
+             nil;;(format t "2a) or 2b) ~a ~a~%" (name command) vector-params)
+             )))
       ((= (length non-const-pointer-param-indices) 2)
        ;; four cases
        ;; 1) structure chain anchor (wat?) -> appendCommandVectorChained
@@ -431,13 +445,17 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
        ;; 1 case
        ;; 1) the two vectors use the very same size parameter
        )
-      (t (error "Never encountered a function like <~a>!" (name command-data))))
+      (t (error "Never encountered a function like <~a>!" (name command))))
+
+    (if (> (hash-table-count vector-param-indices) 0)
+        nil nil
+        ;;(format t "command ~a has vector params: ~a with indices: ~a~%" (name command) vector-params vector-param-indices)
+        )
     
     ;; close all forms
     (format out "~{~a~}~%~%"
             (loop for i from 0 below closing-parens
-                  collect ")"))
-    (print "wrote command")))
+                  collect ")"))))
 
 
 #|
