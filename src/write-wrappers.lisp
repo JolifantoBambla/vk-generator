@@ -422,12 +422,47 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                                                      (string= (name p) (name ret)))
                                                                    vector-params)))
                                  (fix-slot-name (name other-vec-param) (type-name (type-info other-vec-param)) vk-spec)))
-                       ;; todo: set result
-                       ;; collect pipelines in a loop (loop for i from 0 below (length ~a) collect (cffi:mem-aref p-~a '%vk:~a i))
-                       )
+                       (setf accumulated-indent (concatenate 'string "  " accumulated-indent))
+                       (format out "~a~a~%"
+                               accumulated-indent
+                               (create-call command output-params nil vk-spec))
+                       (format out "~a~a"
+                               accumulated-indent
+                               (create-return-form
+                                (list
+                                 (format nil "(loop for i from 0 below (length ~(~a~)) collect (cffi:mem-aref ~(p-~a '%vk:~a i~)))"
+                                         (let ((other-vec-param (find-if-not (lambda (p)
+                                                                               (string= (name p) (name ret)))
+                                                                             vector-params)))
+                                           (fix-slot-name (name other-vec-param) (type-name (type-info other-vec-param)) vk-spec))
+                                         (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
+                                         (fix-type-name (type-name (type-info ret)) (tags vk-spec)))))))
                      ;; 1b-2) vector of handles using len-by-struct-member - e.g. vkAllocateCommandBuffers
-                     ;;(format t "1b-1/2) ~a ~a~%" (name command) vector-params)
-                     ))
+                     (let* ((split-len-data (split-len-by-struct-member (len ret)))
+                            ;; len-param
+                            ;; fixed-len-param-name
+                            ;; fixed-len-param-slot-name
+                            )
+                       (incf closing-parens)
+                       (format out "~a(cffi:with-foreign-object (p-~(~a '%vk~a (vk:~a ~a)~))~%"
+                               accumulated-indent
+                               (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
+                               (fix-type-name (type-name (type-info ret)) (tags vk-spec))
+                               "ACCESSOR-OF-LEN"
+                               "FIXED-SLOT-OF-LEN")
+                       (setf accumulated-indent (concatenate 'string "  " accumulated-indent))
+                       (format out "~a~a~%"
+                               accumulated-indent
+                               (create-call command output-params nil vk-spec))
+                       (format out "~a~a"
+                               accumulated-indent
+                               (create-return-form
+                                (list
+                                 (format nil "(loop for i from 0 below (vk:~(~a ~a~)) collect (cffi:mem-aref ~(p-~a '%vk:~a i~)))"
+                                         "ACCESSOR-OF-LEN"
+                                         "FIXED-SLOT-OF-LEN"
+                                         (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
+                                         (fix-type-name (type-name (type-info ret)) (tags vk-spec)))))))))
              ;; 2) structure chain anchor (wat?)
              ;; 2a)   appendCommandChained
              ;; 2b-1) returns VkBool32 || VkResult || void -> appendCommandStandardAndEnhanced
