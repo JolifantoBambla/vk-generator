@@ -114,12 +114,14 @@ If the supplied CONTENT satisfies CFFI:POINTER-P the CONTENT is bound to VAR as 
 
 See CFFI:WITH-FOREIGN-OBJECT
 See CFFI:NULL-POINTER-P"
-  `(cffi:with-foreign-object (,var ,type)
-     (if (or (cffi:pointerp ,content)
-             (not ,content))
-         (progn
-           (setf ,var (if (not ,content) (cffi:null-pointer) ,content))
-           ,@body)
+  `(if (or (cffi:pointerp ,content)
+           (not ,content))
+       (progn
+         (let ((,var (if (not ,content)
+                         (cffi:null-pointer)
+                         ,content)))
+           ,@body))
+       (cffi:with-foreign-object (,var ,type)
          (unwind-protect
               (progn
                 (setf (cffi:mem-aref ,var ,type) ,content)

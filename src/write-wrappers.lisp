@@ -45,6 +45,16 @@ E.g.: In \"vkAllocateDescriptorSets\" the \"len\" \"pAllocateInfo->descriptorSet
                 () "Structure <~a> has no member named <~a>" (name struct) (second name-parts))
         t))))
 
+(defun structure-chain-anchor-p (struct-name vk-spec)
+  "Determines if STRUCT-NAME names a struct type in the Vulkan API that is a structure chain anchor."
+  (when (alexandria:starts-with-subseq "Vk" struct-name)
+    (let ((struct (or (gethash struct-name (structures vk-spec))
+                      (find-if (lambda (s)
+                                 (find struct-name (aliases s) :test #'string=))
+                               (alexandria:hash-table-values (structures vk-spec))))))
+      (and struct
+           (find (name struct) (extended-structs vk-spec) :test #'string=)))))
+
 (defun determine-vector-param-indices (params vk-spec)
   "Creates a mapping of indices of array arguments to indices of the arguments specifying the number of elements within the array in a given sequence of PARAM instances.
 
@@ -464,18 +474,33 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                          (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
                                          (fix-type-name (type-name (type-info ret)) (tags vk-spec)))))))))
              ;; 2) structure chain anchor (wat?)
-             ;; 2a)   appendCommandChained
-             ;; 2b-1) returns VkBool32 || VkResult || void -> appendCommandStandardAndEnhanced
-             ;; 2b-2) appendCommandSingular
-             nil;;(format t "2a) or 2b) ~a ~a~%" (name command) vector-params)
-             )))
+             (if (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) (params command))))
+                                           vk-spec)
+                 ;; 2a)   appendCommandChained
+                 (format t "1c-1: command: ~a param: ~a ~%" ;; vkGetPhysicalDeviceFeatures2 pFeatures
+                         command
+                         (nth (first non-const-pointer-param-indices) (params command)))
+                 (if (not (gethash (first non-const-pointer-param-indices) vector-param-indices))
+                     ;; 2b-1) returns VkBool32 || VkResult || void -> appendCommandStandardAndEnhanced
+                     (format t "1c-2: command: ~a~%" command)
+                     ;; 2b-2) appendCommandSingular
+                     (format t "1d: command: ~a~%" command))))))
       ((= (length non-const-pointer-param-indices) 2)
        ;; four cases
        ;; 1) structure chain anchor (wat?) -> appendCommandVectorChained
-       ;; 2) 0 vector-param-indices -> two returns and a non-trivial success code
-       ;; 3) 1 vector-param-indices -> the size is a return value as well -> enumerate the values
-       ;; 4) 2 vector-param-indices -> two returns and two vectors! But one input vector, one output vector of the same size, and one output value
-       )
+       (if (structure-chain-anchor-p (type-name (type-info (nth (second non-const-pointer-param-indices) (params command))))
+                                     vk-spec)
+           (format t "2a: command: ~a ~%" command)
+           (cond
+             ;; 2) 0 vector-param-indices -> two returns and a non-trivial success code
+             ((= (hash-table-count vector-param-indices) 0)
+              (format t "2b: command: ~a ~%" command))
+             ;; 3) 1 vector-param-indices -> the size is a return value as well -> enumerate the values
+             ((= (hash-table-count vector-param-indices) 1)
+              (format t "2c: command: ~a ~%" command))
+             ;; 4) 2 vector-param-indices -> two returns and two vectors! But one input vector, one output vector of the same size, and one output value
+             ((= (hash-table-count vector-param-indices) 2)
+              (format t "2d: command: ~a ~%" command)))))
       ((= (length non-const-pointer-param-indices) 3)
        ;; 1 case
        ;; 1) the two vectors use the very same size parameter

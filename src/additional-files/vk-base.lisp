@@ -110,11 +110,110 @@ E.g. LEN-PROVIDER is a slot value of an input parameter: vkAllocateCommandBuffer
                              collect (cffi:mem-aref ,@handle-def i))
                        ,result))))))))
 
-;; case 1c-1: structure chain anchor (wat?)
+;; case 1c-1: get a struct extended by its NEXT slot - e.g. vkGetPhysicalDeviceFeatures2
+;; case 1c-2: get a struct without NEXT slot - e.g. vkGetPhysicalDeviceProperties
+(defmacro defvk-get-struct-fun ((name vulkan-fun docstring required-args optional-args) &body variables)
+  "Defines a function named NAME which wraps VULKAN-FUN.
+VULKAN-FUN is function that gets a struct and returns a RESULT.
+E.g. vkGetPhysicalDeviceProperties"
+  (multiple-value-bind (translated-args vk-input-args output-args) (process-variables variables)
+    (let ((struct-def (second (first output-args))))
+      `(defun ,name (,@required-args &optional ,@optional-args)
+         ,docstring
+         (vk-alloc:with-foreign-allocated-objects (,@translated-args)
+           (cffi:with-foreign-object (,@struct-def)
+             (,vulkan-fun ,@vk-input-args)
+             (cffi:mem-aref ,@struct-def))))))) ;; TODO: translate-from-foreign including NEXT translation!!
+
+;; TODO: maybe take a type and a size instead?
+;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
+(defmacro defvk-fill-arbitrary-buffer-fun ((name vulkan-fun docstring required-args optional-args) &body variables)
+  "Defines a function named NAME which wraps VULKAN-FUN.
+VULKAN-FUN is function that fills a buffer of arbitrary size.
+The allocated buffer as well as its size are provided by the user.
+E.g. vkGetQueryPoolResults"
+  (multiple-value-bind (translated-args vk-input-args) (process-variables variables)
+    `(defun ,name (,@required-args &optional ,@optional-args)
+       ,docstring
+       (vk-alloc:with-foreign-allocated-objects (,@translated-args)
+         (,vulkan-fun ,@vk-input-args)))))
+
 
 ;;; --------------------------------------------- 2 output parameters ------------------------------------------------------------------
 
+;; case 2a: e.g. vkGetPhysicalDeviceQueueFamilyProperties2
+(defmacro defvk-get-structs-fun ((name vulkan-fun docstring required-args optional-args count-arg-name array-arg-name &optional (no-result-p nil)) &body variables)
+  "Defines a function named NAME which wraps VULKAN-FUN.
+VULKAN-FUN is function that gets multiple structs and might return a RESULT.
+E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
+  (multiple-value-bind (translated-args vk-input-args output-args) (process-variables variables)
+    (let ((count-arg (find-if (lambda (a)
+                                (eq (first a) count-arg-name))
+                              output-args))
+          (array-arg (find-if (lambda (a)
+                                (eq (first a) array-arg-name))
+                              output-args))
+          (translated-count (gensym))
+          (result (gensym)))
+      `(defun ,name (,@required-args &optional ,@optional-args)
+         ,docstring
+         (vk-alloc:with-foreign-allocated-objects (,@translated-args)
+           (cffi:with-foreign-object (,@ (second count-arg))
+             (let ((,(first (second array-arg)) (cffi:null-pointer)))
+               (,vulkan-fun ,@vk-input-args)
+               (let ((,translated-count (cffi:mem-aref ,@ (second count-arg))))
+                 (cffi:with-foreign-object (,@ (second array-arg) ,translated-count)
+                         ,(if no-result-p
+                              `(progn
+                                 (,vulkan-fun ,@vk-input-args)
+                                 (loop for i from 0 below ,translated-count
+                                       collect (cffi:mem-aref ,@ (second array-arg) i)))
+                              `(let ((,result (,vulkan-fun ,@vk-input-args)))
+                                 (values (loop for i from 0 beloq ,translated-count
+                                               collect (cffi:mem-aref ,@ (second array-arg) i))))))))))))))
+
+;; case 2b: ???
+
+;; TODO: this needs to look like this
+#|
+"(do () ((not (eq result :incomplete))) ~a (when (eq result :success) (let ((count (cffi:mem-aref p~a ~s))) (if (> 0 count) ~a nil))))"
+|#
+;; case 2c: enumerate - e.g. vkEnumeratePhysicalDevices
+(defmacro defvk-enumerate-fun ((name vulkan-fun docstring required-args optional-args count-arg-name array-arg-name &optional (no-result-p nil)) &body variables)
+  "Defines a function named NAME which wraps VULKAN-FUN.
+VULKAN-FUN is function that gets multiple structs and might return a RESULT.
+E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
+  (multiple-value-bind (translated-args vk-input-args output-args) (process-variables variables)
+    (let ((count-arg (find-if (lambda (a)
+                                (eq (first a) count-arg-name))
+                              output-args))
+          (array-arg (find-if (lambda (a)
+                                (eq (first a) array-arg-name))
+                              output-args))
+          (translated-count (gensym))
+          (result (gensym)))
+      `(defun ,name (,@required-args &optional ,@optional-args)
+         ,docstring
+         (vk-alloc:with-foreign-allocated-objects (,@translated-args)
+           (cffi:with-foreign-object (,@ (second count-arg))
+             (let ((,(first (second array-arg)) (cffi:null-pointer)))
+               (,vulkan-fun ,@vk-input-args)
+               (let ((,translated-count (cffi:mem-aref ,@ (second count-arg))))
+                 (cffi:with-foreign-object (,@ (second array-arg) ,translated-count)
+                         ,(if no-result-p
+                              `(progn
+                                 (,vulkan-fun ,@vk-input-args)
+                                 (loop for i from 0 below ,translated-count
+                                       collect (cffi:mem-aref ,@ (second array-arg) i)))
+                              `(let ((,result (,vulkan-fun ,@vk-input-args)))
+                                 (values (loop for i from 0 beloq ,translated-count
+                                               collect (cffi:mem-aref ,@ (second array-arg) i))))))))))))))
+
+;; case 2d: ???
+
 ;;; --------------------------------------------- 3 output parameters ------------------------------------------------------------------
+
+;; case 3:
 
 ;; tests
 
@@ -183,3 +282,47 @@ E.g. LEN-PROVIDER is a slot value of an input parameter: vkAllocateCommandBuffer
   (allocate-info '(:struct %vk:command-buffer-allocate-info) allocate-info :in)
   (command-buffers '%vk:command-buffer nil :out))
 
+;; 1c-1
+(defvk-get-struct-fun (get-physical-device-properties-2
+                       %vk:get-physical-device-properties-2
+                       "docs"
+                       (physical-device)
+                       nil)
+  (physical-device '%vk:physical-device physical-device :in :handle)
+  (properties '(:struct %vk:physical-device-properties-2) nil :out))
+
+;; 1c-2
+(defvk-get-struct-fun (get-physical-device-properties
+                       %vk:get-physical-device-properties
+                       "docs"
+                       (physical-device)
+                       nil)
+  (physical-device '%vk:physical-device physical-device :in :handle)
+  (properties '(:struct %vk:physical-device-properties) nil :out))
+
+;; 1d
+(defvk-fill-arbitrary-buffer-fun (get-query-pool-results
+                                  %vk:get-query-pool-results
+                                  "docs"
+                                  (device query-pool first-query query-count data-size data stride)
+                                  ((flags nil)))
+  (device '%vk:device device :in :handle)
+  (query-pool '%vk:query-pool query-pool :in :handle)
+  (first-query :uint32 first-query :in)
+  (query-count :uint32 query-count :in)
+  (data-size :uint32 data-size :in)
+  (data :pointer data :in :handle) ;; that's actually not a handle, maybe add a second keyword (just find :pointer?)
+  (stride '%vk:device-size stride :in)
+  (flags '%vk:query-result-flags flags :in :optional))
+
+(defvk-get-structs-fun (get-physical-device-queue-family-properties-2
+                        %vk:get-physical-device-queue-family-properties-2
+                        "docs"
+                        (physical-device)
+                        nil
+                        queue-family-device-property-count
+                        queue-family-properties
+                        t)
+  (physical-device '%vk:physical-device physical-device :in :handle)
+  (queue-family-device-property-count :uint32 nil :out)
+  (queue-family-properties '(:struct %vk:queue-family-properties-2) nil :out))
