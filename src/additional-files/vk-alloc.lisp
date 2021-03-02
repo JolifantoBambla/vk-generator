@@ -109,13 +109,17 @@ See *ALLOCATE-FOREIGN-FUNC*"
   "Bind VAR and translate CONTENT to a foreign pointer of TYPE during BODY.
 The pointer in VAR is invalid beyond the dynamic extent of BODY.
 
-If the supplied CONTENT satisfies CFFI:NULL-POINTER-P the CONTENT is returned as is and no resources are allocated. 
+If the supplied CONTENT is NIL a CFFI:NULL-POINTER is bound to VAR and no resources are allocated.
+If the supplied CONTENT satisfies CFFI:POINTER-P the CONTENT is bound to VAR as is and no resources are allocated. 
 
 See CFFI:WITH-FOREIGN-OBJECT
 See CFFI:NULL-POINTER-P"
   `(cffi:with-foreign-object (,var ,type)
-     (if (cffi:null-pointer-p ,content)
-         ,content
+     (if (or (cffi:pointerp ,content)
+             (not ,content))
+         (progn
+           (setf ,var (if (not ,content) (cffi:null-pointer) ,content))
+           ,@body)
          (unwind-protect
               (progn
                 (setf (cffi:mem-aref ,var ,type) ,content)

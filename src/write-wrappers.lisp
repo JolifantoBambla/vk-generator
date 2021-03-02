@@ -389,7 +389,7 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
              (if (not (find ret vector-params))
                  (progn
                    (incf closing-parens)
-                   (format out "~a(cffi:with-foreign-object (p-~(~a ~a~))~%"
+                   (format out "~a(cffi:with-foreign-object (p-~(~a %vk:~a~))~%"
                            accumulated-indent
                            (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
                            (fix-type-name (type-name (type-info ret)) (tags vk-spec)))
@@ -405,7 +405,7 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                 (list (format nil "(cffi:mem-aref ~(p-~a '%vk:~a~))"
                                               (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
                                               (fix-type-name (type-name (type-info ret)) (tags vk-spec))))))
-                       ;; 1a-2) single handle but it is not created but "vkGet"-prefixed instead - e.g. vkGetInstanceProcAddr
+                       ;; 1a-2) single handle but it is not created but "vkGet"-prefixed instead - e.g. vkGetDeviceQueue
                        (format out "~a(cffi:mem-aref ~(p-~a '%vk:~a~))"
                                accumulated-indent
                                (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
