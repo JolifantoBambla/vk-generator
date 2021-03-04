@@ -209,6 +209,17 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
       (format out ")~%"))
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
 
+(defun write-create-handle-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vk-spec)
+  (format out "(defvk-create-handle-fun (~(~a~)~%" fixed-function-name)
+  (format out "                          ~(%vk:~a~)~%" fixed-function-name)
+  (format out "                          ~s~%" (make-command-docstring command required-params optional-params vk-spec))
+  (format out "                          (~(~{~a~}~))~%" (format-required-args required-params vk-spec))
+  (format out "                          (~(~{~a~}~))" (format-optional-args optional-params vk-spec))
+  (if (string= "void" (return-type command))
+      (format out "~%                  t)~%")
+      (format out ")~%"))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+
 (defun write-command (out command vk-spec)
   (let* ((fixed-function-name (fix-function-name (name command) (tags vk-spec)))
          ;; maps from array-param to array-count-param
@@ -281,133 +292,33 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
              (loop for p in output-params
                    collect (name p))))
 
-    #|
-    ;; base defun
-    (format out
-            (create-base-defun command
-                               fixed-function-name
-                               required-params
-                               optional-params
-                               skipped-input-params
-                               vk-spec))
-    (setf accumulated-indent (concatenate 'string "  " accumulated-indent))
- 
-    ;; if the function has a return value (this will be VkResult or VkBool32) prepare a variable to store it
-    (when (and has-return-p
-               output-params)
-      (incf closing-parens)
-      (format out "~a(let ((~a nil))~%"
-              accumulated-indent
-              *result-var-name*)
-      (setf accumulated-indent (concatenate 'string "  " accumulated-indent)))
-
-    ;; if the function has primitive input args they need to be allocated
-    (when non-struct-params
-      (incf closing-parens)
-      (format out "~a(cffi:with-foreign-objects (~(~{~a~}~))~%"
-              accumulated-indent
-              (loop for p in non-struct-params
-                    for i from 0
-                    collect (format nil "~@[~%~a~](~(p-~a ~a~@[ :count ~a~]~))"
-                                    (unless (= i 0)
-                                      (format nil "~a                            "
-                                              accumulated-indent))
-                                    (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
-                                    (if (string= (type-name (type-info p)) "char")
-                                        ":string"
-                                        (format nil "~(~s~)"
-                                                (gethash (type-name (type-info p)) *vk-platform*)))
-                                    (if (find p vector-params)
-                                        (format nil "~(~a~)"
-                                                (let ((count-param (nth (position p (params command)) (params command))))
-                                                  (fix-slot-name (name count-param) (type-name (type-info count-param)) vk-spec)))
-                                        nil))))
-      (setf accumulated-indent (concatenate 'string "  " accumulated-indent))
-
-      ;; map input params to allocated memory
-      (when required-non-struct-params
-        (format out "~(~{~a~%~}~)"
-                (loop for p in required-non-struct-params
-                      collect (format nil "~a~a"
-                                      accumulated-indent
-                                      (create-setting-primitive-allocated-param p
-                                                                                command
-                                                                                vector-params
-                                                                                vector-count-params
-                                                                                output-params
-                                                                                vk-spec)))))
-
-      ;; map optional input params to allocated memory (for the actual function call ~a-supplied-p must be checked again!)
-      (when optional-non-struct-params
-        (format out "~(~{~a~%~}~)"
-                (loop for p in optional-non-struct-params
-                      collect (format nil "~a(when ~a-supplied-p ~a)"
-                                      accumulated-indent
-                                      (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
-                                      (create-setting-primitive-allocated-param p
-                                                                                command
-                                                                                vector-params
-                                                                                vector-count-params
-                                                                                output-params
-                                                                                vk-spec))))))
-
-    ;; allocate and fill struct params
-    (when struct-params
-      (incf closing-parens)
-      (format out (create-with-foreign-allocated-bloc struct-params accumulated-indent vk-spec))
-      (setf accumulated-indent (concatenate 'string "  " accumulated-indent)))
-
-|#
  ;; insert stuff from APPEND-COMMAND here
-    ;; todo:
+    ;; todo: port conditions from vulkanhppgenerator to check if really all commands are written correctly. (e.g. there is one case without a single function - probably a bug)
     (cond
       ((not output-params)
-       (write-simple-fun out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vk-spec)
-       #|
-       ;; VkBool32 and VkResult are automatically translated, void just returns nil
-       (if (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=)
-           (format out "~a~a"
-                   accumulated-indent
-                   (create-call command output-params nil vk-spec nil))
-           (progn  ;; not sure if there are functions like this
-             (format out "~a(cffi:mem-aref ~a ~(~a~))"
-                     accumulated-indent
-                     (create-call command output-params nil vk-spec nil)
-                     (if (gethash (return-type command) *vk-platform*)
-                         (format nil "~s" (gethash (return-type command) *vk-platform*))
-                         (format nil "'%vk:~a"(fix-type-name (return-type command) (tags vk-spec)))))))
-       |#
-       )
+       (write-simple-fun out
+                         command
+                         fixed-function-name
+                         required-params
+                         optional-params
+                         output-params
+                         count-to-vector-param-indices
+                         vk-spec))
       ((= (length non-const-pointer-param-indices) 1)
        (let ((ret (first output-params)))
-         ;; eight cases
          (if (gethash (type-name (type-info ret)) (handles vk-spec))
              ;; 1) handle type
              (if (not (find ret vector-params))
-                 (progn
-                   #|
-                   (incf closing-parens)
-                   (format out "~a(cffi:with-foreign-object (p-~(~a %vk:~a~))~%"
-                           accumulated-indent
-                           (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
-                           (fix-type-name (type-name (type-info ret)) (tags vk-spec)))
-                   (setf accumulated-indent (concatenate 'string "  " accumulated-indent))
-                   (format out "~a~a~%"
-                           accumulated-indent
-                           (create-call command output-params nil vk-spec (string= (return-type command) "VkResult")))
-                   (if (string= (return-type command) "VkResult")
-                       ;; 1a-1) single handle - e.g. vkCreateInstance
-                       (format out "~a~a"
-                               accumulated-indent
-                               (create-return-form
-                                (list (format nil "(cffi:mem-aref ~(p-~a '%vk:~a~))"
-                                              (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
-                                              (fix-type-name (type-name (type-info ret)) (tags vk-spec))))))
-                       ;; 1a-2) single handle but it is not created but "vkGet"-prefixed instead - e.g. vkGetDeviceQueue
-                       (format out "~a(cffi:mem-aref ~(p-~a '%vk:~a~))"
-                               accumulated-indent
-                               (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
-                                              (fix-type-name (type-name (type-info ret)) (tags vk-spec))))|#)
+                 ;; case 1a-1: create a handle - e.g. vkCreateInstance
+                 ;; case 1a-2: get an existing handle - e.g. vkGetDeviceQueue
+                 (write-create-handle-fun out
+                                          command
+                                          fixed-function-name
+                                          required-params
+                                          optional-params
+                                          output-params
+                                          count-to-vector-param-indices
+                                          vk-spec)
                  (if (= (length vector-params) 2)
                      ;; 1b-1) vector of handles, where the output vector uses the same len as an input vector - e.g. vkCreateGraphicsPipelines
                      (progn

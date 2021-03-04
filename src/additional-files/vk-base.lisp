@@ -334,46 +334,6 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
 #|
 ;; tests
 
-;; 0a
-(defvk-simple-fun (destroy-instance
-                   %vk:destroy-instance
-                   "docs"
-                   nil
-                   ((instance nil) (allocator *default-allocator*)))
-  (instance '%vk-instance instance :in :handle :optional)
-  (allocator '(:struct %vk:allocation-callbacks) allocator :in :optional))
-
-;; 0b
-(defvk-simple-fun (get-instance-proc-addr
-                   %vk:get-instance-proc-addr
-                   "docs"
-                   (name)
-                   ((instance nil)))
-  (name :string name :in)
-  (instance '%vk:instance instance :in :handle :optional))
-
-;; 1a-1
-(defvk-create-handle-fun (create-instance
-                          %vk:create-instance
-                          "docs"
-                          (create-info)
-                          ((allocator *default-allocator*)))
-  (create-info '(:struct %vk:instance-create-info) create-info :in)
-  (allocator '(:struct %vk:allocation-callbacks) allocator :in :optional)
-  (instance '%vk:instance nil :out))
-
-;; 1a-2
-(defvk-create-handle-fun (get-device-queue
-                          %vk:get-device-queue
-                          "docs"
-                          (device queue-family-index queue-index)
-                          nil
-                          t)
-  (device '%vk:device device :in :handle)
-  (queue-family-index :uint32 queue-family-index :in)
-  (queue-index :uint32 queue-index :in)
-  (queue '%vk:queue nil :out))
-
 ;; 1b-1
 (defvk-create-handles-fun (create-graphics-pipelines
                            %vk:create-graphics-pipelines

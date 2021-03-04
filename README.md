@@ -18,6 +18,8 @@ TODO: describe vk-alloc stuff, special care when multithreading (e.g. bordeaux-t
 
 `VK` shadows: `format`, `set`, `stream`, `type` `values`
 
+All accessors to slots named `wait-semaphores` (i.e. `pWaitSemaphores` in the C API) are called `p-wait-semaphores` because there is also a function named `vk:wait-semaphores`.
+
 ## Known Issues
 
 ### Pointers to Arrays of Pointers

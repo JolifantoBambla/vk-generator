@@ -1,6 +1,6 @@
 (in-package :vk-generator)
 
-(defun fix-slot-name (name type-name vk-spec)
+(defun fix-slot-name (name type-name vk-spec &optional (as-accessor-p nil))
   "Fixes the NAME of a slot for a class representation of a struct in the Vulkan API.
 Removes the \"P-\"-prefix for pointer types.
 Removes the \"PP-\"-prefix for pointers to string arrays.
@@ -8,6 +8,10 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
 "
   (let ((fixed-type-name (string (fix-type-name name (tags vk-spec)))))
     (cond
+      ;; there is already a function named WAIT-SEMAPHORES
+      ((and as-accessor-p
+            (string= "P-WAIT-SEMAPHORES" fixed-type-name))
+       fixed-type-name)
       ((alexandria:starts-with-subseq "P-" fixed-type-name)
        (subseq fixed-type-name 2))
       ((and (alexandria:starts-with-subseq "PP-" fixed-type-name)
@@ -126,7 +130,7 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
                       fixed-slot-name
                       fixed-slot-name
                       (is-union-p struct)
-                      fixed-slot-name)
+                      (fix-slot-name (name m) (type-name (type-info m)) vk-spec t))
               (setf wrote-first-member t))
         (format out ")~%  (:documentation ~s))~%" (make-documentation struct count-member-names vk-spec)))
   ;; todo: translate/expand-to/from (for unions it must be checked which slot is bound during translation in a cond)
@@ -140,7 +144,8 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
                  (alexandria:hash-table-values (structures vk-spec))))
 
 (defun get-value-setter (member-data struct count-member-names macro-p vk-spec)
-  (let ((fixed-slot-name (fix-slot-name (name member-data) (type-name (type-info member-data)) vk-spec)))
+  (let ((fixed-slot-name (fix-slot-name (name member-data) (type-name (type-info member-data)) vk-spec))
+        (fixed-accessor-name (fix-slot-name (name member-data) (type-name (type-info member-data)) vk-spec t)))
     (cond
       ;; union slots: determine at runtime which slot is bound and then translate this slot
       ((and (gethash (type-name (type-info member-data)) (structures vk-spec))
@@ -148,7 +153,7 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
        (let* ((union (gethash (type-name (type-info member-data)) (structures vk-spec)))
               (union-members (members union)))
          (format nil "(let ((slot (vk:~(~a~) value))) (cond ~{~a~}))"
-                 fixed-slot-name
+                 fixed-accessor-name
                  (loop for m in union-members
                        collect (format nil "((slot-boundp slot ~(~a~)) ~a)"
                                        (fix-slot-name (name m) (type-name (type-info m)) vk-spec)
@@ -172,7 +177,7 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
       
       ;; void pointer - must be handled by user
       ((string= "void" (type-name (type-info member-data)))
-       (format nil "(vk:~(~a~) value)" fixed-slot-name))
+       (format nil "(vk:~(~a~) value)" fixed-accessor-name))
       
       ;; members with constant values (such as "sType")
       ((= (length (allowed-values member-data)) 1)
@@ -187,7 +192,7 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
       ;; members of some VK-defined type (lists or single instances)
       ((gethash (type-name (type-info member-data)) (structures vk-spec))
        (format nil "(let ((slot (~(vk:~a~) value))) (vk-alloc:foreign-allocate-and-fill '(:struct ~(~a~)) slot ptr))"
-               fixed-slot-name
+               fixed-accessor-name
                (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))
 
       ;; lists of strings and primitive values
@@ -200,7 +205,7 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
                                     :string
                                     (gethash (type-name (type-info member-data)) *vk-platform*))))
          (format nil "(let ((slot (~(vk:~a~) value))) (vk-alloc:foreign-allocate-and-fill ~(~s~) slot ptr))"
-                 fixed-slot-name
+                 fixed-accessor-name
                  foreign-type-name)))
 
       ;; lists of handles
@@ -209,7 +214,7 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
                        (string= (car (len member-data)) count-member))
                      count-member-names))
        (format nil "(let ((slot (~(vk:~a~) value))) (vk-alloc:foreign-allocate-and-fill ~(~a~) slot ptr))"
-               fixed-slot-name
+               fixed-accessor-name
                (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))
 
       ;; set size-members based on list lengths
@@ -218,7 +223,7 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
                                       (string= (car (len s)) (name member-data)))
                                     (members struct)))
               (size-getter (format nil "(reduce #'max (list ~{~((length (vk:~a value))~)~}))"
-                                   (mapcar (lambda (s) (fix-slot-name (name s) (type-name (type-info s)) vk-spec))
+                                   (mapcar (lambda (s) (fix-slot-name (name s) (type-name (type-info s)) vk-spec t))
                                            slots))))
          (cond
            ((string= "codeSize" (name member-data))

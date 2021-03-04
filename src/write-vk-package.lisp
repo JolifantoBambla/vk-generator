@@ -154,7 +154,7 @@
       (format out "~%")
       (loop for m in (remove-duplicates
                           (mapcar (lambda (m)
-                                    (fix-slot-name (name m) (type-name (type-info m)) vk-spec))
+                                    (fix-slot-name (name m) (type-name (type-info m)) vk-spec t))
                                   (sort-alphabetically
                                    (alexandria:flatten
                                     (loop for struct in (alexandria:hash-table-values (structures vk-spec))
