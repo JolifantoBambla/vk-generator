@@ -138,6 +138,12 @@
     ;; write vk
     ;; todo: write commands, other types, accessors
     (format out "(defpackage :vk~%  (:use #:cl)~%  (:shadow~%    #:format~%    #:stream~%    #:set~%    #:type~%    #:values)~%  (:export~%")
+    ;;(format out "    :extension-loader~%") todo: actually used this
+    (format out "    :*default-allocator*~%")
+    ;;(format out "    :*default-extension-loader*~%") todo: actually use this
+    (format out "    :pack-version-number~%")
+    (format out "    :format-packed-version~%")
+    (format out "~%")
     (labels ((sort-alphabetically (elements)
                (sort elements (lambda (a b) (string< (name a) (name b))))))
       (loop for type in (sort-alphabetically (alexandria:hash-table-values (structures vk-spec)))
@@ -156,6 +162,9 @@
             do (format out "~(    #:~a ;; ~s~)~%"
                        m
                        :accessor))
+      (format out "~%")
+      (loop for command in (sort-alphabetically (alexandria:hash-table-values (commands vk-spec)))
+            do (format out "~(    #:~a~)~%" (fix-function-name (name command) (tags vk-spec))))
       (format out "~%"))
     (format out "))~%")))
 
@@ -237,6 +246,8 @@
          (vk-functions-file (merge-pathnames "vk-functions.lisp" vk-dir))
          (copy-files ;; todo: clean this up
            (list
+            (list (merge-pathnames "vk-base.lisp" additional-files-dir)
+                  (merge-pathnames "vk-base.lisp" vk-dir))
             (list (merge-pathnames "vk-alloc.lisp" additional-files-dir)
                   (merge-pathnames "vk-alloc.lisp" vk-dir))
             (list (merge-pathnames "bindings.lisp.template" additional-files-dir)

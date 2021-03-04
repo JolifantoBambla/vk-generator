@@ -16,4 +16,5 @@
                  (:file "errors")
                  (:file "extra-types")
                  (:file "translators")
-                 (:file "funcs")))))
+                 (:file "funcs")
+                 (:file "vk-base")))))
