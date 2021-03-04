@@ -60,7 +60,9 @@ See PACK-VERSION-NUMBER"
 
 ;; this works: (vk-alloc:with-foreign-allocated-objects () (+ 1 2))
 
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel ;; todo: remove other stages when this is done
+            :load-toplevel
+            :execute)
   (defun process-variables (variables)
     "Elements of VARIABLES should look like this:
 (arg-name arg-type contents ...options)
@@ -329,6 +331,7 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
                                          finally (return (values ,first-array ,second-array ,result)))))
                          (cl:values nil nil ,result))))))))))))
 
+#|
 ;; tests
 
 ;; 0a
@@ -396,7 +399,6 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
   (allocate-info '(:struct %vk:command-buffer-allocate-info) allocate-info :in)
   (command-buffers '%vk:command-buffer nil :out))
 
-#|
 ;; 1c-1
 (defvk-get-struct-fun (get-physical-device-properties-2
                        %vk:get-physical-device-properties-2

@@ -228,6 +228,100 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
 (defun create-function-body ()
   )
 
+(defun format-required-args (required-args vk-spec)
+  "Maps a list of PARAM-DATA instances into a list of argument names for the lambda list of a function in package VK."
+  (loop for arg in required-args
+        collect (format nil "~(~a~)"
+                        (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec))))
+
+(defun format-optional-args (optional-args vk-spec)
+  "Maps a list of PARAM-DATA instances into a list of default argument lists for the lambda list of a function in package VK."
+  (loop for arg in optional-args
+        collect (format nil "(~(~a ~a~))"
+                        (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
+                        (if (string= "pAllocator" (name arg))
+                            "*default-allocator*"
+                            (when (gethash (type-name (type-info arg)) (handles vk-spec))
+                              "(cffi:null-pointer)")))))
+
+(defun format-arg-type (arg vk-spec)
+  ""
+  (let ((type-name (type-name (type-info arg))))
+    (cond
+      ((gethash type-name (structures vk-spec))
+       (format nil "'(:~a %vk:~(~a~))"
+               (if (is-union-p (gethash type-name (structures vk-spec)))
+                   "union"
+                   "struct")
+               (fix-type-name type-name (tags vk-spec))))
+      ((gethash type-name (handles vk-spec))
+       (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec))))
+      ((gethash type-name (enums vk-spec))
+       (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec))))
+      ((string= "void" type-name)
+       "'(:pointer void)")
+      ((string= "char" type-name)
+       ":string")
+      ((string= "size_t" type-name)
+       "%vk:size-t")
+      ((gethash type-name *vk-platform*)
+       (format nil "~(~s~)" (gethash type-name *vk-platform*)))
+      (t
+       (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec)))))))
+
+(defun format-len-provider (count-arg array-arg vk-spec)
+  (if (gethash (type-name (type-info count-arg)) (structures vk-spec))
+      (let* ((split-len-data (split-len-by-struct-member (len array-arg)))
+             (count-slot ()))
+        (format nil "(vk:~(~a ~a~))"
+                "foo"
+                "bar"))
+      (format nil "(length ~(~a~))"
+              (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))))
+
+(defun make-arg-qualifier-list (arg output-params optional-params vk-spec)
+  (let ((qualifiers nil))
+    (when (find arg optional-params)
+      (push :optional qualifiers))
+    (when (or (gethash (type-name (type-info arg)) (handles vk-spec))
+              (string= "void" (type-name (type-info arg))))
+      (push :handle qualifiers))
+    (push (if (find arg output-params)
+              :out
+              :in)
+          qualifiers)
+    qualifiers))
+
+(defun format-vk-args (vk-args count-to-vector-param-indices output-params optional-params vk-spec)
+  ""
+  (loop for arg in vk-args
+        for i from 0
+        collect (format nil "(~(~a ~a ~a~{ ~s~}~))~@[~%~]"
+                        (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
+                        (format-arg-type arg vk-spec)
+                        (if (and (gethash i count-to-vector-param-indices)
+                                 (not (gethash (type-name (type-info arg))
+                                               (structures vk-spec))))
+                            ;; todo: first is most definitely not always correct here
+                            (let ((array-arg (nth (first (gethash i count-to-vector-param-indices)) vk-args)))
+                              (format nil "(length ~(~a~))"
+                                      (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
+                            (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec))
+                        (make-arg-qualifier-list arg output-params optional-params vk-spec)
+                        (< (+ i 1) (length vk-args)))))
+
+(defun write-simple-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vk-spec)
+  (format out "(defvk-simple-fun (~(~a~)~%" fixed-function-name)
+  (format out "                   ~(%vk:~a~)~%" fixed-function-name)
+  (format out "                   ~s~%" (make-command-docstring command required-params optional-params vk-spec))
+  (format out "                   (~(~{~a~}~))~%" (format-required-args required-params vk-spec))
+  (format out "                   (~(~{~a~}~))" (format-optional-args optional-params vk-spec))
+  (if (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
+      (format out "~%                  '%vk:~(~a~))~%"
+              (fix-type-name (return-type command) (tags vk-spec)))
+      (format out ")~%"))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+
 (defun write-command (out command vk-spec)
   (let* ((fixed-function-name (fix-function-name (name command) (tags vk-spec)))
          ;; maps from array-param to array-count-param
@@ -299,7 +393,8 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
      (format t "~%output: ~{~a, ~}~%"
              (loop for p in output-params
                    collect (name p))))
-    
+
+    #|
     ;; base defun
     (format out
             (create-base-defun command
@@ -375,10 +470,13 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
       (format out (create-with-foreign-allocated-bloc struct-params accumulated-indent vk-spec))
       (setf accumulated-indent (concatenate 'string "  " accumulated-indent)))
 
+|#
  ;; insert stuff from APPEND-COMMAND here
     ;; todo:
     (cond
       ((not output-params)
+       (write-simple-fun out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vk-spec)
+       #|
        ;; VkBool32 and VkResult are automatically translated, void just returns nil
        (if (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=)
            (format out "~a~a"
@@ -390,7 +488,9 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                      (create-call command output-params nil vk-spec nil)
                      (if (gethash (return-type command) *vk-platform*)
                          (format nil "~s" (gethash (return-type command) *vk-platform*))
-                         (format nil "'%vk:~a"(fix-type-name (return-type command) (tags vk-spec))))))))
+                         (format nil "'%vk:~a"(fix-type-name (return-type command) (tags vk-spec)))))))
+       |#
+       )
       ((= (length non-const-pointer-param-indices) 1)
        (let ((ret (first output-params)))
          ;; eight cases
@@ -398,6 +498,7 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
              ;; 1) handle type
              (if (not (find ret vector-params))
                  (progn
+                   #|
                    (incf closing-parens)
                    (format out "~a(cffi:with-foreign-object (p-~(~a %vk:~a~))~%"
                            accumulated-indent
@@ -419,10 +520,11 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                        (format out "~a(cffi:mem-aref ~(p-~a '%vk:~a~))"
                                accumulated-indent
                                (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
-                                              (fix-type-name (type-name (type-info ret)) (tags vk-spec)))))
+                                              (fix-type-name (type-name (type-info ret)) (tags vk-spec))))|#)
                  (if (= (length vector-params) 2)
                      ;; 1b-1) vector of handles, where the output vector uses the same len as an input vector - e.g. vkCreateGraphicsPipelines
                      (progn
+                       #|
                        (incf closing-parens)
                        (format out "~a(cffi:with-foreign-object (p-~(~a '%vk:~a (length ~a~))))~%"
                                accumulated-indent
@@ -446,13 +548,14 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                                                              vector-params)))
                                            (fix-slot-name (name other-vec-param) (type-name (type-info other-vec-param)) vk-spec))
                                          (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
-                                         (fix-type-name (type-name (type-info ret)) (tags vk-spec)))))))
+                                         (fix-type-name (type-name (type-info ret)) (tags vk-spec))))))|#)
                      ;; 1b-2) vector of handles using len-by-struct-member - e.g. vkAllocateCommandBuffers
                      (let* ((split-len-data (split-len-by-struct-member (len ret)))
                             ;; len-param
                             ;; fixed-len-param-name
                             ;; fixed-len-param-slot-name
                             )
+                       #|
                        (incf closing-parens)
                        (format out "~a(cffi:with-foreign-object (p-~(~a '%vk~a (vk:~a ~a)~))~%"
                                accumulated-indent
@@ -472,7 +575,7 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                          "ACCESSOR-OF-LEN"
                                          "FIXED-SLOT-OF-LEN"
                                          (fix-slot-name (name ret) (type-name (type-info ret)) vk-spec)
-                                         (fix-type-name (type-name (type-info ret)) (tags vk-spec)))))))))
+                                         (fix-type-name (type-name (type-info ret)) (tags vk-spec))))))|#)))
              ;; 2) structure chain anchor (wat?)
              (if (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) (params command))))
                                            vk-spec)
@@ -512,11 +615,12 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
         nil nil
         ;;(format t "command ~a has vector params: ~a with indices: ~a~%" (name command) vector-params vector-param-indices)
         )
-    
+
+    #|
     ;; close all forms
     (format out "~{~a~}~%~%"
             (loop for i from 0 below closing-parens
-                  collect ")"))))
+                  collect ")"))|#))
 
 (defun write-vk-functions (vk-functions-file vk-spec)
   (with-open-file (out vk-functions-file :direction :output :if-exists :supersede)
@@ -527,6 +631,8 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
     
     (loop for command in (sorted-elements (alexandria:hash-table-values (commands vk-spec)))
           do (write-command out command vk-spec)
-          when (alias command)
-          do (loop for alias in (alexandria:hash-table-values (alias command))
-                   do (write-command out (make-aliased-command command alias) vk-spec)))))
+          ;; todo: as soon as %vk also contains aliases
+          ;; when (alias command)
+          ;; do (loop for alias in (alexandria:hash-table-values (alias command))
+          ;;          do (write-command out (make-aliased-command command alias) vk-spec))
+          )))
