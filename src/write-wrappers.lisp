@@ -93,181 +93,66 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
   (format nil "Represents <~a>"
           (name command)))
 
-(defparameter *result-var-name* "vk-call-result")
-
-
-#|
-(let ((count-param (nth (position p (params command)) (params command))))
-                 (if (len-by-struct-member-p (len p) count-param vk-spec)
-                     (let ((name-parts (split-len-by-struct-member (len p))))
-                       (format nil (if (optional-p ) "(vk:~(~a ~a~))")
-                               (fix-slot-name (name count-param) (type-name (type-info count-param)) vk-spec)
-                               (fix-slot-name (second name-parts)
-                                              (type-name (type-info (find-if (lambda (m)
-                                                                               (string= (name m) (second name-parts)))
-                                                                             (members (gethash (name count-param) (structures vk-spec))))))
-                                              vk-spec)))
-                     (fix-slot-name (name count-param) (type-name (type-info count-param)) vk-spec)))
-|#
-
-(defun create-setting-primitive-allocated-param (p command vector-params vector-count-params output-params vk-spec)
-  (let ((fixed-param-name (fix-slot-name (name p) (type-name (type-info p)) vk-spec))
-        (param-type-name (if (string= (type-name (type-info p)) "char")
-                             ":string"
-                             (format nil "~(~s~)"
-                                     (gethash (type-name (type-info p)) *vk-platform*)))))
-    (cond
-      ;; this param is a vector parameter - we need to translate all elements
-      ((find p vector-params)
-       (format nil "~((loop for i from 0 below (length ~a) do (setf (cffi:mem-aref p-~a ~a i) (nth i ~a)))~)"
-               fixed-param-name
-               fixed-param-name
-               param-type-name
-               fixed-param-name))
-      (t (format nil "(setf (cffi:mem-aref p-~a ~a) ~a)"
-                 fixed-param-name
-                 param-type-name
-                 (if (find p vector-count-params)
-                     (format nil "(reduce #'max (list~{ ~a~}))" 
-                             (loop for vec-param in vector-params
-                                   unless (find vec-param output-params)
-                                   collect (let ((fixed-vec-param-name
-                                                   (fix-slot-name (name vec-param)
-                                                                  (type-name (type-info vec-param))
-                                                                  vk-spec)))
-                                             (if (optional-p vec-param)
-                                                 (format nil "(if ~a-supplied-p (length ~a) 0)"
-                                                         fixed-vec-param-name
-                                                         fixed-vec-param-name)
-                                                 (format nil "(length ~a)"
-                                                         fixed-vec-param-name)))))
-                     fixed-param-name))))))
-
 (defun reverse-hash-table (hash-table)
   (let ((result (make-hash-table)))
     (loop for k being each hash-key of hash-table using (hash-value v)
           do (push k (gethash v result)))
     result))
 
-;; actually each command call looks ultimately like this
-(defun create-call (command output-params skipped-param-names vk-spec &optional (has-return-p t))
-  "SKIPPED-PARAM-NAMES can be used to replace parameter values with CFFI:NULL-POINTERs (e.g. for enumerating functions)"
-  (let ((call (format nil "~((%vk:~a~{ ~a~})~)"
-                      (fix-function-name (name command) (tags vk-spec))
-                      (loop for param in (params command)
-                            for fixed-param-name = (fix-slot-name (name param) (type-name (type-info param)) vk-spec)
-                            collect (if (find (name param) skipped-param-names :test #'string=)
-                                        "(cffi:null-pointer)"
-                                        (cond
-                                          ((and (optional-p param)
-                                                (not (gethash (type-name (type-info param)) (handles vk-spec))))
-                                           (format nil "(if ~a-supplied-p p-~a ~a)"
-                                                   fixed-param-name
-                                                   fixed-param-name
-                                                   fixed-param-name))
-                                          ((and (gethash (type-name (type-info param)) (handles vk-spec))
-                                                (not (find param output-params)))
-                                           fixed-param-name)
-                                          (t (format nil "p-~a" fixed-param-name))))))))
-    (if has-return-p
-        (format nil "~((setf ~a ~a)~)"
-                *result-var-name*
-                call)
-        call)))
-
-(defun create-return-form (return-values)
-  (format nil "(values~(~(~{ ~a~} ~a~)~))"
-          return-values
-          *result-var-name*))
-
-(defun create-base-defun (command fixed-function-name required-params optional-params skipped-input-params vk-spec)
-  (format nil "(defun ~(~a~) (~(~{~a~}~@[~a~]~))~%  ~s~%"
-            fixed-function-name
-            (loop for p in (sorted-elements required-params)
-                  for i from 0
-                  unless (find p skipped-input-params)
-                  collect (format nil "~:[~; ~]~a"
-                                  (> i 0)
-                                  (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))
-            (when (> (length (loop for p in optional-params
-                                   unless (find p skipped-input-params)
-                                   collect p))
-                     0)
-              (format nil "~:[~; ~]&optional~{ ~a~}"
-                      (> (length required-params) 0)
-                      (loop for p in (sorted-elements optional-params)
-                            for fixed-slot-name = (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
-                            unless (find p skipped-input-params)
-                            collect (format nil "(~a~@[ ~a-supplied-p~] ~a)"
-                                            fixed-slot-name
-                                            (unless (or (and (gethash (type-name (type-info p)) (structures vk-spec))
-                                                             (not (string= (name p) "pAllocator")))
-                                                        (gethash (type-name (type-info p)) (handles vk-spec)))
-                                              fixed-slot-name)
-                                            (cond
-                                              ((string= (name p) "pAllocator")
-                                               "*default-allocator*")
-                                              ((gethash (type-name (type-info p)) (structures vk-spec))
-                                               "nil")
-                                              (t "(cffi:null-pointer)"))))))
-            (make-command-docstring command required-params optional-params vk-spec)))
-
-(defun create-with-foreign-allocated-bloc (struct-params accumulated-indent vk-spec)
-  (format nil "~a(vk-alloc:with-foreign-allocated-objects (~(~{~a~}~))~%"
-          accumulated-indent
-          (loop for p in struct-params
-                for i from 0
-                collect (format nil "~a(p-~a '(:struct %vk:~a) ~a)"
-                                (format nil "~@[~%~a                                          ~]"
-                                        (unless (= 0 i)
-                                          accumulated-indent))
-                                (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
-                                (fix-type-name (type-name (type-info p)) (tags vk-spec))
-                                (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))))
-
-(defun create-function-body ()
-  )
 
 (defun format-required-args (required-args vk-spec)
   "Maps a list of PARAM-DATA instances into a list of argument names for the lambda list of a function in package VK."
   (loop for arg in required-args
-        collect (format nil "~(~a~)"
-                        (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec))))
+        for i from 1
+        collect (format nil "~(~a~)~@[ ~]"
+                        (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
+                        (< i (length required-args)))))
 
 (defun format-optional-args (optional-args vk-spec)
   "Maps a list of PARAM-DATA instances into a list of default argument lists for the lambda list of a function in package VK."
   (loop for arg in optional-args
-        collect (format nil "(~(~a ~a~))"
+        for i from 1
+        collect (format nil "(~(~a ~a~))~@[ ~]"
                         (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
                         (if (string= "pAllocator" (name arg))
                             "*default-allocator*"
                             (when (gethash (type-name (type-info arg)) (handles vk-spec))
-                              "(cffi:null-pointer)")))))
+                              "(cffi:null-pointer)"))
+                        (< i (length optional-args)))))
+
+(defun format-type-name (type-name vk-spec)
+  (cond
+    ((gethash type-name (structures vk-spec))
+     (format nil "'(:~a %vk:~(~a~))"
+             (if (is-union-p (gethash type-name (structures vk-spec)))
+                 "union"
+                 "struct")
+             (fix-type-name type-name (tags vk-spec))))
+    ((gethash type-name (handles vk-spec))
+     (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec))))
+    ((gethash type-name (enums vk-spec))
+     (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec))))
+    ((string= "void" type-name)
+     "'(:pointer void)")
+    ((string= "char" type-name)
+     ":string")
+    ((string= "size_t" type-name)
+     "%vk:size-t")
+    ((gethash type-name *vk-platform*)
+     (format nil "~(~s~)" (gethash type-name *vk-platform*)))
+    ((getf *misc-os-types* type-name)
+     (format nil "~:[~;'~]~(~s~)"
+             (consp (getf *misc-os-types* type-name))
+             (gethash *misc-os-types* type-name)))
+    ((and (gethash type-name (types vk-spec))
+          (eq :requires (category (gethash type-name (types vk-spec)))))
+     "'(:pointer void)")
+    (t
+     (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec))))))
 
 (defun format-arg-type (arg vk-spec)
   ""
-  (let ((type-name (type-name (type-info arg))))
-    (cond
-      ((gethash type-name (structures vk-spec))
-       (format nil "'(:~a %vk:~(~a~))"
-               (if (is-union-p (gethash type-name (structures vk-spec)))
-                   "union"
-                   "struct")
-               (fix-type-name type-name (tags vk-spec))))
-      ((gethash type-name (handles vk-spec))
-       (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec))))
-      ((gethash type-name (enums vk-spec))
-       (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec))))
-      ((string= "void" type-name)
-       "'(:pointer void)")
-      ((string= "char" type-name)
-       ":string")
-      ((string= "size_t" type-name)
-       "%vk:size-t")
-      ((gethash type-name *vk-platform*)
-       (format nil "~(~s~)" (gethash type-name *vk-platform*)))
-      (t
-       (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec)))))))
+  (format-type-name (type-name (type-info arg)) vk-spec))
 
 (defun format-len-provider (count-arg array-arg vk-spec)
   (if (gethash (type-name (type-info count-arg)) (structures vk-spec))
@@ -284,7 +169,9 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
     (when (find arg optional-params)
       (push :optional qualifiers))
     (when (or (gethash (type-name (type-info arg)) (handles vk-spec))
-              (string= "void" (type-name (type-info arg))))
+              (string= "void" (type-name (type-info arg)))
+              (and (gethash (type-name (type-info arg)) (types vk-spec))
+                   (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec))))))
       (push :handle qualifiers))
     (push (if (find arg output-params)
               :out
@@ -317,8 +204,8 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
   (format out "                   (~(~{~a~}~))~%" (format-required-args required-params vk-spec))
   (format out "                   (~(~{~a~}~))" (format-optional-args optional-params vk-spec))
   (if (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
-      (format out "~%                  '%vk:~(~a~))~%"
-              (fix-type-name (return-type command) (tags vk-spec)))
+      (format out "~%                  ~(~a~))~%"
+              (format-type-name (return-type command) vk-spec))
       (format out ")~%"))
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
 

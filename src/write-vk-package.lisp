@@ -123,6 +123,7 @@
     (format out "(defpackage :~a~%  (:use #:cl #:cffi)~%" *in-package-name*)
     (format out "  (:nicknames ~a)~%" *package-nicknames*)
     (format out "  (:export~%")
+    (format out "   size-t~%~%")
     (labels ((sort-alphabetically (elements)
                (sort elements (lambda (a b) (string< (name a) (name b))))))
       (loop for type in (sort-alphabetically (alexandria:hash-table-values (types vk-spec)))
