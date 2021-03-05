@@ -418,7 +418,6 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                          count-to-vector-param-indices
                          vector-params
                          vk-spec))
-      #|
       ((= (length non-const-pointer-param-indices) 1)
        (let ((ret (first output-params)))
          (if (gethash (type-name (type-info ret)) (handles vk-spec))
@@ -463,7 +462,6 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                        vk-spec)
                  ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
                  (format t "1d: command: ~a ~%" command)))))
-      |#
       ((= (length non-const-pointer-param-indices) 2)
        ;; four cases
        ;; 1) structure chain anchor (wat?) -> appendCommandVectorChained
