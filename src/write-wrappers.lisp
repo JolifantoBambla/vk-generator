@@ -233,18 +233,6 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
               (and (gethash (type-name (type-info arg)) (types vk-spec))
                    (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec))))
                    (not (gethash (type-name (type-info arg)) *vk-platform*))))
-      (when (and (gethash (type-name (type-info arg)) (types vk-spec))
-                 (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec)))))
-        (format t "~%~%~%!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1 type: ~a platform type: ~a~%~%~%~%"
-                (type-name (type-info arg))
-                (not (gethash (type-name (type-info arg)) *vk-platform*))))
-      (when (string= (name arg) "scissorCount")
-        (format t "~%~%~%~%  handle: ~a void: ~a requires: ~a ~%~%~%"
-                (gethash (type-name (type-info arg)) (handles vk-spec))
-                (string= "void" (type-name (type-info arg)))
-                (and (gethash (type-name (type-info arg)) (types vk-spec))
-                     (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec)))))
-                ))
       (push :handle qualifiers))
     (push (if (find arg output-params)
               :out
@@ -337,6 +325,22 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
   (format out "                                  (~(~{~a~}~)))~%" (format-optional-args optional-params vector-params vk-spec))
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
 
+(defun write-get-structs-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  (format out "(defvk-get-structs-fun (~(~a~)~%" fixed-function-name)
+  (format out "                        ~(%vk:~a~)~%" fixed-function-name)
+  (format out "                        ~s~%" (make-command-docstring command required-params optional-params vk-spec))
+  (format out "                        (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                        (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
+  (format out "                        ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
+                                                   (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+  (format out "                        ~(~a~)" (let ((array-arg (find-if #'len output-params)))
+                                                 (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
+  (if (string= "void" (return-type command))
+      (format out "~%                        t)~%")
+      (format out ")~%"))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+
+;; todo: check if vkGetShaderInfoAMD is written correctly (what is the info parameter exactly? - check spec)
 (defun write-command (out command vk-spec)
   (let* ((fixed-function-name (fix-function-name (name command) (tags vk-spec)))
          ;; maps from array-param to array-count-param
@@ -465,6 +469,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                                        count-to-vector-param-indices
                                        vector-params
                                        vk-spec)
+                 ;; TODO: with the current implementation such functions are actually simple-funs which don't return anything -> breaks consistency!
                  ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
                  (write-fill-arbitrary-buffer-fun out
                                                   command
@@ -476,26 +481,31 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                                                   vector-params
                                                   vk-spec)))))
       ((= (length non-const-pointer-param-indices) 2)
-       ;; four cases
-       ;; 1) structure chain anchor (wat?) -> appendCommandVectorChained
        (if (structure-chain-anchor-p (type-name (type-info (nth (second non-const-pointer-param-indices) (params command))))
                                      vk-spec)
-           (format t "2a: command: ~a ~%" command)
+           ;; case 2a: get list of structs - e.g. vkGetPhysicalDeviceQueueFamilyProperties2
+           (write-get-structs-fun out
+                                  command
+                                  fixed-function-name
+                                  required-params
+                                  optional-params
+                                  output-params
+                                  count-to-vector-param-indices
+                                  vector-params
+                                  vk-spec)
            (cond
-             ;; 2) 0 vector-param-indices -> two returns and a non-trivial success code
+             ;; case 2b: two returns and a non-trivial success code, no array - e.g. ???
              ((= (hash-table-count vector-param-indices) 0)
               (format t "!!!!!!!!!!!!!!!2b: command: ~a ~%" command))
-             ;; 3) 1 vector-param-indices -> the size is a return value as well -> enumerate the values
+             ;; case 2c: enumerate - e.g. vkEnumeratePhysicalDevices
              ((= (hash-table-count vector-param-indices) 1)
               (format t "2c: command: ~a length vector-params: ~a~%" command (length vector-params)))
-             ;; 4) 2 vector-param-indices -> two returns and two vectors! But one input vector, one output vector of the same size, and one output value
+             ;; case 2d: return multiple values. one array of the same size as an input array and one additional non-array value - e.g. vkGetCalibratedTimestampsEXT
              ((= (hash-table-count vector-param-indices) 2)
               (format t "2d: command: ~a ~%" command)))))
       ((= (length non-const-pointer-param-indices) 3)
-       ;; 1 case
-       ;; 1) the two vectors use the very same size parameter
-       (format t "3: ~a~%" command)
-       )
+       ;; case 3: return two arrays using the same counter which is also an output argument - e.g vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR
+       (format t "3: ~a~%" command))
       (t (warn "Never encountered a function like <~a>!" (name command))))))
 
 (defun write-vk-functions (vk-functions-file vk-spec)
