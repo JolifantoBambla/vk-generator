@@ -63,6 +63,16 @@ See PACK-VERSION-NUMBER"
 (eval-when (:compile-toplevel ;; todo: remove other stages when this is done
             :load-toplevel
             :execute)
+  ;; ((name type) (name type) ...)
+  
+  (defun process-args (args optional-p)
+    "Splits ARGS into a list of argument names and a list of types which can be used for type declarations.
+If OPTIONAL-P is truthy NULL is appended to each type declaration."
+    (loop for arg in args
+          collect (first arg) into arg-names
+          collect (list 'declare (if optional-p (list (list 'or (second arg) 'null) (first (first arg))) (list (second arg) (first arg)))) into arg-types
+          finally (return (cl:values arg-names arg-types))))
+  
   (defun process-variables (variables)
     "Elements of VARIABLES should look like this:
 (arg-name arg-type contents ...options)
@@ -105,14 +115,20 @@ E.g. no value returned: vkDestroyInstance
 E.g. value returned: vkGetInstanceProcAddr
 
 Note: VkBool32 and VkResult are treated as no return values, since they are implicitly converted to lisp values and don't have to be translated explicitely."
-  (multiple-value-bind (translated-args vk-input-args) (process-variables variables)
-    `(defun ,name (,@required-args &optional ,@optional-args)
-       ,docstring
-      (vk-alloc:with-foreign-allocated-objects (,@translated-args)
-        ,(if return-type
-             `(cffi:mem-aref (,vulkan-fun ,@vk-input-args) ,return-type)
-             `(,vulkan-fun ,@vk-input-args))))))
+  (multiple-value-bind (required-arg-names required-arg-declares) (process-args required-args nil)
+    (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t)
+      (multiple-value-bind (translated-args vk-input-args) (process-variables variables)
+        `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
+           ,docstring
+           ,@required-arg-declares
+           ,@optional-arg-declares
+           (vk-alloc:with-foreign-allocated-objects (,@translated-args)
+             ,(if return-type
+                  `(cffi:mem-aref (,vulkan-fun ,@vk-input-args) ,return-type)
+                  `(,vulkan-fun ,@vk-input-args))))))))
 
+
+;; TODO: all macros below this line must be adapted to type declaration changes
 
 ;;; --------------------------------------------- 1 output parameter -------------------------------------------------------------------
 
@@ -333,31 +349,6 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
 
 #|
 ;; tests
-
-;; 1b-1
-(defvk-create-handles-fun (create-graphics-pipelines
-                           %vk:create-graphics-pipelines
-                           "docs"
-                           (device create-infos)
-                           ((pipeline-cache (cffi:null-pointer)) (allocator *default-allocator*))
-                           (length create-infos))
-  (device '%vk:device device :in :handle)
-  (pipeline-cache '%vk:pipeline-cache pipeline-cache :in :handle :optional)
-  (create-info-count :uint32 (length create-infos) :in)
-  (create-infos '(:struct %vk:graphics-pipeline-create-info) create-infos :in)
-  (allocator '(:struct %vk:allocation-callbacks) allocator :in :optional)
-  (pipelines '%vk:pipeline nil :out))
-
-;; 1b-2
-(defvk-create-handles-fun (allocate-command-buffers
-                           %vk:allocate-command-buffers
-                           "docs"
-                           (device allocate-info)
-                           nil
-                           (vk:command-buffer-count allocate-info))
-  (device '%vk:device device :in :handle)
-  (allocate-info '(:struct %vk:command-buffer-allocate-info) allocate-info :in)
-  (command-buffers '%vk:command-buffer nil :out))
 
 ;; 1c-1
 (defvk-get-struct-fun (get-physical-device-properties-2

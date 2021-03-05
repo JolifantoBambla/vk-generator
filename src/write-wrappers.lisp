@@ -15,6 +15,10 @@
     "xcb_connection_t")
   "A sequence of pointer types which are never used as const-qualified call arguments, but are never used as return arguments.")
 
+(defparameter *special-base-types*
+  '("ANativeWindow"
+    "AHardwareBuffer"))
+
 (defun split-len-by-struct-member (name)
   "Splits a given len NAME into two parts: the name of the referenced parameter and the slot name containing the length within the referenced parameter.
 Returns NIL if the given NAME does not reference a slot of another parameter."
@@ -78,7 +82,8 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
   "Find all indices of PARAM instances describing output arguments in a given sequence of PARAM instances."
   (loop for param in params and param-index from 0
         when (and (non-const-pointer-p (type-info param))
-                   (not (find (type-name (type-info param)) *special-pointer-types* :test #'string=)))
+                  (not (find (type-name (type-info param)) *special-pointer-types* :test #'string=))
+                  (not (string= "void" (type-name (type-info param)))))
         collect param-index))
 
 (defun determine-const-pointer-param-indices (params vk-spec)
@@ -99,29 +104,76 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
           do (push k (gethash v result)))
     result))
 
+(defun get-type-to-declare (type-name vk-spec &optional param vector-params)
+  (cond
+    ;; the types that can't be translated and must not come in a list
+    ((or (string= "void" type-name)
+         (find type-name *special-base-types* :test #'string=)
+         (and (gethash type-name (types vk-spec))
+              (eq :requires (category (gethash type-name (types vk-spec))))))
+     "cffi:foreign-pointer")
+    ((and param
+          vector-params
+          (find param vector-params))
+     "list")
+    ;; handles must come after "list" because a list of handles should be declared as type list
+    ((gethash type-name (handles vk-spec))
+     "cffi:foreign-pointer")
+    ((or (alexandria:starts-with-subseq "float" type-name)
+         (string= "double" type-name))
+     "real")
+    ((or (alexandria:starts-with-subseq "uint" type-name)
+         (string= "size_t" type-name))
+     "unsigned-byte")
+    ((alexandria:starts-with-subseq "int" type-name)
+     "integer")
+    ((string= "char" type-name)
+     "string")
+    ((gethash type-name (structures vk-spec))
+     (format nil "(or vk:~(~a~) cffi:foreign-pointer)"
+             (fix-type-name type-name (tags vk-spec))))
+    ((gethash type-name (bitmasks vk-spec))
+     "(or unsigned-byte list)")
+    ((or (and (gethash type-name (enums vk-spec))
+              (not (is-bitmask-p (gethash type-name (enums vk-spec)))))
+         (search "FlagBits" type-name))
+     "keyword")
+    ((gethash type-name (base-types vk-spec))
+     (get-type-to-declare (type-name (gethash type-name (base-types vk-spec))) vk-spec))
+    (t (error "No type declaration for: ~a" type-name))))
 
-(defun format-required-args (required-args vk-spec)
+(defun format-type-to-declare (param vector-params vk-spec)
+  (format nil "~(~a~)"
+          (let ((type-name (type-name (type-info param))))
+            (get-type-to-declare type-name vk-spec param vector-params))))
+
+
+(defun format-required-args (required-args vector-params vk-spec)
   "Maps a list of PARAM-DATA instances into a list of argument names for the lambda list of a function in package VK."
   (loop for arg in required-args
         for i from 1
-        collect (format nil "~(~a~)~@[ ~]"
+        collect (format nil "~((~a ~a)~)~@[ ~]"
                         (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
+                        (format-type-to-declare arg vector-params vk-spec)
                         (< i (length required-args)))))
 
-(defun format-optional-args (optional-args vk-spec)
+(defun format-optional-args (optional-args vector-params vk-spec)
   "Maps a list of PARAM-DATA instances into a list of default argument lists for the lambda list of a function in package VK."
   (loop for arg in optional-args
         for i from 1
-        collect (format nil "(~(~a ~a~))~@[ ~]"
+        collect (format nil "((~(~a ~a) ~a~))~@[ ~]"
                         (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
                         (if (string= "pAllocator" (name arg))
                             "*default-allocator*"
                             (when (gethash (type-name (type-info arg)) (handles vk-spec))
                               "(cffi:null-pointer)"))
+                        (format-type-to-declare arg vector-params vk-spec)
                         (< i (length optional-args)))))
 
 (defun format-type-name (type-name vk-spec)
   (cond
+    ((find type-name *special-base-types* :test #'string=)
+     "'(:pointer :void)")
     ((gethash type-name (structures vk-spec))
      (format nil "'(:~a %vk:~(~a~))"
              (if (is-union-p (gethash type-name (structures vk-spec)))
@@ -133,11 +185,11 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
     ((gethash type-name (enums vk-spec))
      (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec))))
     ((string= "void" type-name)
-     "'(:pointer void)")
+     "'(:pointer :void)")
     ((string= "char" type-name)
      ":string")
     ((string= "size_t" type-name)
-     "%vk:size-t")
+     "'%vk:size-t")
     ((gethash type-name *vk-platform*)
      (format nil "~(~s~)" (gethash type-name *vk-platform*)))
     ((getf *misc-os-types* type-name)
@@ -146,7 +198,7 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
              (gethash *misc-os-types* type-name)))
     ((and (gethash type-name (types vk-spec))
           (eq :requires (category (gethash type-name (types vk-spec)))))
-     "'(:pointer void)")
+     "'(:pointer :void)")
     (t
      (format nil "'%vk:~(~a~)" (fix-type-name type-name (tags vk-spec))))))
 
@@ -174,7 +226,20 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
     (when (or (gethash (type-name (type-info arg)) (handles vk-spec))
               (string= "void" (type-name (type-info arg)))
               (and (gethash (type-name (type-info arg)) (types vk-spec))
-                   (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec))))))
+                   (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec))))
+                   (not (gethash (type-name (type-info arg)) *vk-platform*))))
+      (when (and (gethash (type-name (type-info arg)) (types vk-spec))
+                 (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec)))))
+        (format t "~%~%~%!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1 type: ~a platform type: ~a~%~%~%~%"
+                (type-name (type-info arg))
+                (not (gethash (type-name (type-info arg)) *vk-platform*))))
+      (when (string= (name arg) "scissorCount")
+        (format t "~%~%~%~%  handle: ~a void: ~a requires: ~a ~%~%~%"
+                (gethash (type-name (type-info arg)) (handles vk-spec))
+                (string= "void" (type-name (type-info arg)))
+                (and (gethash (type-name (type-info arg)) (types vk-spec))
+                     (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec)))))
+                ))
       (push :handle qualifiers))
     (push (if (find arg output-params)
               :out
@@ -204,24 +269,24 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                         (make-arg-qualifier-list arg output-params optional-params vk-spec)
                         (< (+ i 1) (length vk-args)))))
 
-(defun write-simple-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vk-spec)
+(defun write-simple-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-simple-fun (~(~a~)~%" fixed-function-name)
   (format out "                   ~(%vk:~a~)~%" fixed-function-name)
   (format out "                   ~s~%" (make-command-docstring command required-params optional-params vk-spec))
-  (format out "                   (~(~{~a~}~))~%" (format-required-args required-params vk-spec))
-  (format out "                   (~(~{~a~}~))" (format-optional-args optional-params vk-spec))
+  (format out "                   (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                   (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
   (if (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
       (format out "~%                  ~(~a~))~%"
               (format-type-name (return-type command) vk-spec))
       (format out ")~%"))
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
 
-(defun write-create-handle-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vk-spec)
+(defun write-create-handle-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-create-handle-fun (~(~a~)~%" fixed-function-name)
   (format out "                          ~(%vk:~a~)~%" fixed-function-name)
   (format out "                          ~s~%" (make-command-docstring command required-params optional-params vk-spec))
-  (format out "                          (~(~{~a~}~))~%" (format-required-args required-params vk-spec))
-  (format out "                          (~(~{~a~}~))" (format-optional-args optional-params vk-spec))
+  (format out "                          (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                          (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
   (if (string= "void" (return-type command))
       (format out "~%                          t)~%")
       (format out ")~%"))
@@ -231,8 +296,8 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
   (format out "(defvk-create-handles-fun (~(~a~)~%" fixed-function-name)
   (format out "                           ~(%vk:~a~)~%" fixed-function-name)
   (format out "                           ~s~%" (make-command-docstring command required-params optional-params vk-spec))
-  (format out "                           (~(~{~a~}~))~%" (format-required-args required-params vk-spec))
-  (format out "                           (~(~{~a~}~))~%" (format-optional-args optional-params vk-spec))
+  (format out "                           (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                           (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
   (format out "                           ~(~a~))~%" (if (= (length vector-params) 2)
                                                          (format nil "(length ~(~a~))"
                                                                  (let ((array-arg (find-if-not (lambda (arg)
@@ -249,6 +314,22 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                                            (format nil "(vk:~(~a ~a~))"
                                                                    (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
                                                                    (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+
+(defun write-get-struct-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  (format out "(defvk-get-struct-fun (~(~a~)~%" fixed-function-name)
+  (format out "                       ~(%vk:~a~)~%" fixed-function-name)
+  (format out "                       ~s~%" (make-command-docstring command required-params optional-params vk-spec))
+  (format out "                       (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                       (~(~{~a~}~)))~%" (format-optional-args optional-params vector-params vk-spec))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+
+(defun write-fill-arbitrary-buffer-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  (format out "(defvk-fill-arbitrary-buffer-fun (~(~a~)~%" fixed-function-name)
+  (format out "                                  ~(%vk:~a~)~%" fixed-function-name)
+  (format out "                                  ~s~%" (make-command-docstring command required-params optional-params vk-spec))
+  (format out "                                  (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                                  (~(~{~a~}~)))~%" (format-optional-args optional-params vector-params vk-spec))
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
 
 (defun write-command (out command vk-spec)
@@ -323,10 +404,11 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
              (loop for p in output-params
                    collect (name p))))
 
- ;; insert stuff from APPEND-COMMAND here
     ;; todo: port conditions from vulkanhppgenerator to check if really all commands are written correctly. (e.g. there is one case without a single function - probably a bug)
     (cond
       ((not output-params)
+       ;; case 0a: no or implicit return value - e.g. vkDestroyInstance
+       ;; case 0b: non-trivial return value - e.g. vkGetInstanceProcAddr
        (write-simple-fun out
                          command
                          fixed-function-name
@@ -334,7 +416,9 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                          optional-params
                          output-params
                          count-to-vector-param-indices
+                         vector-params
                          vk-spec))
+      #|
       ((= (length non-const-pointer-param-indices) 1)
        (let ((ret (first output-params)))
          (if (gethash (type-name (type-info ret)) (handles vk-spec))
@@ -349,6 +433,7 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                           optional-params
                                           output-params
                                           count-to-vector-param-indices
+                                          vector-params
                                           vk-spec)
                  ;; 1b-1) vector of handles, where the output vector uses the same len as an input vector - e.g. vkCreateGraphicsPipelines
                  ;; 1b-2) vector of handles using len-by-struct-member - e.g. vkAllocateCommandBuffers
@@ -361,18 +446,24 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                            count-to-vector-param-indices
                                            vector-params
                                            vk-spec))
-             ;; 2) structure chain anchor (wat?)
-             (if (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) (params command))))
-                                           vk-spec)
-                 ;; 2a)   appendCommandChained
-                 (format t "1c-1: command: ~a param: ~a ~%" ;; vkGetPhysicalDeviceFeatures2 pFeatures
-                         command
-                         (nth (first non-const-pointer-param-indices) (params command)))
-                 (if (not (gethash (first non-const-pointer-param-indices) vector-param-indices))
-                     ;; 2b-1) returns VkBool32 || VkResult || void -> appendCommandStandardAndEnhanced
-                     (format t "1c-2: command: ~a~%" command)
-                     ;; 2b-2) appendCommandSingular
-                     (format t "1d: command: ~a~%" command))))))
+             ;; 2) structure chain anchor
+             (if (or (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) (params command))))
+                                               vk-spec)
+                     (not (gethash (first non-const-pointer-param-indices) vector-param-indices)))
+                 ;; case 1c-1: get a struct extended by its NEXT slot - e.g. vkGetPhysicalDeviceFeatures2
+                 ;; case 1c-2: get a struct without NEXT slot - e.g. vkGetPhysicalDeviceProperties
+                 (write-get-struct-fun out
+                                       command
+                                       fixed-function-name
+                                       required-params
+                                       optional-params
+                                       output-params
+                                       count-to-vector-param-indices
+                                       vector-params
+                                       vk-spec)
+                 ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
+                 (format t "1d: command: ~a ~%" command)))))
+      |#
       ((= (length non-const-pointer-param-indices) 2)
        ;; four cases
        ;; 1) structure chain anchor (wat?) -> appendCommandVectorChained
@@ -394,18 +485,7 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
        ;; 1) the two vectors use the very same size parameter
        (format t "!!!!!!!!!!!!!!!!!!3: ~a~%" command)
        )
-      (t (error "Never encountered a function like <~a>!" (name command))))
-
-    (if (> (hash-table-count vector-param-indices) 0)
-        nil nil
-        ;;(format t "command ~a has vector params: ~a with indices: ~a~%" (name command) vector-params vector-param-indices)
-        )
-
-    #|
-    ;; close all forms
-    (format out "~{~a~}~%~%"
-            (loop for i from 0 below closing-parens
-                  collect ")"))|#))
+      (t (warn "Never encountered a function like <~a>!" (name command))))))
 
 (defun write-vk-functions (vk-functions-file vk-spec)
   (with-open-file (out vk-functions-file :direction :output :if-exists :supersede)
@@ -421,3 +501,6 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
           ;; do (loop for alias in (alexandria:hash-table-values (alias command))
           ;;          do (write-command out (make-aliased-command command alias) vk-spec))
           )))
+
+
+(defun foo () (ql:quickload :vk-generator) (generate :version "v1.2.153"))
