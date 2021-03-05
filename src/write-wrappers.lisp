@@ -193,10 +193,11 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                  (not (gethash (type-name (type-info arg))
                                                (structures vk-spec)))
                                  (not (find arg output-params)))
-                            ;; just find the vector param that is not an output param and be done with it
-                            ;; TODO: it isn't correct! make sure it takes the correct input
-                            ;; todo: first is most definitely not always correct here
-                            (let* ((array-arg (nth (first (gethash i count-to-vector-param-indices)) vk-args)))
+                            (let* ((array-args (loop for j in (gethash i count-to-vector-param-indices)
+                                                     for array-arg = (nth j vk-args)
+                                                     unless (find array-arg output-params)
+                                                     collect array-arg))
+                                   (array-arg (first array-args)))
                               (format nil "(length ~(~a~))"
                                       (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
                             (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec))
