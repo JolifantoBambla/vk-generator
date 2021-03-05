@@ -63,11 +63,16 @@ E.g.: In \"vkAllocateDescriptorSets\" the \"len\" \"pAllocateInfo->descriptorSet
   "Creates a mapping of indices of array arguments to indices of the arguments specifying the number of elements within the array in a given sequence of PARAM instances.
 
 E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of \"VkSubmitInfo\" instances in \"pSubmits\".
+
+Note: For arbitrary data sizes (i.e. the vector parameter is a void pointer) the vector parameter and its size parameter are ignored.
+Both are treated as unrelated input parameters of the resulting function.
+E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
 "
   (let ((vector-param-indices (make-hash-table :test 'equal)))
     (loop for param in params and param-index from 0
           for len = (len param)
-          when len
+          when (and len
+                    (not (string= "void" (type-name (type-info param)))))
           do (let ((len-param-index
                      (position-if
                       (lambda (p)
@@ -461,7 +466,15 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
                                        vector-params
                                        vk-spec)
                  ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
-                 (format t "1d: command: ~a ~%" command)))))
+                 (write-fill-arbitrary-buffer-fun out
+                                                  command
+                                                  fixed-function-name
+                                                  required-params
+                                                  optional-params
+                                                  output-params
+                                                  count-to-vector-param-indices
+                                                  vector-params
+                                                  vk-spec)))))
       ((= (length non-const-pointer-param-indices) 2)
        ;; four cases
        ;; 1) structure chain anchor (wat?) -> appendCommandVectorChained
@@ -481,7 +494,7 @@ E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of
       ((= (length non-const-pointer-param-indices) 3)
        ;; 1 case
        ;; 1) the two vectors use the very same size parameter
-       (format t "!!!!!!!!!!!!!!!!!!3: ~a~%" command)
+       (format t "3: ~a~%" command)
        )
       (t (warn "Never encountered a function like <~a>!" (name command))))))
 
