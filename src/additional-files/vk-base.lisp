@@ -56,10 +56,6 @@ See PACK-VERSION-NUMBER"
           (ldb (byte 10 12) version)
           (ldb (byte 12 0) version)))
 
-;; TODO: all 14 sub-cases of vk-functions as macros
-
-;; this works: (vk-alloc:with-foreign-allocated-objects () (+ 1 2))
-
 (eval-when (:compile-toplevel ;; todo: remove other stages when this is done
             :load-toplevel
             :execute)
@@ -295,19 +291,18 @@ E.g. vkEnumeratePhysicalDevices"
              (vk-alloc:with-foreign-allocated-objects (,@translated-args)
                (cffi:with-foreign-object (,@ (second count-arg))
                  (let ((,(first (second array-arg)) (cffi:null-pointer))
-                       (,result nil))
-                   (do ()
-                       ((not (eq ,result :incomplete)))
-                     (setf ,result (,vulkan-fun ,@vk-input-args))
-                     (when (eq ,result :success)
-                       (let ((,translated-count (cffi:mem-aref ,@ (second count-arg))))
-                         (cl:values
-                          (when (> ,translated-count 0)
-                            (cffi:with-foreign-object (,@ (second array-arg) ,translated-count)
-                              (setf ,result (,vulkan-fun ,@vk-input-args))
-                              (loop for i from 0 below ,translated-count
-                                    collect (cffi:mem-aref ,@ (second array-arg) i))))
-                          ,result)))))))))))))
+                       (,result :incomplete))
+                   (loop do (setf ,result (,vulkan-fun ,@vk-input-args))
+                         while (eq ,result :incomplete)
+                         finally (return (when (eq ,result :success)
+                                           (let ((,translated-count (cffi:mem-aref ,@ (second count-arg))))
+                                             (cl:values
+                                              (when (> ,translated-count 0)
+                                                (cffi:with-foreign-object (,@ (second array-arg) ,translated-count)
+                                                  (setf ,result (,vulkan-fun ,@vk-input-args))
+                                                  (loop for i from 0 below ,translated-count
+                                                        collect (cffi:mem-aref ,@ (second array-arg) i))))
+                                              ,result))))))))))))))
 
 ;; case 2d: return multiple values. one array of the same size as an input array and one additional non-array value - e.g. vkGetCalibratedTimestampsEXT
 (defmacro defvk-get-array-and-singular-fun ((name vulkan-fun docstring required-args optional-args len-provider array-arg-name) &body body)
@@ -365,20 +360,19 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
                (cffi:with-foreign-object (,@ (second count-arg))
                  (let ((,(first (second (first array-args))) (cffi:null-pointer))
                        (,(first (second (second array-args))) (cffi:null-pointer))
-                       (,result nil))
-                   (do ()
-                       ((not (eq ,result :incomplete)))
-                     (setf ,result (,vulkan-fun ,@vk-input-args))
-                     (when (eq ,result :success)
-                       (let ((,translated-count (cffi:mem-aref ,@ (second count-arg))))
-                         (if (> ,translated-count 0)
-                             (multiple-value-bind (,first-array ,second-array)
-                                 (cffi:with-foreign-objects ((,@ (second (first array-args)) ,translated-count)
-                                                             (,@ (second (second array-args)) ,translated-count))
-                                   (setf ,result (,vulkan-fun ,@vk-input-args))
-                                   (loop for i from 0 below ,translated-count
-                                         collect (cffi:mem-aref ,@ (second (first array-args)) i) into ,first-array
-                                         collect (cffi:mem-aref ,@ (second (second array-args)) i) into ,second-array
-                                         finally (return (values ,first-array ,second-array ,result)))))
-                             (cl:values nil nil ,result))))))))))))))
+                       (,result :incomplete))
+                   (loop do (setf ,result (,vulkan-fun ,@vk-input-args))
+                         while (eq ,result :incomplete)
+                         finally (return (when (eq ,result :success)
+                                           (let ((,translated-count (cffi:mem-aref ,@ (second count-arg))))
+                                             (if (> ,translated-count 0)
+                                                 (multiple-value-bind (,first-array ,second-array)
+                                                     (cffi:with-foreign-objects ((,@ (second (first array-args)) ,translated-count)
+                                                                                 (,@ (second (second array-args)) ,translated-count))
+                                                       (setf ,result (,vulkan-fun ,@vk-input-args))
+                                                       (loop for i from 0 below ,translated-count
+                                                             collect (cffi:mem-aref ,@ (second (first array-args)) i) into ,first-array
+                                                             collect (cffi:mem-aref ,@ (second (second array-args)) i) into ,second-array
+                                                             finally (return (values ,first-array ,second-array ,result)))))
+                                                 (cl:values nil nil ,result)))))))))))))))
 

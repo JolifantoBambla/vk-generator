@@ -340,6 +340,25 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
       (format out ")~%"))
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
 
+(defun write-multiple-singular-returns-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  ;; todo
+  )
+
+(defun write-enumerate-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  (format out "(defvk-enumerate-fun (~(~a~)~%" fixed-function-name)
+  (format out "                      ~(%vk:~a~)~%" fixed-function-name)
+  (format out "                      ~s~%" (make-command-docstring command required-params optional-params vk-spec))
+  (format out "                      (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                      (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
+  (format out "                      ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
+                                                 (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+  (format out "                      ~(~a~)" (let ((array-arg (find-if #'len output-params)))
+                                               (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
+  (if (string= "void" (return-type command))
+      (format out "~%                      t)~%")
+      (format out ")~%"))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+
 ;; todo: check if vkGetShaderInfoAMD is written correctly (what is the info parameter exactly? - check spec)
 (defun write-command (out command vk-spec)
   (let* ((fixed-function-name (fix-function-name (name command) (tags vk-spec)))
@@ -499,7 +518,15 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
               (format t "!!!!!!!!!!!!!!!2b: command: ~a ~%" command))
              ;; case 2c: enumerate - e.g. vkEnumeratePhysicalDevices
              ((= (hash-table-count vector-param-indices) 1)
-              (format t "2c: command: ~a length vector-params: ~a~%" command (length vector-params)))
+              (write-enumerate-fun out
+                                   command
+                                   fixed-function-name
+                                   required-params
+                                   optional-params
+                                   output-params
+                                   count-to-vector-param-indices
+                                   vector-params
+                                   vk-spec))
              ;; case 2d: return multiple values. one array of the same size as an input array and one additional non-array value - e.g. vkGetCalibratedTimestampsEXT
              ((= (hash-table-count vector-param-indices) 2)
               (format t "2d: command: ~a ~%" command)))))
