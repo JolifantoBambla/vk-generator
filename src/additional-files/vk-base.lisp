@@ -37,24 +37,31 @@ In order to actually load extensions the INSTANCE and/or DEVICE slots of the EXT
 
 See EXTENSION-LOADER")
 
-(defun pack-version-number (major minor patch)
+(defun make-api-version (major minor patch)
   "Packs a version number defined by its MAJOR, MINOR and PATCH version numbers into an integer.
-This can be used to set the APPLICATION-VERSION and ENGINE-VERSION slots of an APPLICATION-INFO or the API-VERSION slot of a INSTANCE-CREATE-INFO.
+This can be used to set the API-VERSION slot of a INSTANCE-CREATE-INFO.
 
-See APPLICATION-INFO
 See INSTANCE-CREATE-INFO"
   (logior (ash major 22)
           (ash minor 12)
           patch))
 
-(defun format-packed-version (version)
-  "Formats a packed version number as returned by PACK-VERSION-NUMBER into a human readable string.
+(defun split-api-version (version)
+  "Splits a packed version number as returned by MAKE-API-NUMBER into a list of integers in the form of (major minor patch).
 
-See PACK-VERSION-NUMBER"
-  (format nil "~a.~a.~a"         
-          (ldb (byte 12 22) version)
-          (ldb (byte 10 12) version)
-          (ldb (byte 12 0) version)))
+See MAKE-API-VERSION")
+
+(defun format-api-version (version)
+  "Formats a packed version number as returned by MAKE-API-NUMBER into a human readable string.
+
+See MAKE-API-VERSION"
+  (let ((split-version (split-api-version version)))
+    (format nil "~a.~a.~a"         
+                 (first (split-version))
+                 (second (split-version))
+                 (third (split-version)))))
+
+;; TODO: everything below this line should be in vk-bindings.lisp
 
 (eval-when (:compile-toplevel ;; todo: remove other stages when this is done
             :load-toplevel
@@ -163,7 +170,8 @@ E.g. LEN-PROVIDER is a slot value of an input parameter: vkAllocateCommandBuffer
     (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t)
       (multiple-value-bind (translated-args vk-input-args output-args) (process-variables variables)
         (let ((handle-def (second (first output-args)))
-              (result (gensym)))
+              (result (gensym))
+              (i (gensym)))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -171,8 +179,8 @@ E.g. LEN-PROVIDER is a slot value of an input parameter: vkAllocateCommandBuffer
              (vk-alloc:with-foreign-allocated-objects (,@translated-args)
                (cffi:with-foreign-object (,@handle-def ,len-provider)
                  (let ((,result (,vulkan-fun ,@vk-input-args)))
-                   (cl:values (loop for i from 0 below ,len-provider
-                                    collect (cffi:mem-aref ,@handle-def i))
+                   (cl:values (loop for ,i from 0 below ,len-provider
+                                    collect (cffi:mem-aref ,@handle-def ,i))
                               ,result))))))))))
 
 ;; case 1c-1: get a struct extended by its NEXT slot - e.g. vkGetPhysicalDeviceFeatures2
@@ -229,7 +237,8 @@ E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
                                     (eq (first a) array-arg-name))
                                   output-args))
               (translated-count (gensym))
-              (result (gensym)))
+              (result (gensym))
+              (i (gensym)))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -243,11 +252,11 @@ E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
                        ,(if no-result-p
                             `(progn
                                (,vulkan-fun ,@vk-input-args)
-                               (loop for i from 0 below ,translated-count
-                                     collect (cffi:mem-aref ,@ (second array-arg) i)))
+                               (loop for ,i from 0 below ,translated-count
+                                     collect (cffi:mem-aref ,@ (second array-arg) ,i)))
                             `(let ((,result (,vulkan-fun ,@vk-input-args)))
-                               (cl:values (loop for i from 0 beloq ,translated-count
-                                                collect (cffi:mem-aref ,@ (second array-arg) i))))))))))))))))
+                               (cl:values (loop for ,i from 0 beloq ,translated-count
+                                                collect (cffi:mem-aref ,@ (second array-arg) ,i))))))))))))))))
 
 ;; case 2b: ???
 (defmacro defvk-multiple-singular-returns-fun ((name vulkan-fun docstring required-args optional-args) &body body)
@@ -283,7 +292,8 @@ E.g. vkEnumeratePhysicalDevices"
                                     (eq (first a) array-arg-name))
                                   output-args))
               (translated-count (gensym))
-              (result (gensym)))
+              (result (gensym))
+              (i (gensym)))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -300,12 +310,12 @@ E.g. vkEnumeratePhysicalDevices"
                                               (when (> ,translated-count 0)
                                                 (cffi:with-foreign-object (,@ (second array-arg) ,translated-count)
                                                   (setf ,result (,vulkan-fun ,@vk-input-args))
-                                                  (loop for i from 0 below ,translated-count
-                                                        collect (cffi:mem-aref ,@ (second array-arg) i))))
+                                                  (loop for ,i from 0 below ,translated-count
+                                                        collect (cffi:mem-aref ,@ (second array-arg) ,i))))
                                               ,result))))))))))))))
 
 ;; case 2d: return multiple values. one array of the same size as an input array and one additional non-array value - e.g. vkGetCalibratedTimestampsEXT
-(defmacro defvk-get-array-and-singular-fun ((name vulkan-fun docstring required-args optional-args len-provider array-arg-name) &body body)
+(defmacro defvk-get-array-and-singular-fun ((name vulkan-fun docstring required-args optional-args len-provider array-arg-name) &body variables)
   "Defines a function named NAME which wraps VULKAN-FUN.
 VULKAN-FUN is function that gets an array of values and a single value and returns a RESULT.
 E.g. vkGetCalibratedTimestampsEXT"
@@ -318,7 +328,8 @@ E.g. vkGetCalibratedTimestampsEXT"
               (other-output (find-if-not (lambda (a)
                                            (eq (first a) array-arg-name))
                                          output-args))
-              (result (gensym)))
+              (result (gensym))
+              (i (gensym)))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -327,8 +338,8 @@ E.g. vkGetCalibratedTimestampsEXT"
                (cffi:with-foreign-objects ((,@ (second array-arg) ,len-provider)
                                            (,@ (second other-output)))
                  (let ((,result (,vulkan-fun ,@vk-input-args)))
-                   (cl:values (loop for i from 0 below ,array-arg-name
-                                    collect (cffi:mem-aref ,@ (second array-arg) i))
+                   (cl:values (loop for ,i from 0 below ,array-arg-name
+                                    collect (cffi:mem-aref ,@ (second array-arg) ,i))
                               (cffi:mem-aref ,@ (second other-output))
                               ,result))))))))))
 
@@ -345,11 +356,12 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
         (let ((count-arg (find-if (lambda (a)
                                     (eq (first a) count-arg-name))
                                   output-args))
-              (array-args (find-if (lambda (a)
-                                     (find (first a) array-arg-names))
+              (array-args (remove-if-not (lambda (a)
+                                           (find (first a) array-arg-names))
                                    output-args))
               (translated-count (gensym))
               (result (gensym))
+              (i (gensym))
               (first-array (gensym))
               (second-array (gensym)))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
@@ -370,9 +382,9 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
                                                      (cffi:with-foreign-objects ((,@ (second (first array-args)) ,translated-count)
                                                                                  (,@ (second (second array-args)) ,translated-count))
                                                        (setf ,result (,vulkan-fun ,@vk-input-args))
-                                                       (loop for i from 0 below ,translated-count
-                                                             collect (cffi:mem-aref ,@ (second (first array-args)) i) into ,first-array
-                                                             collect (cffi:mem-aref ,@ (second (second array-args)) i) into ,second-array
+                                                       (loop for ,i from 0 below ,translated-count
+                                                             collect (cffi:mem-aref ,@ (second (first array-args)) ,i) into ,first-array
+                                                             collect (cffi:mem-aref ,@ (second (second array-args)) ,i) into ,second-array
                                                              finally (return (values ,first-array ,second-array ,result)))))
                                                  (cl:values nil nil ,result)))))))))))))))
 

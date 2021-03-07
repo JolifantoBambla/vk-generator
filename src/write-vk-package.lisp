@@ -123,7 +123,7 @@
     (format out "(defpackage :~a~%  (:use #:cl #:cffi)~%" *in-package-name*)
     (format out "  (:nicknames ~a)~%" *package-nicknames*)
     (format out "  (:export~%")
-    (format out "   size-t~%~%")
+    (format out "    #:size-t~%~%")
     (labels ((sort-alphabetically (elements)
                (sort elements (lambda (a b) (string< (name a) (name b))))))
       (loop for type in (sort-alphabetically (alexandria:hash-table-values (types vk-spec)))
@@ -140,10 +140,11 @@
     ;; todo: write commands, other types, accessors
     (format out "(defpackage :vk~%  (:use #:cl)~%  (:shadow~%    #:format~%    #:stream~%    #:set~%    #:type~%    #:values)~%  (:export~%")
     ;;(format out "    :extension-loader~%") todo: actually used this
-    (format out "    :*default-allocator*~%")
+    (format out "    #:*default-allocator*~%")
     ;;(format out "    :*default-extension-loader*~%") todo: actually use this
-    (format out "    :pack-version-number~%")
-    (format out "    :format-packed-version~%")
+    (format out "    #:make-api-version~%")
+    (format out "    #:split-api-version~%")
+    (format out "    #:format-api-version~%")
     (format out "~%")
     (labels ((sort-alphabetically (elements)
                (sort elements (lambda (a b) (string< (name a) (name b))))))

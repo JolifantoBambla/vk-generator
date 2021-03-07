@@ -341,8 +341,12 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
 
 (defun write-multiple-singular-returns-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  ;; todo
-  )
+  (format out "(defvk-multiple-singular-returns-fun (~(~a~)~%" fixed-function-name)
+  (format out "                                      ~(%vk:~a~)~%" fixed-function-name)
+  (format out "                                      ~s~%" (make-command-docstring command required-params optional-params vk-spec))
+  (format out "                                      (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                                      (~(~{~a~}~)))~%" (format-optional-args optional-params vector-params vk-spec))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
 
 (defun write-enumerate-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-enumerate-fun (~(~a~)~%" fixed-function-name)
@@ -356,6 +360,41 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                                                (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
   (if (string= "void" (return-type command))
       (format out "~%                      t)~%")
+      (format out ")~%"))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+
+(defun write-get-array-and-singular-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  (format out "(defvk-get-array-and-singular-fun (~(~a~)~%" fixed-function-name)
+  (format out "                                   ~(%vk:~a~)~%" fixed-function-name)
+  (format out "                                   ~s~%" (make-command-docstring command required-params optional-params vk-spec))
+  (format out "                                   (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                                   (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
+  (format out "                                   ~((length ~a)~)~%" (let ((array-arg (find-if-not (lambda (arg) ;; len-provider is the length of the input array
+                                                                                                     (find arg output-params))
+                                                                                                   vector-params)))
+                                                                       (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
+  (format out "                                   ~(~a~))~%" (let ((array-arg (find-if (lambda (arg) ;; array-arg is the output array (of the same size as input array)
+                                                                                         (find arg output-params))
+                                                                                       vector-params)))
+                                                               (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+
+(defun write-enumerate-two-arrays-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  (format out "(defvk-enumerate-two-arrays-fun (~(~a~)~%" fixed-function-name)
+  (format out "                                 ~(%vk:~a~)~%" fixed-function-name)
+  (format out "                                 ~s~%" (make-command-docstring command required-params optional-params vk-spec))
+  (format out "                                 (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                                 (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
+  (format out "                                 ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
+                                                            (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+  (format out "                                 ~((~a)~)" (let* ((array-args (remove-if-not #'len output-params))
+                                                                 (first-arg (first array-args))
+                                                                 (second-arg (second array-args)))
+                                                            (format nil "~(~a ~a~)"
+                                                                    (fix-slot-name (name first-arg) (type-name (type-info first-arg)) vk-spec)
+                                                                    (fix-slot-name (name second-arg) (type-name (type-info second-arg)) vk-spec))))
+  (if (string= "void" (return-type command))
+      (format out "~%                                 t)~%")
       (format out ")~%"))
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
 
@@ -513,9 +552,18 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                                   vector-params
                                   vk-spec)
            (cond
+             ;; todo: find out which function falls (or should fall) into that category
              ;; case 2b: two returns and a non-trivial success code, no array - e.g. ???
              ((= (hash-table-count vector-param-indices) 0)
-              (format t "!!!!!!!!!!!!!!!2b: command: ~a ~%" command))
+              (write-multiple-singular-returns-fun out
+                                                   command
+                                                   fixed-function-name
+                                                   required-params
+                                                   optional-params
+                                                   output-params
+                                                   count-to-vector-param-indices
+                                                   vector-params
+                                                   vk-spec))
              ;; case 2c: enumerate - e.g. vkEnumeratePhysicalDevices
              ((= (hash-table-count vector-param-indices) 1)
               (write-enumerate-fun out
@@ -529,10 +577,26 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                                    vk-spec))
              ;; case 2d: return multiple values. one array of the same size as an input array and one additional non-array value - e.g. vkGetCalibratedTimestampsEXT
              ((= (hash-table-count vector-param-indices) 2)
-              (format t "2d: command: ~a ~%" command)))))
+              (write-get-array-and-singular-fun out
+                                                command
+                                                fixed-function-name
+                                                required-params
+                                                optional-params
+                                                output-params
+                                                count-to-vector-param-indices
+                                                vector-params
+                                                vk-spec)))))
       ((= (length non-const-pointer-param-indices) 3)
        ;; case 3: return two arrays using the same counter which is also an output argument - e.g vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR
-       (format t "3: ~a~%" command))
+       (write-enumerate-two-arrays-fun out
+                                       command
+                                       fixed-function-name
+                                       required-params
+                                       optional-params
+                                       output-params
+                                       count-to-vector-param-indices
+                                       vector-params
+                                       vk-spec))
       (t (warn "Never encountered a function like <~a>!" (name command))))))
 
 (defun write-vk-functions (vk-functions-file vk-spec)
