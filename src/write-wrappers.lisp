@@ -610,11 +610,9 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
     
     (loop for command in (sorted-elements (alexandria:hash-table-values (commands vk-spec)))
           do (write-command out command vk-spec)
-          ;; todo: as soon as %vk also contains aliases
-          ;; when (alias command)
-          ;; do (loop for alias in (alexandria:hash-table-values (alias command))
-          ;;          do (write-command out (make-aliased-command command alias) vk-spec))
-          )))
+          when (alias command)
+          do (loop for alias in (alexandria:hash-table-values (alias command))
+                   do (write-command out (make-aliased-command command alias) vk-spec)))))
 
 
 (defun foo () (ql:quickload :vk-generator) (generate :version "v1.2.153"))
