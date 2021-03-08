@@ -2,40 +2,12 @@
 
 (in-package :vk)
 
-;; todo: actually use the extension loader as optional param for extension functions in VK and VULKAN
-(defclass extension-loader ()
-  ((instance
-    :initform nil
-    :initarg :instance
-    :accessor instance)
-   (device
-    :initform nil
-    :initarg :device
-    :accessor device)
-   (func-pointers
-    :initform (make-hash-table)
-    :accessor func-pointers))
-  (:documentation "An EXTENSION-LOADER is used to define extension functions.
-For each defined extension function a function pointer (fetched from its INSTANCE or DEVICE) is stored in FUNC-POINTERS.
-In order to define instance-level extension functions you need to provide it with an INSTANCE as returned by CREATE-INSTANCE.
-In order to define device-level extension functions you need to provide it with a DEVICE as returned by CREATE-DEVICE.
-
-See CREATE-INSTANCE
-See CREATE-DEVICE"))
-
 (defparameter *default-allocator* (cffi:null-pointer)
   "The default allocator that is used for the optional ALLOCATOR parameter of all functions taking an instance of ALLOCATION-CALLBACKS.
 It defaults to a CFFI:NULL-POINTER.
 
 You can either set this to an instance of ALLOCATION-CALLBACKS or to a foreign pointer to an already translated instance of ALLOCATION-CALLBACKS.
 In general you'll want the latter since it saves you the cost of translating the instance in every call that uses it.")
-
-(defparameter *default-extension-loader* nil
-  "The default extension loader that is passed to all extension functions as the default value for their optional EXTENSION-LOADER argument.
-It defaults to NIL, so if you need extension functions you should set *DEFAULT-EXTENSION-LOADER* to an instance of EXTENSION-LOADER.
-In order to actually load extensions the INSTANCE and/or DEVICE slots of the EXTENSION-LOADER instance must be set.
-
-See EXTENSION-LOADER")
 
 (defun make-api-version (major minor patch)
   "Packs a version number defined by its MAJOR, MINOR and PATCH version numbers into an integer.
