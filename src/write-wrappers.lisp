@@ -539,8 +539,10 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                                                   vector-params
                                                   vk-spec)))))
       ((= (length non-const-pointer-param-indices) 2)
-       (if (structure-chain-anchor-p (type-name (type-info (nth (second non-const-pointer-param-indices) (params command))))
-                                     vk-spec)
+       (if (or (structure-chain-anchor-p (type-name (type-info (nth (second non-const-pointer-param-indices) (params command))))
+                                         vk-spec)
+               (and (= (hash-table-count vector-param-indices) 1)
+                    (string= "void" (return-type command))))
            ;; case 2a: get list of structs - e.g. vkGetPhysicalDeviceQueueFamilyProperties2
            (write-get-structs-fun out
                                   command
