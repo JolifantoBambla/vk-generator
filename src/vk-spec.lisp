@@ -590,6 +590,11 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :type hash-table ;; string to extension
     :initform (make-hash-table :test 'equal)
     :accessor extensions)
+   (extension-names
+    :initarg :extension-names
+    :type hash-table ;; string to string (name of constant to extension name)
+    :initform (make-hash-table :test 'equal)
+    :accessor extension-names)
    (features
     :initarg :features
     :type hash-table ;; string to string

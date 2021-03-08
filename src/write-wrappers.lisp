@@ -115,7 +115,8 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
     ((or (string= "void" type-name)
          (find type-name *special-base-types* :test #'string=)
          (and (gethash type-name (types vk-spec))
-              (eq :requires (category (gethash type-name (types vk-spec))))))
+              (eq :requires (category (gethash type-name (types vk-spec))))
+              (not (string= "char" type-name))))
      "cffi:foreign-pointer")
     ((and param
           vector-params

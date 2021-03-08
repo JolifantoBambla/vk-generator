@@ -1037,7 +1037,11 @@ See also:
                   (setf (enum-values enum)
                         (sort (enum-values enum)
                               (lambda (a b) (< (number-value a) (number-value b))))))))
-              (unless value-string
+              (if value-string
+                  (when (search "EXTENSION_NAME" name)
+                    (assert (not (gethash name (extension-names vk-spec)))
+                            () "name for extension <~a> already registered" name)
+                    (setf (gethash name (extension-names vk-spec)) value-string))
                 (assert (gethash name (constants vk-spec))
                         () "unknown required enum <~a>" name)))))))
 

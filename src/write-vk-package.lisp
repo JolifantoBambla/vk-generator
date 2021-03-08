@@ -133,6 +133,11 @@
     (format out "    #:*default-extension-loader*~%")
     (format out "    #:size-t~%")
     (format out "~%")
+    (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
+          do (format out "    #:+~(~a~)+~%"
+                     (ppcre:regex-replace-all
+                      "^VK-" (substitute #\- #\_ name) "")))
+    (format out "~%")
     (labels ((sort-alphabetically (elements)
                (sort elements (lambda (a b) (string< (name a) (name b))))))
       (loop for type in (sort-alphabetically (alexandria:hash-table-values (types vk-spec)))
@@ -145,15 +150,20 @@
             do (format out "~(    #:~a~)~%" (fix-function-name (name command) (tags vk-spec)))
             when (alias command)
             do (loop for alias in (alexandria:hash-table-values (alias command))
-                      do (format out "~(    #:~a~)~%" (fix-function-name (name alias) (tags vk-spec))))))
+                     do (format out "~(    #:~a~)~%" (fix-function-name (name alias) (tags vk-spec))))))
     (format out "))~%~%")
 
     ;; write vk
     ;; todo: other types
     (format out "(defpackage :vk~%  (:use #:cl)~%  (:shadow~%    #:format~%    #:set~%    #:stream~%    #:type~%    #:values)~%")
     (format out "  (:import-from #:%vk~%")
-    (format out "                #:make-extension-loader~%")
-    (format out "                #:*default-extension-loader*)~%")
+    (format out "   #:make-extension-loader~%")
+    (format out "   #:*default-extension-loader*")
+    (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
+          do (format out "~%    #:+~(~a~)+"
+                     (ppcre:regex-replace-all
+                      "^VK-" (substitute #\- #\_ name) "")))
+    (format out ")~%")
     (format out "  (:export~%")
     (format out "    #:make-extension-loader~%")
     (format out "    #:*default-allocator*~%")
@@ -162,6 +172,13 @@
     (format out "    #:split-api-version~%")
     (format out "    #:format-api-version~%")
     (format out "~%")
+    ;; extension names
+    (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
+          do (format out "    #:+~(~a~)+~%"
+                     (ppcre:regex-replace-all
+                      "^VK-" (substitute #\- #\_ name) "")))
+    (format out "~%")
+    ;; types and commands
     (labels ((sort-alphabetically (elements)
                (sort elements (lambda (a b) (string< (name a) (name b))))))
       (loop for type in (sort-alphabetically (alexandria:hash-table-values (structures vk-spec)))
@@ -170,13 +187,13 @@
                        :class))
       (format out "~%")
       (loop for m in (remove-duplicates
-                          (mapcar (lambda (m)
-                                    (fix-slot-name (name m) (type-name (type-info m)) vk-spec t))
-                                  (sort-alphabetically
-                                   (alexandria:flatten
-                                    (loop for struct in (alexandria:hash-table-values (structures vk-spec))
-                                          collect (members struct)))))
-                          :test #'string=)
+                      (mapcar (lambda (m)
+                                (fix-slot-name (name m) (type-name (type-info m)) vk-spec t))
+                              (sort-alphabetically
+                               (alexandria:flatten
+                                (loop for struct in (alexandria:hash-table-values (structures vk-spec))
+                                      collect (members struct)))))
+                      :test #'string=)
             do (format out "~(    #:~a ;; ~s~)~%"
                        m
                        :accessor))
@@ -185,7 +202,7 @@
             do (format out "~(    #:~a~)~%" (fix-function-name (name command) (tags vk-spec)))
             when (alias command)
             do (loop for alias in (alexandria:hash-table-values (alias command))
-                      do (format out "~(    #:~a~)~%" (fix-function-name (name alias) (tags vk-spec))))))
+                     do (format out "~(    #:~a~)~%" (fix-function-name (name alias) (tags vk-spec))))))
     (format out "))~%")))
 
 (defun write-vk-package (vk-spec vk-package-dir)

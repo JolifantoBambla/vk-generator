@@ -70,11 +70,13 @@
     (t array-sizes)))
 
 (defun write-extension-names (out vk-spec)
-  (format out "(defparameter *extension-names*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
-          (loop for name in (sorted-names (alexandria:hash-table-values (extensions vk-spec)))
-                collect (ppcre:regex-replace-all
-                         "^VK-" (substitute #\- #\_ name) "")
-                collect name)))
+  (format out ";;; extension names~%")
+  (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
+        do (format out "(alexandria:define-constant +~(~a~)+ ~a :test #'string=)~%"
+                   (ppcre:regex-replace-all
+                    "^VK-" (substitute #\- #\_ name) "")
+                   (gethash name (extension-names vk-spec))))
+  (format out "~%"))
 
 (defun write-base-types (out vk-spec)
   (loop for base-type in (sorted-elements (alexandria:hash-table-values (base-types vk-spec)))
