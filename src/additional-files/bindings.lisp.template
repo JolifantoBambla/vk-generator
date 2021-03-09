@@ -82,10 +82,12 @@ See CREATE-DEVICE")
        ;; always try fetching device-level function pointers first to avoid dispatch overhead
        (let ((,func-pointer (or (gethash ',lname (extension-loader-device-func-pointers ,extension-loader))
                                 (and (extension-loader-device ,extension-loader)
+                                     ;; todo: this might return a null pointer!
                                      (setf (gethash ',lname (extension-loader-device-func-pointers ,extension-loader))
                                            (get-device-proc-addr (extension-loader-device ,extension-loader) ,cname)))
                                 (gethash ',lname (extension-loader-instance-func-pointers ,extension-loader))
                                 (and (extension-loader-instance ,extension-loader)
+                                     ;; todo: this might return a null pointer!
                                      (setf (gethash ',lname (extension-loader-instance-func-pointers ,extension-loader))
                                            (get-instance-proc-addr (extension-loader-instance ,extension-loader) ,cname))))))
          (foreign-funcall-pointer

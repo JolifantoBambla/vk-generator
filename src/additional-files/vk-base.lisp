@@ -93,14 +93,17 @@ Note: VkBool32 and VkResult are treated as no return values, since they are impl
   (multiple-value-bind (required-arg-names required-arg-declares) (process-args required-args nil)
     (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t)
       (multiple-value-bind (translated-args vk-input-args) (process-variables variables)
-        `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
-           ,docstring
-           ,@required-arg-declares
-           ,@optional-arg-declares
-           (vk-alloc:with-foreign-allocated-objects (,@translated-args)
-             ,(if return-type
-                  `(cffi:mem-aref (,vulkan-fun ,@vk-input-args) ,return-type)
-                  `(,vulkan-fun ,@vk-input-args))))))))
+        (let ((result (gensym)))
+          `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
+                  ,docstring
+                  ,@required-arg-declares
+                  ,@optional-arg-declares
+                  (vk-alloc:with-foreign-allocated-objects (,@translated-args)
+                    ,(if return-type
+                         `(let ((,result (,vulkan-fun ,@vk-input-args)))
+                            (unless (cffi:null-pointer-p ,result)
+                              (cffi:mem-aref ,result ,return-type)))
+                         `(,vulkan-fun ,@vk-input-args)))))))))
 
 ;;; --------------------------------------------- 1 output parameter -------------------------------------------------------------------
 

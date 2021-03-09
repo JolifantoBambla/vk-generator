@@ -118,24 +118,40 @@ See CFFI:NULL-POINTER-P"
         (element (gensym)))
     `(if (or (cffi:pointerp ,content)
              (not ,content))
-         (progn
-           (let ((,var (if (not ,content)
-                           (cffi:null-pointer)
-                           ,content)))
-             ,@body))
-         ;; TODO: all VkFlags must convert content to an integer but might come in as a list!
-         ;; if with-foreign-object handles bitfields correctly the check could be (and (listp ,content) (not (keywordp (first ,content))))
-         ;; I think with-foreign-object handles bitfields correctly, but 
-         (cffi:with-foreign-object (,var ,type (if (listp ,content) (length ,content) 1))
-           (unwind-protect
-                (progn
-                  (if (listp ,content)
+        (let ((,var (if (not ,content)
+                        (cffi:null-pointer)
+                        ,content)))
+          ,@body)
+        ;; this could be further optimized by branching on more types at compile time (e.g. in case of heap exhaustion during compilation)
+        ,(if (eq type :string)
+             ;; cffi:with-foreign-object seems to do something different with strings than cffi:with-foreign-string does
+             ;; (kinda obvious given there are two distinct macros?)
+             `(if (listp ,content)
+                  ;; not exactly sure why this works for lists of strings but not single strings - encoding?
+                  (cffi:with-foreign-object (,var ,type (length ,content))
                     (loop for ,iterator from 0 below (length ,content)
                           for ,element in ,content
-                          do (setf (cffi:mem-aref ,var ,type ,iterator) ,element)) 
-                    (setf (cffi:mem-aref ,var ,type) ,content))
-                  ,@body)
-             (free-allocated-children ,var))))))
+                          do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
+                    ,@body)
+                  (cffi:with-foreign-string (,var ,content)
+                    ,@body))
+             `(cffi:with-foreign-object (,var
+                                         ,type
+                                         ;; VkFlags might come in as lists of keywords but should be translated within a single cffi:mem-aref
+                                         (if (and (listp ,content)
+                                                  (not (keywordp (first ,content))))
+                                             (length ,content)
+                                             1))
+                (unwind-protect
+                     (progn
+                       (if (and (listp ,content)
+                                (not (keywordp (first ,content))))
+                           (loop for ,iterator from 0 below (length ,content)
+                                 for ,element in ,content
+                                 do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
+                           (setf (cffi:mem-aref ,var ,type) ,content))
+                       ,@body)
+                  (free-allocated-children ,var)))))))
 
 (defmacro with-foreign-allocated-objects (bindings &rest body)
   "Behaves like WITH-FOREIGN-ALLOCATED-OBJECT but for multiple BINDINGS instead of just one.
