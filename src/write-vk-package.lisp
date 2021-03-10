@@ -228,6 +228,10 @@
          (vk-dir (merge-pathnames (make-pathname :directory '(:relative "src")) vk-package-dir))
          (package-file (merge-pathnames "package.lisp" vk-dir))
          (translators-file (merge-pathnames "translators.lisp" vk-dir))
+         (translate-to-file (merge-pathnames "vk-translate-to-foreign.lisp" vk-dir))
+         (expand-to-file (merge-pathnames "vk-expand-to-foreign.lisp" vk-dir))
+         (translate-from-file (merge-pathnames "vk-translate-from-foreign.lisp" vk-dir))
+         (expand-from-file (merge-pathnames "vk-expand-from-foreign.lisp" vk-dir))
          (api-constants-file (merge-pathnames "api-constants.lisp" vk-dir))
          (errors-file (merge-pathnames "errors.lisp" vk-dir))
          (types-file (merge-pathnames "types.lisp" vk-dir))
@@ -257,7 +261,11 @@
     (write-package-file package-file vk-spec)
 
     (write-vk-types-file vk-types-file vk-spec)
-    (write-vk-struct-translators-file translators-file vk-spec)
+    (write-vk-struct-translators-file translate-to-file
+                                      translate-from-file
+                                      expand-to-file
+                                      expand-from-file
+                                      vk-spec)
     (write-vk-functions vk-functions-file vk-spec)
     
     ;; copy additional files
