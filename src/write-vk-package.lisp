@@ -2,6 +2,7 @@
 ;;;
 ;;; generate.lisp --- generate CFFI bindings from vk.xml file.
 ;;;
+;;; Copyright (c) 2021, Lukas Herzberger <herzberger.lukas@gmail.com>
 ;;; Copyright (c) 2016, Bart Botta  <00003b@gmail.com>
 ;;;   All rights reserved.
 ;;;
@@ -227,29 +228,30 @@
                                           (make-pathname :directory '(:relative "src" "additional-files"))))
          (vk-dir (merge-pathnames (make-pathname :directory '(:relative "src")) vk-package-dir))
          (package-file (merge-pathnames "package.lisp" vk-dir))
-         (translators-file (merge-pathnames "translators.lisp" vk-dir))
          (translate-to-file (merge-pathnames "vk-translate-to-foreign.lisp" vk-dir))
          (expand-to-file (merge-pathnames "vk-expand-to-foreign.lisp" vk-dir))
          (translate-from-file (merge-pathnames "vk-translate-from-foreign.lisp" vk-dir))
          (expand-from-file (merge-pathnames "vk-expand-from-foreign.lisp" vk-dir))
-         (api-constants-file (merge-pathnames "api-constants.lisp" vk-dir))
-         (errors-file (merge-pathnames "errors.lisp" vk-dir))
-         (types-file (merge-pathnames "types.lisp" vk-dir))
-         (funcs-file (merge-pathnames "funcs.lisp" vk-dir))
+         (api-constants-file (merge-pathnames "vulkan-api-constants.lisp" vk-dir))
+         (errors-file (merge-pathnames "vulkan-errors.lisp" vk-dir))
+         (types-file (merge-pathnames "vulkan-types.lisp" vk-dir))
+         (funcs-file (merge-pathnames "vulkan-commands.lisp" vk-dir))
          (vk-types-file (merge-pathnames "vk-types.lisp" vk-dir))
-         (vk-functions-file (merge-pathnames "vk-functions.lisp" vk-dir))
+         (vk-functions-file (merge-pathnames "vk-commands.lisp" vk-dir))
          (copy-files ;; todo: clean this up
            (list
             (list (merge-pathnames "vk-base.lisp" additional-files-dir)
                   (merge-pathnames "vk-base.lisp" vk-dir))
             (list (merge-pathnames "vk-alloc.lisp" additional-files-dir)
                   (merge-pathnames "vk-alloc.lisp" vk-dir))
-            (list (merge-pathnames "bindings.lisp.template" additional-files-dir)
-                  (merge-pathnames "bindings.lisp" vk-dir))
-            (list (merge-pathnames "define-conditions.lisp.template" additional-files-dir)
-                  (merge-pathnames "define-conditions.lisp" vk-dir))
-            (list (merge-pathnames "extra-types.lisp.template" additional-files-dir)
-                  (merge-pathnames "extra-types.lisp" vk-dir))  
+            (list (merge-pathnames "vk-bindings.lisp" additional-files-dir)
+                  (merge-pathnames "vk-bindings.lisp" vk-dir))
+            (list (merge-pathnames "vulkan-bindings.lisp" additional-files-dir)
+                  (merge-pathnames "vulkan-bindings.lisp" vk-dir))
+            (list (merge-pathnames "vulkan-define-conditions.lisp" additional-files-dir)
+                  (merge-pathnames "vulkan-define-conditions.lisp" vk-dir))
+            (list (merge-pathnames "vulkan-extra-types.lisp" additional-files-dir)
+                  (merge-pathnames "vulkan-extra-types.lisp" vk-dir))  
             (list (merge-pathnames "vk.asd.template" additional-files-dir)
                   (merge-pathnames "vk.asd" vk-package-dir)))))
     (ensure-directories-exist vk-dir :verbose t)

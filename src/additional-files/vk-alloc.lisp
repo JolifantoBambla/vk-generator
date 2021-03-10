@@ -44,23 +44,11 @@ E.g.
 
 A not on multithreading: Hash tables are by default not thread safe. Since entries in this hash table are not meant to be shared between threads, you can bind *ALLOCATED-FOREIGN-OBJECTS* to a thread-local variable and it should be fine. E.g. with BOURDEAUX-THREADS you can use *SPECIAL-DEFAULT-BINDINGS* for this.")
 
-(defparameter *allocated-foreign-strings* (make-hash-table)
-  "A hash table storing allocated foreign strings for foreign allocated objects.
-Each foreign object (key) is associated with a list of foreign strings that were allocated during allocation of the key and should be freed when the key is freed.
-
-A not on multithreading: Hash tables are by default not thread safe. Since entries in this hash table are not meant to be shared between threads, you can bind *ALLOCATED-FOREIGN-OBJECTS* to a thread-local variable and it should be fine. E.g. with BOURDEAUX-THREADS you can use *SPECIAL-DEFAULT-BINDINGS* for this.")
-
 (defparameter *allocate-foreign-object-func* #'cffi:foreign-alloc
   "Configures how foreign resources are allocated. You might want to use this for implementing a memory pool to reuse allocated resources, etc.")
 
 (defparameter *free-foreign-object-func* #'cffi:foreign-free
   "Configures how foreign resources are freed. You might want to use this for implementing a memory pool to reuse allocated resources, etc.")
-
-(defparameter *allocate-foreign-string-func* #'cffi:foreign-string-alloc
-  "Configures how foreign strings are allocated. You might want to use this for implementing a memory pool to reuse allocated resources, etc.")
-
-(defparameter *free-foreign-string-func* #'cffi:foreign-string-free
-  "Configures how foreign strings are freed. You might want to use this for implementing a memory pool to reuse allocated resources, etc.")
 
 (defun free-allocated-foreign-chain (foreign-obj)
   "Frees all foreign objects associated with FOREIGN-OBJ.
@@ -68,9 +56,7 @@ A not on multithreading: Hash tables are by default not thread safe. Since entri
 See *ALLOCATED-FOREIGN-OBJECTS*
 See *FREE-FOREIGN-OBJECT-FUNC*"
   (funcall *free-foreign-object-func* foreign-obj)
-  (dolist (str (gethash foreign-obj *allocated-foreign-strings*)) (funcall *free-foreign-string-func* str))
   (dolist (child (gethash foreign-obj *allocated-foreign-objects*)) (free-allocated-foreign-chain child))
-  (remhash foreign-obj *allocated-foreign-strings*)
   (remhash foreign-obj *allocated-foreign-objects*))
 
 (defun free-allocated-children (foreign-obj)
@@ -78,8 +64,6 @@ See *FREE-FOREIGN-OBJECT-FUNC*"
 
 See FREE-ALLOCATED-FOREIGN-CHAIN"
   (dolist (child (gethash foreign-obj *allocated-foreign-objects*)) (free-allocated-foreign-chain child))
-  (dolist (str (gethash foreign-obj *allocated-foreign-strings*)) (funcall *free-foreign-string-func* str))
-  (remhash foreign-obj *allocated-foreign-strings*)
   (remhash foreign-obj *allocated-foreign-objects*))
 
 (defun foreign-allocate-and-fill (type content parent-ptr)

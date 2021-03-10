@@ -1,5 +1,6 @@
 ;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 ;;;
+;;; Copyright (c) 2021, Lukas Herzberger <herberger.lukas@gmail.com>
 ;;; Copyright (c) 2016, Bart Botta  <00003b@gmail.com>
 ;;;   All rights reserved.
 ;;;
@@ -100,27 +101,3 @@ See CREATE-DEVICE")
 (if (= 8 (foreign-type-size :pointer))
     (defctype size-t :uint64)
     (defctype size-t :uint32))
-
-
-;; todo: move this to vk-alloc
-;; type-mapping map from 'vk:<whatever> to '(:struct %vk:whatever)
-
-(defun translate-next-chain (slot type-mappings class-name parent-ptr)
-  (let* ((m slot)
-         (chain (reverse (loop while m
-                               collect m
-                               do (setf m (vk:next m)))))
-         (last-p-next (cffi:null-pointer)))
-    (loop for m in chain
-          for temp-next = (vk:next m)
-          for translated = nil
-          for type = (or (gethash (class-name (class-of m)) type-mappings)
-                         (error "Invalid NEXT-class <~a> for class <~a>" (class-name (class-of m)) class-name))
-          do (setf (vk:next m) nil)
-             (setf translated (vk-alloc:foreign-allocate-and-fill type m parent-ptr))
-             (unless (cffi:null-pointer-p last-p-next)
-               (cffi:with-foreign-slots ((p-next) translated type)
-                 (setf p-next last-p-next)))
-             (setf last-p-next translated)
-             (setf (vk:next m) temp-next))
-    last-p-next))
