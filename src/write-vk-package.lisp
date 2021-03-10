@@ -129,6 +129,7 @@
     (format out "  (:nicknames ~a)~%" *package-nicknames*)
     (format out "  (:export~%")
     (format out "    #:size-t~%")
+    (format out "    #:extension-loader~%")
     (format out "    #:make-extension-loader~%")
     (format out "    #:*default-extension-loader*~%")
     (format out "    #:size-t~%")
