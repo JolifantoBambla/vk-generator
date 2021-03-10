@@ -1,5 +1,6 @@
 ;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 ;;;
+;;; Copyrigth (c) 2021, Lukas Herzberger <herzberger.lukas@gmail.com>
 ;;; Copyright (c) 2016, Bart Botta  <00003b@gmail.com>
 ;;;   All rights reserved.
 ;;;
@@ -28,7 +29,7 @@
 
 ;;; used for positive non-zero returns
 (defun %print-vk-cond (condition stream type)
-  (format stream "cl-vulkan ~a: ~a~%  (~s = ~s)"
+  (format stream "vulkan ~a: ~a~%  (~s = ~s)"
           type
           (message condition)
           (raw-value condition)

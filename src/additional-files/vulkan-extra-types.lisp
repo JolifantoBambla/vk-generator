@@ -43,7 +43,6 @@
   (:actual-type result)
   (:simple-parser checked-result))
 
-
 (defmacro %vk-error/warn (result)
   ;; only used once, so assuming V has no side effects
   `(case ,result
@@ -62,7 +61,6 @@
 (defmethod translate-from-foreign (v (type checked-result))
   ;; todo: expand-from-foreign/-dyn
   (%vk-error/warn v))
-
 
 ;; override the default so we can convert to/from T/NIL
 (define-foreign-type bool32 ()

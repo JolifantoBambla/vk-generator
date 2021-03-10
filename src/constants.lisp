@@ -41,6 +41,7 @@
     "HINSTANCE" "HWND" "HMONITOR" "HANDLE" "SECURITY_ATTRIBUTES" "DWORD" "LPCWSTR" ;; windows.h
     "FB" ;; directfb.h
     "CA" ;; CAMetalLayer
+    "OS" ;; MacOS
     "ETC2" "ASTC" "ASTC_" "LDR" "BC" "RR")
   "A sequence of special words that are used in the specification of the Vulkan API.")
 

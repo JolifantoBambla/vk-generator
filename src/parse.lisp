@@ -1037,7 +1037,11 @@ See also:
                   (setf (enum-values enum)
                         (sort (enum-values enum)
                               (lambda (a b) (< (number-value a) (number-value b))))))))
-              (unless value-string
+              (if value-string
+                  (when (search "EXTENSION_NAME" name)
+                    (assert (not (gethash name (extension-names vk-spec)))
+                            () "name for extension <~a> already registered" name)
+                    (setf (gethash name (extension-names vk-spec)) value-string))
                 (assert (gethash name (constants vk-spec))
                         () "unknown required enum <~a>" name)))))))
 
@@ -1046,15 +1050,16 @@ See also:
   (let* ((name (xps (xpath:evaluate "@name" node)))
          (command (gethash name (commands vk-spec))))
     (if command
-        (push (extensions command) extension-name)
+        (push extension-name
+              (extensions command))
         (progn
           (setf command (find-if (lambda (c)
                                    (gethash name (alias c)))
                                  (alexandria:hash-table-values (commands vk-spec))))
           (assert command
                   () "extension <~a> requires unknown command <~a>" extension-name name)
-          (push (extensions (gethash name (alias command)))
-                extension-name)))))
+          (push extension-name
+                (extensions (gethash name (alias command))))))))
 
 (defun get-platforms (extension-names vk-spec)
   "Returns a list of unique platform names for a given sequence of extension names."

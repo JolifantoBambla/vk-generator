@@ -70,11 +70,13 @@
     (t array-sizes)))
 
 (defun write-extension-names (out vk-spec)
-  (format out "(defparameter *extension-names*~%  (alexandria:plist-hash-table~%    '(~{~(:~a~) ~s~^~%     ~})))~%~%"
-          (loop for name in (sorted-names (alexandria:hash-table-values (extensions vk-spec)))
-                collect (ppcre:regex-replace-all
-                         "^VK-" (substitute #\- #\_ name) "")
-                collect name)))
+  (format out ";;; extension names~%")
+  (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
+        do (format out "(alexandria:define-constant +~(~a~)+ ~a :test #'string=)~%"
+                   (ppcre:regex-replace-all
+                    "^VK-" (substitute #\- #\_ name) "")
+                   (gethash name (extension-names vk-spec))))
+  (format out "~%"))
 
 (defun write-base-types (out vk-spec)
   (loop for base-type in (sorted-elements (alexandria:hash-table-values (base-types vk-spec)))
@@ -211,16 +213,17 @@
                           when (and (gethash member-type (structures vk-spec))
                                     (not (gethash (type-name (type-info member-value)) dumped)))
                           do (dump (gethash member-type (structures vk-spec)) member-type))
-                    (format out "(defc~(~a~) ~(~a~)"
-                            (if (is-union-p struct) "union" "struct")
-                            (fix-type-name struct-name (tags vk-spec)))
+                    (let ((fixed-type-name (fix-type-name struct-name (tags vk-spec))))
+                      (if (is-union-p struct)
+                          (format out "(defcunion ~(~a~)" fixed-type-name)
+                          (format out "(defcstruct (~(~a :class c-~a~))" fixed-type-name fixed-type-name)))
                     (loop for member-value in (members struct)
                           for name = (fix-type-name (name member-value) (tags vk-spec))
                           for member-type = (make-arg-type name (type-info member-value) vk-spec)
                           for array-count = (prepare-array-sizes (array-sizes member-value) vk-spec)
                           ;; TODO: what exactly should bit-count do? see VkAccelerationStructureInstanceKHR
                           do
-                          (format out "~%  ~1{(:~(~a ~s~@[ :count ~a~])~)~}"
+                          (format out "~%  ~1{(~(~a ~s~@[ :count ~a~])~)~}"
                                   (list name member-type array-count)))
                     (format out "~:[)~;~]~%~%" nil)
                     (loop for struct-alias in (aliases structure)
