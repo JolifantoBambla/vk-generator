@@ -145,13 +145,28 @@
             unless (member (category type) '(:requires :unknown :define))
             do (format out "~(    #:~a ;; ~s~)~%"
                        (fix-type-name (name type) (tags vk-spec))
-                       (category type)))
+                       (category type))
+            when (eq (category type) :struct)
+            do (format out "~(    #:c-~a~)~%"
+                       (fix-type-name (name type) (tags vk-spec))))
       (format out "~%")
       (loop for command in (sort-alphabetically (alexandria:hash-table-values (commands vk-spec)))
             do (format out "~(    #:~a~)~%" (fix-function-name (name command) (tags vk-spec)))
             when (alias command)
             do (loop for alias in (alexandria:hash-table-values (alias command))
-                     do (format out "~(    #:~a~)~%" (fix-function-name (name alias) (tags vk-spec))))))
+                     do (format out "~(    #:~a~)~%" (fix-function-name (name alias) (tags vk-spec)))))
+      (format out "~%")
+      (loop for m in (remove-duplicates
+                      (mapcar (lambda (m)
+                                (fix-type-name (name m) (tags vk-spec)))
+                              (sort-alphabetically
+                               (alexandria:flatten
+                                (loop for struct in (alexandria:hash-table-values (structures vk-spec))
+                                      collect (members struct)))))
+                      :test #'string=)
+            do (format out "~(    #:~a ;; ~s~)~%"
+                       m
+                       :accessor)))
     (format out "))~%~%")
 
     ;; write vk
