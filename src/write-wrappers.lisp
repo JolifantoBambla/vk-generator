@@ -212,26 +212,20 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
   ""
   (format-type-name (type-name (type-info arg)) vk-spec))
 
-(defun format-len-provider (count-arg array-arg vk-spec)
-  ""
-  (let ((split-len-data (split-len-by-struct-member (len array-arg))))
-    (if split-len-data
-        (let ((split-len-data (split-len-by-struct-member (len array-arg)))
-              (count-slot (find-if (lambda (m)
-                                     (string= (second split-len-data) (name m)))
-                                   (members (gethash (type-name (type-info count-arg)) (structures vk-spec))))))
-          (format nil "(vk:~(~a ~a~))"
-                  (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
-                  (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
-        "FOO")))
-
-(defun make-arg-qualifier-list (arg output-params optional-params vk-spec)
+(defun make-arg-qualifier-list (arg output-params optional-params vector-params vk-spec)
   (let ((qualifiers nil))
     (when (find arg optional-params)
       (push :optional qualifiers))
-    (when (or (gethash (type-name (type-info arg)) (handles vk-spec))
-              (string= "void" (type-name (type-info arg)))
-              (and (gethash (type-name (type-info arg)) (types vk-spec))
+    (when (member arg vector-params)
+      (push :list qualifiers))
+    ;; todo: I think bitmasks and enums should also be treated as :raw but for now I'll wait for an error to prove this
+    ;; todo: void pointers should also be treaded as :raw instead of :handle to get rid of the ambiguity
+    (when (and (gethash (type-name (type-info arg)) *vk-platform*)
+               (value-p (type-info arg)))
+      (push :raw qualifiers))
+    (when (or (gethash (type-name (type-info arg)) (handles vk-spec)) ;; it's a handle
+              (string= "void" (type-name (type-info arg))) ;; it's a void pointer
+              (and (gethash (type-name (type-info arg)) (types vk-spec)) ;; it's a vk-defined type
                    (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec))))
                    (not (gethash (type-name (type-info arg)) *vk-platform*))))
       (push :handle qualifiers))
@@ -241,7 +235,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
           qualifiers)
     qualifiers))
 
-(defun format-vk-args (vk-args count-to-vector-param-indices output-params optional-params vk-spec)
+(defun format-vk-args (vk-args count-to-vector-param-indices output-params optional-params vector-params vk-spec)
   ""
   (loop for arg in vk-args
         for i from 0
@@ -260,7 +254,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                               (format nil "(length ~(~a~))"
                                       (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
                             (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec))
-                        (make-arg-qualifier-list arg output-params optional-params vk-spec)
+                        (make-arg-qualifier-list arg output-params optional-params vector-params vk-spec)
                         (< (+ i 1) (length vk-args)))))
 
 (defun extension-command-p (command)
@@ -283,7 +277,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (when (extension-command-p command)
     (format out "~%                  t"))
   (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-create-handle-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-create-handle-fun (~(~a~)~%" fixed-function-name)
@@ -296,7 +290,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (when (extension-command-p command)
     (format out "~%                          t"))
   (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-create-handles-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-create-handles-fun (~(~a~)~%" fixed-function-name)
@@ -323,7 +317,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (when (extension-command-p command)
     (format out "~%                           t"))
   (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-get-struct-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-get-struct-fun (~(~a~)~%" fixed-function-name)
@@ -334,7 +328,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (when (extension-command-p command)
     (format out "~%                       t"))
   (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-fill-arbitrary-buffer-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-fill-arbitrary-buffer-fun (~(~a~)~%" fixed-function-name)
@@ -345,7 +339,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (when (extension-command-p command)
     (format out "~%                                  t"))
   (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-get-structs-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-get-structs-fun (~(~a~)~%" fixed-function-name)
@@ -362,7 +356,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (when (extension-command-p command)
     (format out "~%                        t"))
   (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-multiple-singular-returns-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-multiple-singular-returns-fun (~(~a~)~%" fixed-function-name)
@@ -373,7 +367,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (when (extension-command-p command)
     (format out "~%                                      t"))
   (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-enumerate-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-enumerate-fun (~(~a~)~%" fixed-function-name)
@@ -390,7 +384,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (when (extension-command-p command)
     (format out "~%                      t"))
   (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-get-array-and-singular-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-get-array-and-singular-fun (~(~a~)~%" fixed-function-name)
@@ -409,7 +403,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (when (extension-command-p command)
     (format out "~%                                   t"))
   (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-enumerate-two-arrays-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-enumerate-two-arrays-fun (~(~a~)~%" fixed-function-name)
@@ -430,7 +424,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (when (extension-command-p command)
     (format out "~%                                 t"))
   (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vk-spec)))
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 ;; todo: check if vkGetShaderInfoAMD is written correctly (what is the info parameter exactly? - check spec)
 (defun write-command (out command vk-spec)
