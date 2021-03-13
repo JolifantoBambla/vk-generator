@@ -271,9 +271,10 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (format out "                   ~s~%" (make-command-docstring command required-params optional-params vk-spec))
   (format out "                   (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                   (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
-  (when (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
-    (format out "~%                  ~(~a~)"
-            (format-type-name (return-type command) vk-spec)))
+  (format out "~%                  ~(~a~)"
+          (if (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
+              (format-type-name (return-type command) vk-spec)
+              nil))
   (when (extension-command-p command)
     (format out "~%                  t"))
   (format out ")~%")
@@ -285,8 +286,8 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
   (format out "                          ~s~%" (make-command-docstring command required-params optional-params vk-spec))
   (format out "                          (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                          (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
-  (when (string= "void" (return-type command))
-    (format out "~%                          t"))
+  (format out "~%                          ~:[nil~;t~]"
+          (string= "void" (return-type command)))
   (when (extension-command-p command)
     (format out "~%                          t"))
   (format out ")~%")
@@ -351,8 +352,8 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
                                                    (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
   (format out "                        ~(~a~)" (let ((array-arg (find-if #'len output-params)))
                                                  (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
-  (when (string= "void" (return-type command))
-    (format out "~%                        t"))
+  (format out "~%                      ~:[nil~;t~]"
+          (string= "void" (return-type command)))
   (when (extension-command-p command)
     (format out "~%                        t"))
   (format out ")~%")
@@ -379,8 +380,8 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
                                                  (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
   (format out "                      ~(~a~)" (let ((array-arg (find-if #'len output-params)))
                                                (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
-  (when (string= "void" (return-type command))
-    (format out "~%                      t"))
+  (format out "~%                      ~:[nil~;t~]"
+          (string= "void" (return-type command)))
   (when (extension-command-p command)
     (format out "~%                      t"))
   (format out ")~%")
@@ -419,8 +420,8 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
                                                             (format nil "~(~a ~a~)"
                                                                     (fix-slot-name (name first-arg) (type-name (type-info first-arg)) vk-spec)
                                                                     (fix-slot-name (name second-arg) (type-name (type-info second-arg)) vk-spec))))
-  (when (string= "void" (return-type command))
-    (format out "~%                                 t"))
+  (format out "~%                                 ~:[nil~;t~]"
+          (string= "void" (return-type command)))
   (when (extension-command-p command)
     (format out "~%                                 t"))
   (format out ")~%")
