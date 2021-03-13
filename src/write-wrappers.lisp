@@ -218,10 +218,12 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
       (push :optional qualifiers))
     (when (member arg vector-params)
       (push :list qualifiers))
-    ;; todo: I think bitmasks and enums should also be treated as :raw but for now I'll wait for an error to prove this
+    ;; todo: maybe just split all of these up into :raw and :translate - this would be way less confusing...
     ;; todo: void pointers should also be treaded as :raw instead of :handle to get rid of the ambiguity
-    (when (and (gethash (type-name (type-info arg)) *vk-platform*)
-               (value-p (type-info arg)))
+    (when (or (and (gethash (type-name (type-info arg)) *vk-platform*)
+                   (value-p (type-info arg)))
+              (gethash (type-name (type-info arg)) (enums vk-spec))
+              (gethash (type-name (type-info arg)) (bitmasks vk-spec)))
       (push :raw qualifiers))
     (when (or (gethash (type-name (type-info arg)) (handles vk-spec)) ;; it's a handle
               (string= "void" (type-name (type-info arg))) ;; it's a void pointer
