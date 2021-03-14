@@ -279,6 +279,13 @@ See HAS-FEATURE
                  :return-type (return-type command)
                  :success-codes (success-codes command)))
 
+(defun extension-command-p (command)
+  "Checks if a command is from the core API or an extension function.
+Note that *KHR-functions are extension functions, but reside in the core shared library (libvulkan.so/vulkan-1.dll/libvulkan.1.dylib)
+and so their function pointers don't have to be loaded dynamically using vkGet*ProcAddr."
+  (when (and (extensions command)
+             (not (alexandria:ends-with-subseq "KHR" (name command))))))
+
 (defclass enum-value (vk-element)
   ((number-value
     :initarg :number-value

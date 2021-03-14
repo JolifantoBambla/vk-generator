@@ -222,6 +222,8 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
     ;; todo: void pointers should also be treaded as :raw instead of :handle to get rid of the ambiguity
     (when (or (and (gethash (type-name (type-info arg)) *vk-platform*)
                    (value-p (type-info arg)))
+              (and (string= "char" (type-name (type-info arg)))
+                   (not (string= "**" (postfix (type-info arg)))))
               (gethash (type-name (type-info arg)) (enums vk-spec))
               (gethash (type-name (type-info arg)) (bitmasks vk-spec)))
       (push :raw qualifiers))
@@ -258,14 +260,6 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                             (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec))
                         (make-arg-qualifier-list arg output-params optional-params vector-params vk-spec)
                         (< (+ i 1) (length vk-args)))))
-
-(defun extension-command-p (command)
-  "Checks if a command is from the core API or an extension function.
-
-Note that *KHR-functions are extension functions, but reside in the core shared library (libvulkan.so/vulkan-1.dll/libvulkan.1.dylib)
-and so their function pointers don't have to be loaded dynamically using vkGet*ProcAddr."
-  (when (and (extensions command)
-             (not (alexandria:ends-with-subseq "KHR" (name command))))))
 
 (defun write-simple-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-simple-fun (~(~a~)~%" fixed-function-name)

@@ -69,10 +69,9 @@
         (ret (return-type command))
         (args (params command))
         (success (success-codes command))
-        (errors (error-codes command))
-        (ext (extensions command)))
+        (errors (error-codes command)))
     (format out "(~a (~s ~(~a) ~a~)"
-            (if ext *ext-definer* *core-definer*)
+            (if (extension-command-p command) *ext-definer* *core-definer*)
             name
             (fix-function-name name (tags vk-spec))
             (cond
