@@ -171,8 +171,13 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                         (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
                         (if (string= "pAllocator" (name arg))
                             "*default-allocator*"
-                            (when (gethash (type-name (type-info arg)) (handles vk-spec))
-                              "(cffi:null-pointer)"))
+                            (cond
+                              ((gethash (type-name (type-info arg)) (handles vk-spec))
+                               "(cffi:null-pointer)")
+                              ((and (string= (type-name (type-info arg)) "char")
+                                    (not (string= (postfix (type-info arg)) "**")))
+                               "\"\"")
+                              (t nil)))
                         (format-type-to-declare arg vector-params vk-spec)
                         (< i (length optional-args)))))
 

@@ -174,28 +174,13 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
                       ptr-str)
            "(cffi:null-pointer)"))
       
-      ;; todo: shouldn't create the type mappings every call (but for the most part it shouldn't be a problem either, because only few structs can be extended by many other structs)
-      ;; type of "pNext" must be determined at runtime
-      ((string= "pNext" (name member-data))
-       (let ((extending-structs (get-extends struct vk-spec)))
-         (if extending-structs
-             (format nil "(if (vk:next ~a)~%                     (translate-next-chain (vk:next ~a)~%                                           (alexandria:plist-hash-table~%                                            '(~{~(~a~)~}))~%                                           ~('vk:~s~)~%                                           ~a)~%                     (cffi:null-pointer))"
-                     value-str
-                     value-str
-                     (loop for extending-struct in extending-structs
-                           for i from 0
-                           for struct-name = (fix-type-name (name extending-struct) (tags vk-spec))
-                           collect (format nil "~:[~%                                              ~;~]vk:~(~a~) (:struct %vk:~(~a~))"
-                                           (= i 0)
-                                           struct-name
-                                           struct-name))
-                     (fix-type-name (name struct) (tags vk-spec))
-                     ptr-str)
-             "(cffi:null-pointer)")))
-      
       ;; void pointer - must be handled by user
       ((string= "void" (type-name (type-info member-data)))
-       (format nil "(vk:~(~a~) ~a)" fixed-accessor-name value-str))
+       (format nil "(if (vk:~(~a~) ~a) (vk:~(~a~) ~a) (cffi:null-pointer))"
+               fixed-accessor-name
+               value-str
+               fixed-accessor-name
+               value-str))
       
       ;; members with constant values (such as "sType")
       ((= (length (allowed-values member-data)) 1)
@@ -240,6 +225,14 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
                fixed-accessor-name
                value-str
                ptr-str))
+
+      ;; single handles - take as is or null pointer
+      ((gethash (type-name (type-info member-data)) (handles vk-spec))
+       (format nil "(if (vk:~(~a~) ~a) (vk:~(~a~) ~a) (cffi:null-pointer))"
+               fixed-accessor-name
+               value-str
+               fixed-accessor-name
+               value-str))
 
       ;; set size-members based on list lengths
       ((find (name member-data) count-member-names :test #'string=)
