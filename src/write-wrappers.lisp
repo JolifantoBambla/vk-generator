@@ -230,7 +230,8 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
               (and (string= "char" (type-name (type-info arg)))
                    (not (string= "**" (postfix (type-info arg)))))
               (gethash (type-name (type-info arg)) (enums vk-spec))
-              (gethash (type-name (type-info arg)) (bitmasks vk-spec)))
+              (gethash (type-name (type-info arg)) (bitmasks vk-spec))
+              (gethash (type-name (type-info arg)) (base-types vk-spec)))
       (push :raw qualifiers))
     (when (or (gethash (type-name (type-info arg)) (handles vk-spec)) ;; it's a handle
               (string= "void" (type-name (type-info arg))) ;; it's a void pointer
