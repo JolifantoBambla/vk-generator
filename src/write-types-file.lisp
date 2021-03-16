@@ -224,7 +224,11 @@
                           ;; TODO: what exactly should bit-count do? see VkAccelerationStructureInstanceKHR
                           do
                           (format out "~%  ~1{(~(~a ~s~@[ :count ~a~])~)~}"
-                                  (list name member-type array-count)))
+                                  (if (and array-count
+                                           (gethash (type-name (type-info member-value)) (structures vk-spec)))
+                                      ;; todo: CFFI-bug :count is not respected if member type is a struct and not a primitive
+                                      (list name :pointer array-count)
+                                      (list name member-type array-count))))
                     (format out "~:[)~;~]~%~%" nil)
                     (loop for struct-alias in (aliases structure)
                           when (not (gethash struct-alias dumped))
