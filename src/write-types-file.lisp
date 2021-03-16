@@ -222,13 +222,9 @@
                           for member-type = (make-arg-type name (type-info member-value) vk-spec)
                           for array-count = (prepare-array-sizes (array-sizes member-value) vk-spec)
                           ;; TODO: what exactly should bit-count do? see VkAccelerationStructureInstanceKHR
-                          do
+                          do ;; todo: CFFI-bug :count is not respected if member type is a struct and not a primitive
                           (format out "~%  ~1{(~(~a ~s~@[ :count ~a~])~)~}"
-                                  (if (and array-count
-                                           (gethash (type-name (type-info member-value)) (structures vk-spec)))
-                                      ;; todo: CFFI-bug :count is not respected if member type is a struct and not a primitive
-                                      (list name :pointer array-count)
-                                      (list name member-type array-count))))
+                                  (list name member-type array-count)))
                     (format out "~:[)~;~]~%~%" nil)
                     (loop for struct-alias in (aliases structure)
                           when (not (gethash struct-alias dumped))
