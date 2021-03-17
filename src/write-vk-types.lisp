@@ -28,6 +28,15 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
         when (or (string= (name m) "codeSize") ;; codeSize is a special case where the len is actually codeSize/4
                  (find-if (lambda (other)
                             (and (string= (car (len other)) (name m))
+                                 ;; the following are count members which have to be explicitly set
+                                 ;; because the array member can be null, but the count can not
+                                 ;; see #20
+                                 (not (and (string= "VkDescriptorSetLayoutBinding" (name struct))
+                                           (string= "descriptorCount" (name m))))
+                                 (not (and (string= "VkPresentRegionsKHR" (name struct))
+                                           (string= "swapchainCount" (name m))))
+                                 (not (and (string= "VkPresentTimesInfoGOOGLE" (name struct))
+                                           (string= "swapchainCount" (name m))))
                                  (not (string= (type-name (type-info other)) "void")))) ;; we can't do anything for void pointer arrays, must be supplied by the user
                           (members struct)))
         collect (name m)))
@@ -122,7 +131,7 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
         (format out "~%(defclass ~(~a~) ()" (fix-type-name (name struct) (tags vk-spec)))
         (loop for m in (members struct)
               for fixed-slot-name = (fix-slot-name (name m) (type-name (type-info m)) vk-spec)
-              unless (or (find (name m) count-member-names :test #'string=) ;; we'll determine the count during translation
+              unless (or (member (name m) count-member-names :test #'string=) ;; we'll determine the count during translation
                          (= (length (allowed-values m)) 1)) ;; slots which must be the same for all instances only have to be set during translation
               do
               (format out "~%  ~:[ ~;(~](~(~a~%     :initarg :~a~%~:[     :initform nil~%~;~]     :accessor ~a~))"
@@ -133,9 +142,7 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
                       (fix-slot-name (name m) (type-name (type-info m)) vk-spec t))
               (setf wrote-first-member t))
         (format out ")~%  (:documentation ~s))~%" (make-documentation struct count-member-names vk-spec)))
-  ;; todo: translate/expand-to/from (for unions it must be checked which slot is bound during translation in a cond)
   ;; todo: pretty-printing of classes
-  ;; todo: aliases can just be subclasses of the aliases classes without extra slots
   )
 
 (defun get-extends (struct vk-spec)
@@ -220,7 +227,7 @@ Slots:~{~a~}~@[~%~{~%See ~a~}~]~@[~%~%Instances of this class can be used to ext
             (find-if (lambda (count-member)
                        (string= (car (len member-data)) count-member))
                      count-member-names))
-       (format nil "(vk-alloc:foreign-allocate-and-fill %vk:~(~a~) (~(vk:~a~) ~a) ~a)"
+       (format nil "(vk-alloc:foreign-allocate-and-fill '%vk:~(~a~) (~(vk:~a~) ~a) ~a)"
                (fix-type-name (type-name (type-info member-data)) (tags vk-spec))
                fixed-accessor-name
                value-str
