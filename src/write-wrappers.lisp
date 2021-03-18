@@ -302,21 +302,36 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
   (format out "                           (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                           (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
   (format out "                           ~(~a~)" (if (= (length vector-params) 2)
-                                                         (format nil "(length ~(~a~))"
-                                                                 (let ((array-arg (find-if-not (lambda (arg)
-                                                                                                 (find arg output-params))
-                                                                                               vector-params)))
-                                                                   (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
-                                                         (let* ((split-len-data (split-len-by-struct-member (len (first output-params))))
-                                                                (count-arg (find-if (lambda (p)
-                                                                                      (string= (first split-len-data) (name p)))
-                                                                                    (params command)))
-                                                                (count-slot (find-if (lambda (m)
-                                                                                       (string= (second split-len-data) (name m)))
-                                                                                     (members (gethash (type-name (type-info count-arg)) (structures vk-spec))))))
-                                                           (format nil "(vk:~(~a ~a~))"
-                                                                   (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
-                                                                   (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))))
+                                                      ;; the length of the output array is the same size as an input array
+                                                      (format nil "(length ~(~a~))"
+                                                              (let ((array-arg (find-if-not (lambda (arg)
+                                                                                              (find arg output-params))
+                                                                                            vector-params)))
+                                                                (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
+                                                      ;; the length of the output array depends on the slot of an input parameter
+                                                      ;; now we need to find out which slot this is and - more importantly - if it is one
+                                                      ;; of the omitted slots because it redundantly describes the length of yet another
+                                                      ;; slot of the parameter
+                                                      (let* ((split-len-data (split-len-by-struct-member (len (first output-params))))
+                                                             (count-arg (find-if (lambda (p)
+                                                                                   (string= (first split-len-data) (name p)))
+                                                                                 (params command)))
+                                                             (count-struct (gethash (type-name (type-info count-arg)) (structures vk-spec)))
+                                                             (struct-count-member-names (get-count-member-names count-struct))
+                                                             (count-slot-name (second split-len-data)))
+                                                        (if (member count-slot-name struct-count-member-names :test #'string=)
+                                                            (let ((count-slot (find-if (lambda (m)
+                                                                                         (string= count-slot-name (car (len m))))
+                                                                                       (members count-struct))))
+                                                              (format nil "(length (vk:~(~a ~a~)))"
+                                                                (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
+                                                                (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+                                                            (let ((count-slot (find-if (lambda (m)
+                                                                                         (string= count-slot-name (name m)))
+                                                                                       (members count-struct))))
+                                                              (format nil "(vk:~(~a ~a~))"
+                                                                (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
+                                                                (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))))))
   (when (extension-command-p command)
     (format out "~%                           t"))
   (format out ")~%")
