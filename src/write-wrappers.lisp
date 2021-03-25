@@ -125,6 +125,8 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
     ;; handles must come after "list" because a list of handles should be declared as type list
     ((gethash type-name (handles vk-spec))
      "cffi:foreign-pointer")
+    ((string= "VkBool32" type-name)
+     "boolean")
     ((or (alexandria:starts-with-subseq "float" type-name)
          (string= "double" type-name))
      "real")
