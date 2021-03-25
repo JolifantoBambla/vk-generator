@@ -231,7 +231,8 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                    (not (string= "**" (postfix (type-info arg)))))
               (gethash (type-name (type-info arg)) (enums vk-spec))
               (gethash (type-name (type-info arg)) (bitmasks vk-spec))
-              (gethash (type-name (type-info arg)) (base-types vk-spec)))
+              (and (gethash (type-name (type-info arg)) (base-types vk-spec))
+                   (value-p (type-info arg))))
       (push :raw qualifiers))
     (when (or (gethash (type-name (type-info arg)) (handles vk-spec)) ;; it's a handle
               (string= "void" (type-name (type-info arg))) ;; it's a void pointer
@@ -533,7 +534,9 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                          vk-spec))
       ((= (length non-const-pointer-param-indices) 1)
        (let ((ret (first output-params)))
-         (if (gethash (type-name (type-info ret)) (handles vk-spec))
+         (if (or (gethash (type-name (type-info ret)) (handles vk-spec))
+                 (gethash (type-name (type-info ret)) *vk-platform*)
+                 (gethash (type-name (type-info ret)) (base-types vk-spec)))
              ;; 1) handle type
              (if (not (find ret vector-params))
                  ;; case 1a-1: create a handle - e.g. vkCreateInstance
