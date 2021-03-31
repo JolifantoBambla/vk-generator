@@ -75,7 +75,9 @@
 (defparameter *opaque-struct-types*
   '("wl_display"
     "wl_surface"
-    "SECURITY_ATTRIBUTES"))
+    "SECURITY_ATTRIBUTES"
+    "_screen_context"  ;; added in v1.2.171
+    "_screen_window")) ;; added in v1.2.171
 
 (defparameter *fix-must-be*
   (alexandria:alist-hash-table

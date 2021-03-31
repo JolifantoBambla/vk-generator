@@ -194,7 +194,10 @@
     "v1.2.168"
     "v1.2.169"
     "v1.2.170"
-    "v1.2.171")
+    "v1.2.171"
+    "v1.2.172"
+    "v1.2.173"
+    "v1.2.174")
   "A list of valid version tags in the Vulkan-Docs GitHub repository.
 
 See https://github.com/KhronosGroup/Vulkan-Docs/releases

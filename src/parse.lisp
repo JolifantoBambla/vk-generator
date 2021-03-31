@@ -234,7 +234,11 @@ See also:
                              :name (or name @name)
                              :category :define)))
     (when @name
-      (assert (string= @name "VK_DEFINE_NON_DISPATCHABLE_HANDLE")
+      (assert (member @name
+                      '("VK_DEFINE_NON_DISPATCHABLE_HANDLE"
+                        "VK_USE_64_BIT_PTR_DEFINES" ;; new since v1.2.174
+                        "VK_NULL_HANDLE")           ;; new since v1.2.174
+                      :test #'string=)
               () "unknown category=define name <~a>" @name)
       (setf name @name)
       (setf is-value-p nil)
@@ -1105,14 +1109,15 @@ See also:
             ;; todo: remove disabled stuff
             (xpath:do-node-set (disable-node (xpath:evaluate "command" require-node))
               (let* ((command-name (xps (xpath:evaluate "@name" disable-node)))
-                    (command (gethash command-name (commands vk-spec))))
-                (assert command
-                        () "try to remove unknown command <~a>" command-name)
-                (remhash command-name (commands vk-spec))
-                (let ((handle (gethash (handle command) (handles vk-spec))))
-                  (assert handle
-                          () "cannot find handle corresponding to command <~a>" command-name)
-                  (remove command-name (commands handle) :test 'string=))))
+                     (command (gethash command-name (commands vk-spec))))
+                (if (not command)
+                    (warn "trying to remove unknown command <~a>" command-name)
+                    (progn
+                      (remhash command-name (commands vk-spec))
+                      (let ((handle (gethash (handle command) (handles vk-spec))))
+                        (assert handle
+                                () "cannot find handle corresponding to command <~a>" command-name)
+                        (remove command-name (commands handle) :test 'string=))))))
             (xpath:do-node-set (disable-node (xpath:evaluate "enum" require-node))
               (let ((enum-name (xps (xpath:evaluate "@name" disable-node)))
                     (enum-extends (xps (xpath:evaluate "@extends" disable-node))))
@@ -1127,31 +1132,32 @@ See also:
             (xpath:do-node-set (disable-node (xpath:evaluate "type" require-node))
               (let* ((type-name (xps (xpath:evaluate "@name" disable-node)))
                      (type (gethash type-name (types vk-spec))))
-                (assert type
-                        () "trying to remove unknown type <~a>" type-name)
-                (cond
-                  ((eq (category type) :bitmask)
-                   (let ((bitmask (gethash type-name (bitmasks vk-spec))))
-                     (assert bitmask
-                             () "trying to remove unknown bitmask <~a>" type-name)
-                     (assert (not (alias bitmask))
-                             () "trying to remove disabled bitmask <~a> which has alias <~a>" type-name (alias bitmask))
-                     (remhash type-name (bitmasks vk-spec))))
-                  ((eq (category type) :enum)
-                   (let ((enum (gethash type-name (enums vk-spec))))
-                     (assert enum
-                             () "trying to remove unknown enum <~a>" type-name)
-                     (assert (not (alias enum))
-                             () "trying to remove disabled enum <~a> which has alias <~a>" type-name (alias enum))
-                     (remhash type-name (enums vk-spec))))
-                  ((eq (category type) :struct)
-                   (let ((struct (gethash type-name (structures vk-spec))))
-                     (assert struct
-                             () "trying to remove unknown structure <~a>" type-name)
-                     (assert (= (length (aliases struct)) 0)
-                             () "trying to remove disabled structure <~a> which has ~a aliases" type-name (length (aliases struct)))
-                     (remhash type-name (structures vk-spec))))
-                  (t (error "trying to remove <~a> of unhandled type <~a>" type-name (category type)))))))
+                (if (not type)
+                    (warn "trying to remove unknown type <~a>" type-name)
+                    (progn
+                      (cond
+                        ((eq (category type) :bitmask)
+                         (let ((bitmask (gethash type-name (bitmasks vk-spec))))
+                           (assert bitmask
+                                   () "trying to remove unknown bitmask <~a>" type-name)
+                           (assert (not (alias bitmask))
+                                   () "trying to remove disabled bitmask <~a> which has alias <~a>" type-name (alias bitmask))
+                           (remhash type-name (bitmasks vk-spec))))
+                        ((eq (category type) :enum)
+                         (let ((enum (gethash type-name (enums vk-spec))))
+                           (assert enum
+                                   () "trying to remove unknown enum <~a>" type-name)
+                           (assert (not (alias enum))
+                                   () "trying to remove disabled enum <~a> which has alias <~a>" type-name (alias enum))
+                           (remhash type-name (enums vk-spec))))
+                        ((eq (category type) :struct)
+                         (let ((struct (gethash type-name (structures vk-spec))))
+                           (assert struct
+                                   () "trying to remove unknown structure <~a>" type-name)
+                           (assert (= (length (aliases struct)) 0)
+                                   () "trying to remove disabled structure <~a> which has ~a aliases" type-name (length (aliases struct)))
+                           (remhash type-name (structures vk-spec))))
+                        (t (error "trying to remove <~a> of unhandled type <~a>" type-name (category type)))))))))
           (let ((extension (make-instance 'extension
                                           :name name
                                           :platform platform
