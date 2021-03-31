@@ -495,16 +495,14 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
          (optional-struct-params (remove-if-not (lambda (p)
                                                   (optional-p p))
                                                 struct-params))
-         (required-params (concatenate 'list required-handle-params required-non-struct-params required-struct-params))
-         (optional-params (concatenate 'list optional-handle-params optional-non-struct-params optional-struct-params))
+         (required-params (sorted-elements (concatenate 'list required-handle-params required-non-struct-params required-struct-params)))
+         (optional-params (sorted-elements (concatenate 'list optional-handle-params optional-non-struct-params optional-struct-params)))
          ;; collect redundant input parameters (i.e. if they specify the length of another input (!) parameter)
          (skipped-input-params (remove-if-not (lambda (p)
                                                 (and (find p vector-count-params)
                                                      (not (intersection (gethash (position p (params command)) count-to-vector-param-indices)
                                                                         non-const-pointer-param-indices))))
-                                              (concatenate 'list required-params optional-params)))
-         (accumulated-indent "")
-         (closing-parens 1))
+                                              (concatenate 'list required-params optional-params))))
 
     (when nil
       (format t "~%handle: ~{~a, ~}~%"
