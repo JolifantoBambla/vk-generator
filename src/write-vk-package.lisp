@@ -185,8 +185,6 @@
     (format out "    #:*default-allocator*~%")
     (format out "    #:*default-extension-loader*~%")
     (format out "    #:make-api-version~%")
-    (format out "    #:split-api-version~%")
-    (format out "    #:format-api-version~%")
     (format out "~%")
     ;; extension names
     (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
@@ -219,7 +217,14 @@
             when (alias command)
             do (loop for alias in (alexandria:hash-table-values (alias command))
                      do (format out "~(    #:~a~)~%" (fix-function-name (name alias) (tags vk-spec))))))
-    (format out "))~%")))
+    (format out "))~%~%")
+
+    (format out "(defpackage :vk-utils~%  (:use #:cl)~%  (:export")
+    (format out "~%    #:memcpy")
+    (format out "~%    #:split-api-version")
+    (format out "~%    #:format-api-version")
+    ;; todo: write with-style wrappers & make-<vulkan-struct> constructors
+    (format out "))")))
 
 (defun write-vk-package (vk-spec vk-package-dir)
   (let* ((additional-files-dir
@@ -239,6 +244,8 @@
          (vk-functions-file (merge-pathnames "vk-commands.lisp" vk-dir))
          (copy-files ;; todo: clean this up
            (list
+            (list (merge-pathnames "vk-utils-common.lisp" additional-files-dir)
+                  (merge-pathnames "vk-utils-common.lisp" vk-dir))
             (list (merge-pathnames "vk-base.lisp" additional-files-dir)
                   (merge-pathnames "vk-base.lisp" vk-dir))
             (list (merge-pathnames "vk-alloc.lisp" additional-files-dir)
