@@ -98,56 +98,104 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
           unless (find param-index non-const-pointer-param-indices)
           collect param-index)))
 
-(defun make-command-docstring (command required-params optional-params output-params vk-spec)
+(defun make-command-docstring (command required-params optional-params output-params vector-params vk-spec)
   ;; todo: reference VkStructs, list arguments, document return type, if command starts with vkGet -> gets foo, if command is registered as a create-func or destroy-func -> Creates/Destroys a foo handle from bla belonging to a bar, document success codes, document error codes (= signalled conditions)
-  (let ((referenced-types (sort
-                            (remove-duplicates
-                             (loop for param in (concatenate 'list
-                                                             required-params
-                                                             optional-params
-                                                             output-params)
-                                   for type-name = (type-name (type-info param))
-                                   unless (gethash type-name *vk-platform*)
-                                   collect (fix-type-name type-name (tags vk-spec))))
-                            #'string<))
-        (formatted-required-args (loop for param in required-params
-                                       collect (format nil "~% - ~a: <a description>"
-                                                       (fix-slot-name (name param) (type-name (type-info param)) vk-spec))))
-        (formatted-optional-args (loop for param in optional-params
-                                       collect (format nil "~% - ~a: (optional) <a description>"
-                                                       (fix-slot-name (name param) (type-name (type-info param)) vk-spec))))
-        (formatted-output-args (loop for param in output-params
-                                     collect (fix-type-name (type-name (type-info param)) (tags vk-spec)))))
-    (unless (string= (return-type command) "void")
-      (setf formatted-output-args
-            (concatenate 'list formatted-output-args
-                         (list (cond
-                                 ((or (string= "size_t" (return-type command))
-                                      (alexandria:starts-with-subseq "uint" (return-type command)))
-                                  "UNSIGNED-BYTE")
-                                 ((alexandria:starts-with-subseq "int" (return-type command))
-                                  "INTEGER")
-                                 ((string= "PFN_vkVoidFunction" (return-type command))
-                                  "CFFI:FOREIGN-POINTER ;; a function pointer")
-                                 ((string= "VkResult" (return-type command))
-                                  "RESULT")
-                                 ((string= "VkBool32" (return-type command))
-                                  "BOOLEAN")
-                                 ((string= "VkDeviceSize" (return-type command))
-                                  "DEVICE-SIZE ;; (UNSIGNED-BYTE 64)")
-                                 ((string= "VkDeviceAddress" (return-type command))
-                                  "DEVICE-ADDRESS ;; (UNSIGNED-BYTE 64)")
-                                 (t (error "unhandled return type in doc generation: ~a" (return-type command)))))))
-      (when (and (alexandria:starts-with-subseq "Vk" (return-type command))
-                 (not (string= "VkBool32" (return-type command))))
+  (flet ((format-arg-doc (param &optional (optional-p nil) (default-arg nil))
+           (let ((sequence-p (member param vector-params)))
+             (format nil "~% - ~a~@[~a~]: a ~@[~a~]~a~@[, defaults to: ~a~]"
+                     (fix-slot-name (name param) (type-name (type-info param)) vk-spec)
+                     (when optional-p
+                       " (optional)")
+                     (when sequence-p
+                       "(OR LIST VECTOR) of ")
+                     (cond
+                       ((gethash (type-name (type-info param)) (structures vk-spec))
+                        (format nil "(OR ~a CFFI:FOREIGN-POINTER)~@[~a~]"
+                                (fix-type-name (type-name (type-info param)) (tags vk-spec))
+                                (when sequence-p " instances")))
+                       ((gethash (type-name (type-info param)) (handles vk-spec))
+                        (format nil "~a~@[~a~]"
+                                (fix-type-name (type-name (type-info param)) (tags vk-spec))
+                                (when sequence-p " handles")))
+                       ((not (gethash (type-name (type-info param)) *vk-platform*))
+                        (format nil "~a~@[~a~]"
+                                (fix-type-name (type-name (type-info param)) (tags vk-spec))
+                                (when sequence-p "s")))
+                       (t (format nil "~:@(~a~)"
+                                  (get-type-to-declare (type-name (type-info param)) vk-spec param vector-params))))
+                     default-arg))))
+    (let ((referenced-types (sort
+                             (remove-duplicates
+                              (loop for param in (concatenate 'list
+                                                              required-params
+                                                              optional-params
+                                                              output-params)
+                                    for type-name = (type-name (type-info param))
+                                    unless (gethash type-name *vk-platform*)
+                                    collect (fix-type-name type-name (tags vk-spec))))
+                             #'string<))
+          (formatted-required-args (loop for param in required-params
+                                         collect (format-arg-doc param)))
+          (formatted-optional-args (loop for param in optional-params
+                                         collect (format-arg-doc
+                                                  param
+                                                  t
+                                                  (cond
+                                                    ((string= "pAllocator" (name param))
+                                                     "*DEFAULT-ALLOCATOR*")
+                                                    (t "NIL")))))
+          (formatted-output-args (loop for param in output-params
+                                       collect (if (gethash (type-name (type-info param)) *vk-platform*)
+                                                   (cond
+                                                     ((or (string= "size_t" (type-name (type-info param)))
+                                                          (alexandria:starts-with-subseq "uint" (type-name (type-info param))))
+                                                      "UNSIGNED-BYTE")
+                                                     ((alexandria:starts-with-subseq "int" (type-name (type-info param)))
+                                                      "INTEGER")
+                                                     (t (error "unhandled output arg in doc generation: ~a" (type-name (type-info param)))))
+                                                   (fix-type-name (type-name (type-info param)) (tags vk-spec))))))
+      (when (extension-command-p command)
+        (setf formatted-optional-args
+              (concatenate 'list
+                           formatted-optional-args
+                           (list (format nil "~% - EXTENSION-LOADER (optional): an EXTENSION-LOADER, defaults to: *DEFAULT-EXTENSION-LOADER*"))))
         (setf referenced-types
               (sort
-               (remove-duplicates
-                (concatenate 'list
-                             referenced-types
-                             (list (fix-type-name (return-type command) (tags vk-spec)))))
-               #'string<))))
-    (format nil "Represents [~a](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/~a.html).
+               (concatenate 'list
+                            referenced-types
+                            '("EXTENSION-LOADER"))
+               #'string<)))
+      (unless (string= (return-type command) "void")
+        (setf formatted-output-args
+              (concatenate 'list
+                           formatted-output-args
+                           (list (cond
+                                   ((or (string= "size_t" (return-type command))
+                                        (alexandria:starts-with-subseq "uint" (return-type command)))
+                                    "UNSIGNED-BYTE")
+                                   ((alexandria:starts-with-subseq "int" (return-type command))
+                                    "INTEGER")
+                                   ((string= "PFN_vkVoidFunction" (return-type command))
+                                    "CFFI:FOREIGN-POINTER ;; a function pointer")
+                                   ((string= "VkResult" (return-type command))
+                                    "RESULT")
+                                   ((string= "VkBool32" (return-type command))
+                                    "BOOLEAN")
+                                   ((string= "VkDeviceSize" (return-type command))
+                                    "DEVICE-SIZE ;; (UNSIGNED-BYTE 64)")
+                                   ((string= "VkDeviceAddress" (return-type command))
+                                    "DEVICE-ADDRESS ;; (UNSIGNED-BYTE 64)")
+                                   (t (error "unhandled return type in doc generation: ~a" (return-type command)))))))
+        (when (and (alexandria:starts-with-subseq "Vk" (return-type command))
+                   (not (string= "VkBool32" (return-type command))))
+          (setf referenced-types
+                (sort
+                 (remove-duplicates
+                  (concatenate 'list
+                               referenced-types
+                               (list (fix-type-name (return-type command) (tags vk-spec)))))
+                 #'string<))))
+      (format nil "Represents [~a](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/~a.html).
 
 Args:~{~a~}~{~a~}~@[
 
@@ -157,18 +205,26 @@ Returns:
 Success codes:~{~% - ~a~}~]~@[
 
 Errors signalled on codes:~{~% - ~a~}~]
-~{~%See ~a~}
+~{~%See ~a~}~@[
+See ~a~]~@[
+See ~a~]
 "
-                  (name command)
-                  (name command)
-                  formatted-required-args
-                  formatted-optional-args
-                  formatted-output-args
-                  (loop for c in (success-codes command)
-                        collect (fix-bit-name c (tags vk-spec)))
-                  (loop for c in (error-codes command)
-                        collect (fix-bit-name c (tags vk-spec)))
-                  referenced-types)))
+              (name command)
+              (name command)
+              formatted-required-args
+              formatted-optional-args
+              formatted-output-args
+              (loop for c in (success-codes command)
+                    collect (fix-bit-name c (tags vk-spec)))
+              (loop for c in (error-codes command)
+                    collect (fix-bit-name c (tags vk-spec)))
+              referenced-types
+              (when (member-if (lambda (p)
+                                 (string= "pAllocator" (name p)))
+                               (params command))
+                "*DEFAULT-ALLOCATOR*")
+              (when (extension-command-p command)
+                "*EXTENSION-LOADER*")))))
 
 (defun reverse-hash-table (hash-table)
   (let ((result (make-hash-table)))
@@ -188,7 +244,7 @@ Errors signalled on codes:~{~% - ~a~}~]
     ((and param
           vector-params
           (find param vector-params))
-     "list")
+     "(or list vector)")
     ;; handles must come after "list" because a list of handles should be declared as type list
     ((gethash type-name (handles vk-spec))
      "cffi:foreign-pointer")
@@ -340,7 +396,7 @@ Errors signalled on codes:~{~% - ~a~}~]
 (defun write-simple-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-simple-fun (~(~a~)~%" fixed-function-name)
   (format out "                   ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                   ~s~%" (make-command-docstring command required-params optional-params output-params vk-spec))
+  (format out "                   ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
   (format out "                   (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                   (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
   (format out "~%                  ~(~a~)"
@@ -355,7 +411,7 @@ Errors signalled on codes:~{~% - ~a~}~]
 (defun write-create-handle-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-create-handle-fun (~(~a~)~%" fixed-function-name)
   (format out "                          ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                          ~s~%" (make-command-docstring command required-params optional-params output-params vk-spec))
+  (format out "                          ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
   (format out "                          (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                          (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
   (format out "~%                          ~:[nil~;t~]"
@@ -368,7 +424,7 @@ Errors signalled on codes:~{~% - ~a~}~]
 (defun write-create-handles-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-create-handles-fun (~(~a~)~%" fixed-function-name)
   (format out "                           ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                           ~s~%" (make-command-docstring command required-params optional-params output-params vk-spec))
+  (format out "                           ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
   (format out "                           (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                           (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
   (format out "                           ~(~a~)" (if (= (length vector-params) 2)
@@ -410,7 +466,7 @@ Errors signalled on codes:~{~% - ~a~}~]
 (defun write-get-struct-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-get-struct-fun (~(~a~)~%" fixed-function-name)
   (format out "                       ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                       ~s~%" (make-command-docstring command required-params optional-params output-params vk-spec))
+  (format out "                       ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
   (format out "                       (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                       (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
   (when (extension-command-p command)
@@ -421,7 +477,7 @@ Errors signalled on codes:~{~% - ~a~}~]
 (defun write-fill-arbitrary-buffer-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-fill-arbitrary-buffer-fun (~(~a~)~%" fixed-function-name)
   (format out "                                  ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                                  ~s~%" (make-command-docstring command required-params optional-params output-params vk-spec))
+  (format out "                                  ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
   (format out "                                  (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                                  (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
   (when (extension-command-p command)
@@ -432,7 +488,7 @@ Errors signalled on codes:~{~% - ~a~}~]
 (defun write-get-structs-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-get-structs-fun (~(~a~)~%" fixed-function-name)
   (format out "                        ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                        ~s~%" (make-command-docstring command required-params optional-params output-params vk-spec))
+  (format out "                        ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
   (format out "                        (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                        (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
   (format out "                        ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
@@ -449,7 +505,7 @@ Errors signalled on codes:~{~% - ~a~}~]
 (defun write-multiple-singular-returns-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-multiple-singular-returns-fun (~(~a~)~%" fixed-function-name)
   (format out "                                      ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                                      ~s~%" (make-command-docstring command required-params optional-params output-params vk-spec))
+  (format out "                                      ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
   (format out "                                      (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                                      (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
   (when (extension-command-p command)
@@ -460,7 +516,7 @@ Errors signalled on codes:~{~% - ~a~}~]
 (defun write-enumerate-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-enumerate-fun (~(~a~)~%" fixed-function-name)
   (format out "                      ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                      ~s~%" (make-command-docstring command required-params optional-params output-params vk-spec))
+  (format out "                      ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
   (format out "                      (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                      (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
   (format out "                      ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
@@ -477,7 +533,7 @@ Errors signalled on codes:~{~% - ~a~}~]
 (defun write-get-array-and-singular-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-get-array-and-singular-fun (~(~a~)~%" fixed-function-name)
   (format out "                                   ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                                   ~s~%" (make-command-docstring command required-params optional-params output-params vk-spec))
+  (format out "                                   ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
   (format out "                                   (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                                   (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
   (format out "                                   ~((length ~a)~)~%" (let ((array-arg (find-if-not (lambda (arg) ;; len-provider is the length of the input array
@@ -496,7 +552,7 @@ Errors signalled on codes:~{~% - ~a~}~]
 (defun write-enumerate-two-arrays-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-enumerate-two-arrays-fun (~(~a~)~%" fixed-function-name)
   (format out "                                 ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                                 ~s~%" (make-command-docstring command required-params optional-params output-params vk-spec))
+  (format out "                                 ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
   (format out "                                 (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
   (format out "                                 (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
   (format out "                                 ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))

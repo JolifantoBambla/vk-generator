@@ -124,7 +124,15 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
                              #'string<)))
     (format nil "Represents the ~:[struct~;union~] [~a](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/~a.html).
 
-Slots:~{~a~}~@[~%~%Slot types:~{~%See ~a~}~]~@[~%~%Instances of this class can be extended by the following classes (using the NEXT slot):~{~%See: ~a~}~]~@[~%~%Instances of this class can be used to extend the following classes (using their NEXT slot):~{~%See ~a~}~]~@[~%~%Instances of this class are used as parameters of the following functions:~{~%See ~a~}~]
+Slots:~{~a~}~@[
+
+Slot types:~{~%See ~a~}~]~@[
+
+Instances of this class can be extended by the following classes (using the NEXT slot):~{~%See: ~a~}~]~@[
+
+Instances of this class can be used to extend the following classes (using their NEXT slot):~{~%See ~a~}~]~@[
+
+Instances of this class are used as parameters of the following functions:~{~%See ~a~}~]
 "
             (is-union-p struct)
             (name struct)
