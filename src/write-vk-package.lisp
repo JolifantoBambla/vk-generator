@@ -109,7 +109,10 @@
     (format out "#||~%~a~%||#~%~%" (vulkan-license-header vk-spec))
     
     ;; write vk-alloc
-    (format out "(defpackage :vk-alloc~%  (:use #:cl)~%  (:export~%")
+    (format out "(defpackage :vk-alloc
+  (:documentation \"Contains utilities for allocating foreign memory and translating CL types to foreign memory.\")
+  (:use #:cl)
+  (:export")
     (loop for sym in '("*allocated-foreign-objects*"
                        "*allocated-foreign-strings*"
                        "*allocate-foreign-object-func*"
@@ -121,21 +124,23 @@
                        "foreign-allocate-and-fill"
                        "with-foreign-allocated-object"
                        "with-foreign-allocated-objects")
-          do (format out "~(    #:~a~)~%" sym))
+          do (format out "~(~%    #:~a~)" sym))
     (format out "))~%~%")
 
     ;; write vulkan/%vk
-    (format out "(defpackage :~a~%  (:use #:cl #:cffi)~%" *in-package-name*)
-    (format out "  (:nicknames ~a)~%" *package-nicknames*)
-    (format out "  (:export~%")
-    (format out "    #:size-t~%")
-    (format out "    #:extension-loader~%")
-    (format out "    #:make-extension-loader~%")
-    (format out "    #:*default-extension-loader*~%")
-    (format out "    #:size-t~%")
-    (format out "~%")
+    (format out "(defpackage :~a
+  (:nicknames ~a)
+  (:documentation \"Contains the low-level CFFI-bindings for the Vulkan API.\")
+  (:use #:cl #:cffi)
+  (:export
+    #:size-t
+    #:extension-loader
+    #:make-extension-loader
+    #:*default-extension-loader*
+"
+            *in-package-name* *package-nicknames*)
     (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
-          do (format out "    #:+~(~a~)+~%"
+          do (format out "~%    #:+~(~a~)+"
                      (ppcre:regex-replace-all
                       "^VK-" (substitute #\- #\_ name) "")))
     (format out "~%")
@@ -143,18 +148,17 @@
                (sort elements (lambda (a b) (string< (name a) (name b))))))
       (loop for type in (sort-alphabetically (alexandria:hash-table-values (types vk-spec)))
             unless (member (category type) '(:requires :unknown :define))
-            do (format out "~(    #:~a ;; ~s~)~%"
-                       (fix-type-name (name type) (tags vk-spec))
-                       (category type))
+            do (format out "~%~(    #:~a~)"
+                       (fix-type-name (name type) (tags vk-spec)))
             when (eq (category type) :struct)
-            do (format out "~(    #:c-~a~)~%"
+            do (format out "~%~(    #:c-~a~)"
                        (fix-type-name (name type) (tags vk-spec))))
       (format out "~%")
       (loop for command in (sort-alphabetically (alexandria:hash-table-values (commands vk-spec)))
-            do (format out "~(    #:~a~)~%" (fix-function-name (name command) (tags vk-spec)))
+            do (format out "~%~(    #:~a~)" (fix-function-name (name command) (tags vk-spec)))
             when (alias command)
             do (loop for alias in (alexandria:hash-table-values (alias command))
-                     do (format out "~(    #:~a~)~%" (fix-function-name (name alias) (tags vk-spec)))))
+                     do (format out "~%~(    #:~a~)" (fix-function-name (name alias) (tags vk-spec)))))
       (format out "~%")
       (loop for m in (remove-duplicates
                       (mapcar (lambda (m)
@@ -164,31 +168,38 @@
                                 (loop for struct in (alexandria:hash-table-values (structures vk-spec))
                                       collect (members struct)))))
                       :test #'string=)
-            do (format out "~(    #:~a ;; ~s~)~%"
-                       m
-                       :accessor)))
+            do (format out "~%~(    #:~a~)" m)))
     (format out "))~%~%")
 
     ;; write vk
     ;; todo: other types
-    (format out "(defpackage :vk~%  (:use #:cl)~%  (:shadow~%    #:format~%    #:set~%    #:stream~%    #:type~%    #:values)~%")
-    (format out "  (:import-from #:%vk~%")
-    (format out "   #:make-extension-loader~%")
-    (format out "   #:*default-extension-loader*")
+    (format out "(defpackage :vk
+  (:documentation \"Provides CLOS wrappers for all struct/unions and wrappers around all functions defined in the Vulkan API.\")
+  (:use #:cl)
+  (:shadow
+    #:format
+    #:set
+    #:stream
+    #:type
+    #:values)
+  (:import-from #:%vk
+    #:make-extension-loader
+    #:*default-extension-loader*")
     (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
           do (format out "~%    #:+~(~a~)+"
                      (ppcre:regex-replace-all
                       "^VK-" (substitute #\- #\_ name) "")))
-    (format out ")~%")
-    (format out "  (:export~%")
-    (format out "    #:make-extension-loader~%")
-    (format out "    #:*default-allocator*~%")
-    (format out "    #:*default-extension-loader*~%")
-    (format out "    #:make-api-version~%")
+    (format out ")")
+    (format out "
+  (:export
+    #:make-extension-loader
+    #:*default-allocator*
+    #:*default-extension-loader*
+    #:make-api-version")
     (format out "~%")
     ;; extension names
     (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
-          do (format out "    #:+~(~a~)+~%"
+          do (format out "~%    #:+~(~a~)+"
                      (ppcre:regex-replace-all
                       "^VK-" (substitute #\- #\_ name) "")))
     (format out "~%")
@@ -196,9 +207,8 @@
     (labels ((sort-alphabetically (elements)
                (sort elements (lambda (a b) (string< (name a) (name b))))))
       (loop for type in (sort-alphabetically (alexandria:hash-table-values (structures vk-spec)))
-            do (format out "~(    #:~a ;; ~s~)~%"
-                       (fix-type-name (name type) (tags vk-spec))
-                       :class))
+            do (format out "~(~%    #:~a~)"
+                       (fix-type-name (name type) (tags vk-spec))))
       (format out "~%")
       (loop for m in (remove-duplicates
                       (mapcar (lambda (m)
@@ -208,21 +218,33 @@
                                 (loop for struct in (alexandria:hash-table-values (structures vk-spec))
                                       collect (members struct)))))
                       :test #'string=)
-            do (format out "~(    #:~a ;; ~s~)~%"
-                       m
-                       :accessor))
+            do (format out "~(~%    #:~a~)" m))
       (format out "~%")
       (loop for command in (sort-alphabetically (alexandria:hash-table-values (commands vk-spec)))
-            do (format out "~(    #:~a~)~%" (fix-function-name (name command) (tags vk-spec)))
+            do (format out "~(~%    #:~a~)" (fix-function-name (name command) (tags vk-spec)))
             when (alias command)
             do (loop for alias in (alexandria:hash-table-values (alias command))
-                     do (format out "~(    #:~a~)~%" (fix-function-name (name alias) (tags vk-spec))))))
+                     do (format out "~(~%    #:~a~)" (fix-function-name (name alias) (tags vk-spec)))))
+      (format out "~%")
+      (loop for enum in (sort-alphabetically (alexandria:hash-table-values (enums vk-spec)))
+            do (format out "~%    ~(#:~a~)" (fix-type-name (name enum) (tags vk-spec))))
+      (format out "~%")
+      (loop for handle in (sort-alphabetically (alexandria:hash-table-values (handles vk-spec)))
+            unless (string= "" (name handle))
+            do (format out "~%    ~(~a~)" (fix-type-name (name handle) (tags vk-spec))))
+      (when (gethash "VkDeviceSize" (base-types vk-spec))
+        (format out "~%~%    #:device-size"))
+      (when (gethash "VkDeviceAddress" (base-types vk-spec))
+        (format out "~%~%    #:device-address")))
     (format out "))~%~%")
 
-    (format out "(defpackage :vk-utils~%  (:use #:cl)~%  (:export")
-    (format out "~%    #:memcpy")
-    (format out "~%    #:split-api-version")
-    (format out "~%    #:format-api-version")
+    (format out "(defpackage :vk-utils
+  (:documentation \"Provides utilities for vk.\")
+  (:use #:cl)
+  (:export
+    #:memcpy
+    #:split-api-version
+    #:format-api-version")
     ;; todo: write with-style wrappers & make-<vulkan-struct> constructors
     (format out "))")))
 
