@@ -46,8 +46,9 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
         (type-name (type-name (type-info member-data))))
     (cond
       ((string= "pNext" slot-name)
-       "instance of a class extending this class")
-      ((and (not (value-p (type-info member-data)))
+       "instance of a class extending this class (valid classes are listed below)")
+      ((and (string= "void" type-name)
+            (not (value-p (type-info member-data)))
             (len member-data))
        (format nil "foreign pointer to a buffer of size ~a" (string (fix-type-name (car (len member-data)) (tags vk-spec)))))
       ((string= "void" type-name)
@@ -574,12 +575,29 @@ Has the values:~{~% - :~a~}~]\"
   (loop for h in (sorted-elements (alexandria:hash-table-values (handles vk-spec)))
         unless (string= "" (name h))
         do (format out "~%(deftype ~(~a~) ()
-  \"Represents the ~@[~a ~]handle [~a](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/~a.html).\"
+  \"Represents the ~@[~a ~]handle [~a](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/~a.html).~@[
+
+Parents:~{~%See ~a~}~]~@[
+
+Children:~{~%See ~a~}~]
+
+Related functions:~{~%See ~a~}\"
   'cffi:foreign-pointer)~%"
                    (fix-type-name (name h) (tags vk-spec))
                    (when (non-dispatch-handle-p h) "(non-dispatchable)")
                    (name h)
-                   (name h)))
+                   (name h)
+                   (loop for p in (sort (parents h) #'string<)
+                         collect (fix-type-name p (tags vk-spec)))
+                   (loop for c in (sort (children h) #'string<)
+                         collect (fix-type-name c (tags vk-spec)))
+                   (sort
+                    (loop for c in (alexandria:hash-table-values (commands vk-spec))
+                          when (member-if (lambda (p)
+                                            (string= (type-name (type-info p)) (name h)))
+                                          (params c))
+                          collect (fix-function-name (name c) (tags vk-spec)))
+                    #'string<)))
   (format out "~%~%"))
 
 (defun write-vk-struct-translators-file (translate-to-file translate-from-file expand-to-file expand-from-file vk-spec)
