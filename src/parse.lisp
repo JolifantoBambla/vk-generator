@@ -1045,7 +1045,7 @@ See also:
                   (when (search "EXTENSION_NAME" name)
                     (assert (not (gethash name (extension-names vk-spec)))
                             () "name for extension <~a> already registered" name)
-                    (setf (gethash name (extension-names vk-spec)) value-string))
+                    (setf (gethash name (extension-names vk-spec)) (subseq value-string 1 (- (length value-string) 1))))
                 (assert (gethash name (constants vk-spec))
                         () "unknown required enum <~a>" name)))))))
 

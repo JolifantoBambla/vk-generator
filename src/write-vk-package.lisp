@@ -40,11 +40,13 @@
     (format out "#||~%~a~%||#~%~%" (vulkan-license-header vk-spec))
     (format out "(in-package :~a)~%~%" *in-package-name*)
     (loop for api-constant in (sorted-elements (alexandria:hash-table-values (constants vk-spec)))
-          do (format out "(defconstant ~(+~a+ ~a~)) ~%~%"
+          do (format out "(defconstant ~(+~a+ ~a~)
+  \"Represents ~a.\") ~%~%"
                      (fix-bit-name (name api-constant) (tags vk-spec))
                      (if (alias api-constant)
                          (format nil "+~(~a~)+"(fix-bit-name (alias api-constant) (tags vk-spec)))
-                         (number-value api-constant))))))
+                         (number-value api-constant))
+                     (name api-constant)))))
 
 (defun write-errors-file (errors-file vk-spec)
    (with-open-file (out errors-file :direction :output :if-exists :supersede)
@@ -139,6 +141,10 @@
     #:*default-extension-loader*
 "
             *in-package-name* *package-nicknames*)
+    (loop for name in (sort (alexandria:hash-table-keys (constants vk-spec)) #'string<)
+          do (format out "~%    #:+~(~a~)+"
+                     (fix-bit-name name (tags vk-spec))))
+    (format out "~%")
     (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
           do (format out "~%    #:+~(~a~)+"
                      (ppcre:regex-replace-all
@@ -185,6 +191,9 @@
   (:import-from #:%vk
     #:make-extension-loader
     #:*default-extension-loader*")
+    (loop for name in (sort (alexandria:hash-table-keys (constants vk-spec)) #'string<)
+          do (format out "~%    #:+~(~a~)+"
+                     (fix-bit-name name (tags vk-spec))))
     (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
           do (format out "~%    #:+~(~a~)+"
                      (ppcre:regex-replace-all
@@ -197,6 +206,10 @@
     #:*default-extension-loader*
     #:make-api-version")
     (format out "~%")
+    ;; api-constants
+    (loop for name in (sort (alexandria:hash-table-keys (constants vk-spec)) #'string<)
+          do (format out "~%    #:+~(~a~)+"
+                     (fix-bit-name name (tags vk-spec))))
     ;; extension names
     (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
           do (format out "~%    #:+~(~a~)+"

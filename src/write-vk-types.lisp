@@ -77,6 +77,8 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
                (string (fix-type-name type-name (tags vk-spec)))))
       ((gethash type-name (enums vk-spec))
        (format nil "enum value of ~a" (string (fix-type-name type-name (tags vk-spec)))))
+      ((string= "VkBool32" type-name)
+       "boolean")
       (t (string (fix-type-name type-name (tags vk-spec)))))))
 
 (defun make-documentation (struct count-member-names vk-spec)
@@ -84,7 +86,8 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
                             (loop for m in (members struct)
                                   for type-name = (type-name (type-info m))
                                   unless (or (gethash type-name *vk-platform*)
-                                             (= (length (allowed-values m)) 1))
+                                             (= (length (allowed-values m)) 1)
+                                             (string= "VkBool32" (type-name (type-info m))))
                                   collect (fix-type-name type-name (tags vk-spec)))))
          (slots (loop for m in (members struct)
                       for fixed-type-name = (fix-slot-type-for-documentation
@@ -558,7 +561,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
         do (format out "~%(deftype ~(~a~) ()
   \"Represents the enum [~a](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/~a.html).~@[
 
-Has the values:~{ - :~a~}~]\"
+Has the values:~{~% - :~a~}~]\"
   '(member nil ~{~%    :~(~a~)~}))~%"
                    fixed-name
                    (name e)

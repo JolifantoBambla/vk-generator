@@ -72,10 +72,15 @@
 (defun write-extension-names (out vk-spec)
   (format out ";;; extension names~%")
   (loop for name in (sort (alexandria:hash-table-keys (extension-names vk-spec)) #'string<)
-        do (format out "(alexandria:define-constant +~(~a~)+ ~a :test #'string=)~%"
+        do (format out "(alexandria:define-constant +~(~a~)+ ~s
+  :test #'string=
+  :documentation ~s)~%"
                    (ppcre:regex-replace-all
                     "^VK-" (substitute #\- #\_ name) "")
-                   (gethash name (extension-names vk-spec))))
+                   (gethash name (extension-names vk-spec))
+                   (format nil "The name of the extension [~a](https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/~a.html)."
+                           (string (gethash name (extension-names vk-spec)))
+                           (gethash name (extension-names vk-spec)))))
   (format out "~%"))
 
 (defun write-base-types (out vk-spec)
