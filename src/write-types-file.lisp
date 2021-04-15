@@ -37,7 +37,7 @@
          (pointer-type  (if primitive-type
                             primitive-type
                             (if (member (category vk-type) '(:struct :union))
-                                (list (category vk-type) fixed-type-name)
+                                (list :pointer (list (category vk-type) fixed-type-name))
                                 fixed-type-name))))
     (cond
       ;; not a pointer
