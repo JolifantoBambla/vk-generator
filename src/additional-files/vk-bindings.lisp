@@ -9,19 +9,23 @@
   (defun process-args (args optional-p &optional (extension-p nil))
     "Splits ARGS into a list of argument names and a list of types which can be used for type declarations.
 If OPTIONAL-P is truthy NULL is appended to each type declaration."
-    (loop for arg in args
-          for i from 1
-          collect (first arg) into arg-names
-          collect (list 'declare (if optional-p (list (list 'or (second arg) 'null) (first (first arg))) (list (second arg) (first arg)))) into arg-types
-          when (and optional-p
-                    extension-p
-                    (= i (length args)))
-          collect (list 'extension-loader '*default-extension-loader*) into arg-names
-          when (and optional-p
-                    extension-p
-                    (= i (length args)))
-          collect (list 'declare (list (list 'or '%vk:extension-loader 'null) 'extension-loader)) into arg-types
-          finally (return (cl:values arg-names arg-types))))
+    (multiple-value-bind (arg-names
+                          arg-types)
+        (loop for arg in args
+              collect (first arg) into arg-names
+              collect (list 'declare (if optional-p (list (list 'or (second arg) 'null) (first (first arg))) (list (second arg) (first arg)))) into arg-types
+              finally (return (cl:values arg-names arg-types)))
+      (when (and optional-p
+                 extension-p)
+        (setf arg-names (reverse arg-names))
+        (setf arg-types (reverse arg-types))
+        (push (list 'extension-loader '*default-extension-loader*)
+              arg-names)
+        (push (list 'declare (list (list 'or '%vk:extension-loader 'null) 'extension-loader))
+              arg-types)
+        (setf arg-names (reverse arg-names))
+        (setf arg-types (reverse arg-types)))
+      (cl:values arg-names arg-types)))
   
   (defun process-variables (variables &optional (extension-p nil))
     "Elements of VARIABLES should look like this:
@@ -177,7 +181,7 @@ E.g. vkGetPhysicalDeviceProperties"
 
 ;; TODO: maybe take a type and a size instead?
 ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
-(defmacro defvk-fill-arbitrary-buffer-fun ((name vulkan-fun docstring required-args optional-arg &optionals (extension-p nil)) &body variables)
+(defmacro defvk-fill-arbitrary-buffer-fun ((name vulkan-fun docstring required-args optional-args &optionals (extension-p nil)) &body variables)
   "Defines a function named NAME which wraps VULKAN-FUN.
 VULKAN-FUN is function that fills a buffer of arbitrary size.
 The allocated buffer as well as its size are provided by the user.
@@ -234,7 +238,7 @@ E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
                                                   collect (cffi:mem-aref ,@ (second array-arg) ,i)))))))))))))))))
 
 ;; case 2b: ???
-(defmacro defvk-multiple-singular-returns-fun ((name vulkan-fun docstring required-args optional-args &optional (extension-p nil)) &body body)
+(defmacro defvk-multiple-singular-returns-fun ((name vulkan-fun docstring required-args optional-args &optional (extension-p nil)) &body variables)
   "Defines a function named NAME which wraps VULKAN-FUN.
 VULKAN-FUN is function that gets two separate non-array values and returns a RESULT.
 E.g. ???"
@@ -316,7 +320,7 @@ E.g. vkGetCalibratedTimestampsEXT"
                  (cffi:with-foreign-objects ((,@ (second array-arg) ,len-provider)
                                              (,@ (second other-output)))
                    (let ((,result (,vulkan-fun ,@vk-input-args)))
-                     (cl:values (loop for ,i from 0 below ,array-arg-name
+                     (cl:values (loop for ,i from 0 below ,len-provider
                                       collect (cffi:mem-aref ,@ (second array-arg) ,i))
                                 (cffi:mem-aref ,@ (second other-output))
                                 ,result)))))))))))

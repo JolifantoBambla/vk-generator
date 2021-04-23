@@ -38,6 +38,7 @@
     "RTE" "RTZ"
     "4444" "A4R4G4B4" "A4B4G4R4" ;; VK_EXT_4444_FORMATS
     "ID" "UUID" "LUID"
+    "H264" "H265" ;; video encode/decode (since v1.2.175)
     "HINSTANCE" "HWND" "HMONITOR" "HANDLE" "SECURITY_ATTRIBUTES" "DWORD" "LPCWSTR" ;; windows.h
     "FB" ;; directfb.h
     "CA" ;; CAMetalLayer
@@ -55,6 +56,7 @@
      "uint16_t" :uint16 ;; added this after v1.1.93 failed (not sure which version added this)
      "uint32_t" :uint32
      "uint64_t" :uint64
+     "int8_t" :int8 ;; added in v1.2.175
      "int32_t" :int32
      "int64_t" :int64 ;; added this after v1.1.119 failed (not sure which version added this)
      "int" :int
@@ -77,7 +79,20 @@
     "wl_surface"
     "SECURITY_ATTRIBUTES"
     "_screen_context"  ;; added in v1.2.171
-    "_screen_window")) ;; added in v1.2.171
+    "_screen_window" ;; added in v1.2.171
+    ;; all StdVideo-structs have been added in v1.2.175
+    "StdVideoDecodeH264PictureInfo"
+    "StdVideoDecodeH264ReferenceInfo"
+    "StdVideoDecodeH264Mvc"
+    "StdVideoH264SequenceParameterSet"
+    "StdVideoH264PictureParameterSet"
+    "StdVideoEncodeH264SliceHeader"
+    "StdVideoEncodeH264PictureInfo"
+    "StdVideoDecodeH265PictureInfo"
+    "StdVideoDecodeH265ReferenceInfo"
+    "StdVideoH265VideoParameterSet"
+    "StdVideoH265SequenceParameterSet"
+    "StdVideoH265PictureParameterSet"))
 
 (defparameter *fix-must-be*
   (alexandria:alist-hash-table
@@ -100,7 +115,9 @@
     "xcb_visualid_t" :uint32
     "zx_handle_t" (:pointer :void)
     "window" :ulong
-    "visual-id" :ulong))
+    "visual-id" :ulong
+    "StdVideoH264ProfileIdc" :uint32   ;; an enum, added in v1.2.175
+    "StdVideoH265ProfileIdc" :uint32)) ;; an enum, added in v1.2.175
 
 ;; from generator.py
 (defconstant +ext-base+ 1000000000)

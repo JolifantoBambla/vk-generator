@@ -141,6 +141,17 @@
     #:*default-extension-loader*
 "
             *in-package-name* *package-nicknames*)
+    (format out "~%    ;; external types (from external headers or OS)")
+    (loop for name in *opaque-types*
+          do (format out "~%    #:~(~a~)"
+                     (fix-type-name name (tags vk-spec))))
+    (loop for name in *opaque-struct-types*
+          do (format out "~%    #:~(~a~)"
+                     (fix-type-name name (tags vk-spec))))
+    (loop for (name type) on *misc-os-types* by #'cddr
+          do (format out "~%    #:~(~a~)"
+                     (fix-type-name name (tags vk-spec))))
+    (format out "~%")
     (loop for name in (sort (alexandria:hash-table-keys (constants vk-spec)) #'string<)
           do (format out "~%    #:+~(~a~)+"
                      (fix-bit-name name (tags vk-spec))))
@@ -244,7 +255,7 @@
       (format out "~%")
       (loop for handle in (sort-alphabetically (alexandria:hash-table-values (handles vk-spec)))
             unless (string= "" (name handle))
-            do (format out "~%    ~(~a~)" (fix-type-name (name handle) (tags vk-spec))))
+            do (format out "~%    ~(#:~a~)" (fix-type-name (name handle) (tags vk-spec))))
       (when (gethash "VkDeviceSize" (base-types vk-spec))
         (format out "~%~%    #:device-size"))
       (when (gethash "VkDeviceAddress" (base-types vk-spec))
@@ -257,7 +268,8 @@
   (:export
     #:memcpy
     #:split-api-version
-    #:format-api-version")
+    #:format-api-version
+    #:read-shader-source")
     ;; todo: write with-style wrappers & make-<vulkan-struct> constructors
     (format out "))")))
 
