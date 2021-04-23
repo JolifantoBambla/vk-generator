@@ -494,6 +494,13 @@ See ALLOWED-VALUES    a list of allowed values for this MEMBER-DATA instance."))
 Slots:
 See MEMBERS    an ordered list of MEMBER-DATA instances describing members of this STRUCT instance."))
 
+(defun structure-type-p (type-name vk-spec)
+  (or (gethash type-name (structures vk-spec))
+      (member type-name *opaque-struct-types* :test #'string=)
+      (member-if (lambda (m)
+                   (member type-name (aliases m) :test #'string=))
+                 (alexandria:hash-table-values (structures vk-spec)))))
+
 (deftype type-category ()
   "TODO: documentation"
   '(member

@@ -313,9 +313,10 @@ See ~a~]
   (cond
     ((find type-name *special-base-types* :test #'string=)
      "'(:pointer :void)")
-    ((gethash type-name (structures vk-spec))
+    ((structure-type-p type-name vk-spec)
      (format nil "'(:~a %vk:~(~a~))"
-             (if (is-union-p (gethash type-name (structures vk-spec)))
+             (if (and (gethash type-name (structures vk-spec))
+                      (is-union-p (gethash type-name (structures vk-spec))))
                  "union"
                  "struct")
              (fix-type-name type-name (tags vk-spec))))

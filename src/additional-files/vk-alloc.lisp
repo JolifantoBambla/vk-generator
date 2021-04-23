@@ -97,8 +97,8 @@ If the supplied CONTENT satisfies CFFI:POINTER-P the CONTENT is bound to VAR as 
 
 See CFFI:WITH-FOREIGN-OBJECT
 See CFFI:NULL-POINTER-P"
-  (let ((iterator (gensym))
-        (element (gensym)))
+  (let ((iterator (gensym "ITERATOR"))
+        (element (gensym "ELEMENT")))
     `(if (or (cffi:pointerp ,content)
              (not ,content))
         (let ((,var (if (not ,content)
