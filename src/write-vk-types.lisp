@@ -229,9 +229,11 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                       (tags vk-spec)))))
       
       ;; members of some VK-defined type (lists or single instances)
-      ((gethash (type-name (type-info member-data)) (structures vk-spec))
+      ((or (gethash (type-name (type-info member-data)) (structures vk-spec))
+           (member (type-name (type-info member-data)) *opaque-struct-types* :test #'string=))
        (format nil "(vk-alloc:foreign-allocate-and-fill '(~:[:struct~;:union~] %vk:~(~a~)) (~(vk:~a~) ~a) ~a)"
-               (is-union-p (gethash (type-name (type-info member-data)) (structures vk-spec)))
+               (and (gethash (type-name (type-info member-data)) (structures vk-spec))
+                    (is-union-p (gethash (type-name (type-info member-data)) (structures vk-spec))))
                (fix-type-name (type-name (type-info member-data)) (tags vk-spec))
                fixed-accessor-name
                value-str
@@ -334,7 +336,8 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                (fix-type-name (name member-data) (tags vk-spec))))
       
       ;; members of some VK-defined type (lists or single instances)
-      ((and (gethash (type-name (type-info member-data)) (structures vk-spec))
+      ((and (or (gethash (type-name (type-info member-data)) (structures vk-spec))
+                (member (type-name (type-info member-data)) *opaque-struct-types* :test #'string=))
             (find-if (lambda (count-member)
                        (string= (car (len member-data)) count-member))
                      count-member-names))
@@ -392,7 +395,8 @@ Instances of this class are used as parameters of the following functions:~{~%Se
          (format nil "(loop for i from 0 below ~a collect (cffi:mem-aref ~(~a ~a~) i))"
                  array-size
                  ;; todo: file a bug report over at CFFI: :count is not respected if the type of a struct member is also a struct 
-                 (if (gethash (type-name (type-info member-data)) (structures vk-spec))
+                 (if (or (gethash (type-name (type-info member-data)) (structures vk-spec))
+                         (member (type-name (type-info member-data)) *opaque-struct-types* :test #'string=))
                      (format nil "~((cffi:foreign-slot-pointer ~:[~;,~]ptr '(:struct %vk:~a) '%vk:~a)~)"
                              macro-p
                              (fix-type-name (name struct) (tags vk-spec))

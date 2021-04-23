@@ -13,7 +13,11 @@ If OPTIONAL-P is truthy NULL is appended to each type declaration."
                           arg-types)
         (loop for arg in args
               collect (first arg) into arg-names
-              collect (list 'declare (if optional-p (list (list 'or (second arg) 'null) (first (first arg))) (list (second arg) (first arg)))) into arg-types
+              collect (list 'declare
+                            (if optional-p
+                                (list (list 'or (second arg) 'null) (first (first arg)))
+                                (list (second arg) (first arg))))
+              into arg-types
               finally (return (cl:values arg-names arg-types)))
       (when (and optional-p
                  extension-p)
@@ -91,7 +95,7 @@ Note: VkBool32 and VkResult are treated as no return values, since they are impl
   (multiple-value-bind (required-arg-names required-arg-declares) (process-args required-args nil)
     (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t extension-p)
       (multiple-value-bind (translated-args let-args vk-input-args) (process-variables variables extension-p)
-        (let ((result (gensym)))
+        (let ((result (gensym "RESULT")))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -117,7 +121,7 @@ E.g. returning no result: vkGetDeviceQueue"
     (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t extension-p)
       (multiple-value-bind (translated-args let-args vk-input-args output-args) (process-variables variables extension-p)
         (let ((handle-def (second (first output-args)))
-              (result (gensym)))
+              (result (gensym "RESULT")))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -145,7 +149,7 @@ E.g. LEN-PROVIDER is a slot value of an input parameter: vkAllocateCommandBuffer
     (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t extension-p)
       (multiple-value-bind (translated-args let-args vk-input-args output-args) (process-variables variables extension-p)
         (let ((handle-def (second (first output-args)))
-              (result (gensym))
+              (result (gensym "RESULT"))
               (i (gensym)))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
@@ -181,7 +185,7 @@ E.g. vkGetPhysicalDeviceProperties"
 
 ;; TODO: maybe take a type and a size instead?
 ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
-(defmacro defvk-fill-arbitrary-buffer-fun ((name vulkan-fun docstring required-args optional-args &optionals (extension-p nil)) &body variables)
+(defmacro defvk-fill-arbitrary-buffer-fun ((name vulkan-fun docstring required-args optional-args &optional (extension-p nil)) &body variables)
   "Defines a function named NAME which wraps VULKAN-FUN.
 VULKAN-FUN is function that fills a buffer of arbitrary size.
 The allocated buffer as well as its size are provided by the user.
@@ -214,8 +218,8 @@ E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
               (array-arg (find-if (lambda (a)
                                     (eq (first a) array-arg-name))
                                   output-args))
-              (translated-count (gensym))
-              (result (gensym))
+              (translated-count (gensym "COUNT"))
+              (result (gensym "RESULT"))
               (i (gensym)))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
@@ -245,7 +249,7 @@ E.g. ???"
   (multiple-value-bind (required-arg-names required-arg-declares) (process-args required-args nil)
     (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t extension-p)
       (multiple-value-bind (translated-args let-args vk-input-args output-args) (process-variables variables extension-p)
-        (let ((result (gensym)))
+        (let ((result (gensym "RESULT")))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -258,7 +262,7 @@ E.g. ???"
                                    ,result)))))))))))
 
 ;; case 2c: enumerate - e.g. vkEnumeratePhysicalDevices
-(defmacro defvk-enumerate-fun ((name vulkan-fun docstring required-args optional-args count-arg-name array-arg-name &optional (no-result-p nil) (extension-p nil)) &body variables)
+(defmacro defvk-enumerate-fun ((name vulkan-fun docstring required-args optional-args count-arg-name array-arg-name &optional (extension-p nil)) &body variables)
   "Defines a function named NAME which wraps VULKAN-FUN.
 VULKAN-FUN is function that enumerates values and returns a RESULT.
 E.g. vkEnumeratePhysicalDevices"
@@ -271,8 +275,8 @@ E.g. vkEnumeratePhysicalDevices"
               (array-arg (find-if (lambda (a)
                                     (eq (first a) array-arg-name))
                                   output-args))
-              (translated-count (gensym))
-              (result (gensym))
+              (translated-count (gensym "COUNT"))
+              (result (gensym "RESULT"))
               (i (gensym)))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
@@ -309,7 +313,7 @@ E.g. vkGetCalibratedTimestampsEXT"
               (other-output (find-if-not (lambda (a)
                                            (eq (first a) array-arg-name))
                                          output-args))
-              (result (gensym))
+              (result (gensym "RESULT"))
               (i (gensym)))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
@@ -328,7 +332,7 @@ E.g. vkGetCalibratedTimestampsEXT"
 ;;; --------------------------------------------- 3 output parameters ------------------------------------------------------------------
 
 ;; case 3: return two arrays using the same counter which is also an output argument - e.g vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR
-(defmacro defvk-enumerate-two-arrays-fun ((name vulkan-fun docstring required-args optional-args count-arg-name array-arg-names &optional (no-result-p nil) (extension-p nil)) &body variables)
+(defmacro defvk-enumerate-two-arrays-fun ((name vulkan-fun docstring required-args optional-args count-arg-name array-arg-names &optional (extension-p nil)) &body variables)
   "Defines a function named NAME which wraps VULKAN-FUN.
 VULKAN-FUN is function that enumerates two kinds of values and returns a RESULT.
 E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
@@ -341,11 +345,11 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
               (array-args (remove-if-not (lambda (a)
                                            (find (first a) array-arg-names))
                                    output-args))
-              (translated-count (gensym))
-              (result (gensym))
+              (translated-count (gensym "COUNT"))
+              (result (gensym "RESULT"))
               (i (gensym))
-              (first-array (gensym))
-              (second-array (gensym)))
+              (first-array (gensym (first array-arg-names)))
+              (second-array (gensym (second array-arg-names))))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares

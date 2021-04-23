@@ -526,8 +526,6 @@ See ~a~]
                                                  (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
   (format out "                      ~(~a~)" (let ((array-arg (find-if #'len output-params)))
                                                (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
-  (format out "~%                      ~:[nil~;t~]"
-          (string= "void" (return-type command)))
   (when (extension-command-p command)
     (format out "~%                      t"))
   (format out ")~%")
@@ -566,8 +564,6 @@ See ~a~]
                                                             (format nil "~(~a ~a~)"
                                                                     (fix-slot-name (name first-arg) (type-name (type-info first-arg)) vk-spec)
                                                                     (fix-slot-name (name second-arg) (type-name (type-info second-arg)) vk-spec))))
-  (format out "~%                                 ~:[nil~;t~]"
-          (string= "void" (return-type command)))
   (when (extension-command-p command)
     (format out "~%                                 t"))
   (format out ")~%")

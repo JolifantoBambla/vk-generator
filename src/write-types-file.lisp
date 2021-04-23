@@ -32,13 +32,17 @@
   "TODO"
   (let* ((type-name (type-name type-info))
          (primitive-type (gethash type-name *vk-platform*))
-         (fixed-type-name (fix-type-name type-name (tags vk-spec)))
          (vk-type (gethash type-name (types vk-spec)))
+         (fixed-type-name (let ((fixed-type (fix-type-name type-name (tags vk-spec))))
+                            (cond
+                              ((member (category vk-type) '(:struct :union))
+                               (list (category vk-type) fixed-type))
+                              ((member type-name *opaque-struct-types* :test #'string=)
+                               (list :struct fixed-type))
+                              (t fixed-type))))
          (pointer-type  (if primitive-type
                             primitive-type
-                            (if (member (category vk-type) '(:struct :union))
-                                (list :pointer (list (category vk-type) fixed-type-name))
-                                fixed-type-name))))
+                            fixed-type-name)))
     (cond
       ;; not a pointer
       ((and (not (string= (postfix type-info) "*"))
