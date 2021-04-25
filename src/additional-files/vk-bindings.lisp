@@ -150,7 +150,7 @@ E.g. LEN-PROVIDER is a slot value of an input parameter: vkAllocateCommandBuffer
       (multiple-value-bind (translated-args let-args vk-input-args output-args) (process-variables variables extension-p)
         (let ((handle-def (second (first output-args)))
               (result (gensym "RESULT"))
-              (i (gensym)))
+              (i (gensym "INDEX")))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -220,7 +220,7 @@ E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
                                   output-args))
               (translated-count (gensym "COUNT"))
               (result (gensym "RESULT"))
-              (i (gensym)))
+              (i (gensym "INDEX")))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -277,7 +277,7 @@ E.g. vkEnumeratePhysicalDevices"
                                   output-args))
               (translated-count (gensym "COUNT"))
               (result (gensym "RESULT"))
-              (i (gensym)))
+              (i (gensym "INDEX")))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -314,7 +314,7 @@ E.g. vkGetCalibratedTimestampsEXT"
                                            (eq (first a) array-arg-name))
                                          output-args))
               (result (gensym "RESULT"))
-              (i (gensym)))
+              (i (gensym "INDEX")))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
@@ -347,7 +347,7 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
                                    output-args))
               (translated-count (gensym "COUNT"))
               (result (gensym "RESULT"))
-              (i (gensym))
+              (i (gensym "INDEX"))
               (first-array (gensym (string (first array-arg-names))))
               (second-array (gensym (string (second array-arg-names)))))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
