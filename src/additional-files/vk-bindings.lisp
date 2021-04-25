@@ -348,8 +348,8 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
               (translated-count (gensym "COUNT"))
               (result (gensym "RESULT"))
               (i (gensym))
-              (first-array (gensym (first array-arg-names)))
-              (second-array (gensym (second array-arg-names))))
+              (first-array (gensym (string (first array-arg-names))))
+              (second-array (gensym (string (second array-arg-names)))))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
