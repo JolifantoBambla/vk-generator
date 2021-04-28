@@ -365,12 +365,11 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
                            finally (return (when (eq ,result :success)
                                              (let ((,translated-count (cffi:mem-aref ,@ (second count-arg))))
                                                (if (> ,translated-count 0)
-                                                   (multiple-value-bind (,first-array ,second-array)
-                                                       (cffi:with-foreign-objects ((,@ (second (first array-args)) ,translated-count)
-                                                                                   (,@ (second (second array-args)) ,translated-count))
-                                                         (setf ,result (,vulkan-fun ,@vk-input-args))
-                                                         (loop for ,i from 0 below ,translated-count
-                                                               collect (cffi:mem-aref ,@ (second (first array-args)) ,i) into ,first-array
-                                                               collect (cffi:mem-aref ,@ (second (second array-args)) ,i) into ,second-array
-                                                               finally (return (cl:values ,first-array ,second-array ,result)))))
+                                                   (cffi:with-foreign-objects ((,@ (second (first array-args)) ,translated-count)
+                                                                               (,@ (second (second array-args)) ,translated-count))
+                                                     (setf ,result (,vulkan-fun ,@vk-input-args))
+                                                     (loop for ,i from 0 below ,translated-count
+                                                           collect (cffi:mem-aref ,@ (second (first array-args)) ,i) into ,first-array
+                                                           collect (cffi:mem-aref ,@ (second (second array-args)) ,i) into ,second-array
+                                                           finally (return (cl:values ,first-array ,second-array ,result))))
                                                    (cl:values nil nil ,result))))))))))))))))

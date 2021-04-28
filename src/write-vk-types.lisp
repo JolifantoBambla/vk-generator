@@ -468,66 +468,90 @@ Instances of this class are used as parameters of the following functions:~{~%Se
 (defun write-translate-union-to (out struct expand-p vk-spec)
   (let ((fixed-type-name (fix-type-name (name struct) (tags vk-spec)))
         (count-member-names (get-count-member-names struct))
+        (only-fixed-primitive-array-members-p (every (lambda (m)
+                                                       (and (array-sizes m)
+                                                            (gethash (type-name (type-info m)) *vk-platform*)))
+                                                     (members struct)))
         (macro-name (if expand-p
                         "expand-into-foreign-memory"
                         "translate-into-foreign-memory")))
-    (format out "(defmethod cffi:~a ((value vk:~(~a~)) type ptr)~%  ~:[~;`~](cffi:with-foreign-slots"
+    (format out "(defmethod cffi:~a ((value vk:~(~a~)) type ptr)"
             macro-name
             fixed-type-name
             expand-p)
-    (loop for m in (members struct)
-          for i from 1
+    (if only-fixed-primitive-array-members-p
+        (progn
+          (format out "~%  ~:[~;`~](cond"
+                  expand-p)
+          (loop with value-str = (format nil "~:[~;,~]value" expand-p)
+                with ptr-str = (format nil "~:[~;,~]ptr" expand-p)
+                for m in (members struct)
+                do (format out "~%    ((slot-boundp ~a 'vk:~(~a~))" value-str (fix-type-name (name m) (tags vk-spec)))
+                   (format out "~%     (cffi:lisp-array-to-foreign (vk:~(~a~) ~a) ~a '(:array ~(~s~) ~a)))"
+                           (fix-type-name (name m) (tags vk-spec))
+                           value-str
+                           ptr-str
+                           (gethash (type-name (type-info m)) *vk-platform*)
+                           (first (array-sizes m))))
+          (format out ")"))
+        (progn
+          (format out "~%  ~:[~;`~](cffi:with-foreign-slots"
+                  expand-p)
+          (loop for m in (members struct)
+                for i from 1
           do (format out "~%      ~:[  ~;((~]~(%vk:~a~)~:[~;)~]"
                      (= 1 i)
                      (fix-type-name (name m) (tags vk-spec))
                      (= i (length (members struct)))))
-    (format out "~%       ~:[~;,~]ptr~%       (:union %vk:~(~a~)))"
-            expand-p
-            fixed-type-name)
-    (format out "~%    ~:[~; ~](cond"
-            expand-p)
-    (loop with value-str = (format nil "~:[~;,~]value" expand-p)
-          with ptr-str = (format nil "~:[~;,~]ptr" expand-p)
-          for m in (members struct)
-          for primitive-p = (and (not (array-sizes m))
-                                 (or (gethash (type-name (type-info m)) *vk-platform*)
-                                     (member (type-name (type-info m)) '("VkBool32" "VkResult") :test #'string=)
-                                     (gethash (type-name (type-info m)) (enums vk-spec))
-                                     (gethash (type-name (type-info m)) (bitmasks vk-spec))
-                                     (gethash (type-name (type-info m)) (base-types vk-spec))))
-          for member-type-specifier = (cond
-                                        ((string= "char" (type-name (type-info m)))
-                                         "string")
-                                        ((gethash (type-name (type-info m)) *vk-platform*)
-                                         (format nil "~(~s~)" (gethash (type-name (type-info m)) *vk-platform*)))
-                                        ((gethash (type-name (type-info m)) (structures vk-spec))
-                                         (format nil "'(~:[:struct~;:union~] %vk:~(~a~))"
-                                                 (is-union-p (gethash (type-name (type-info m)) (structures vk-spec)))
-                                                 (fix-type-name (type-name (type-info m)) (tags vk-spec))))
-                                        ((not primitive-p)
-                                         (error "Non-primitive member type <~a> not handled for union <~a>"
-                                                (type-name (type-info m))
-                                                struct)))
-          for i from 1 do
-          (format out "~%      ((slot-boundp ~a 'vk:~(~a~))" value-str (fix-type-name (name m) (tags vk-spec)))
-          (cond
-            ((and (array-sizes m)
-                  (gethash (type-name (type-info m)) *vk-platform*))
-             (format out "~%       (cffi:lisp-array-to-foreign (vk:~(~a~) ~a) ~a '(:array ~(~s~) ~a)))"
-                     (fix-type-name (name m) (tags vk-spec))
-                     value-str
-                     ptr-str
-                     (gethash (type-name (type-info m)) *vk-platform*)
-                     (first (array-sizes m))))
-            (primitive-p
-             (format out "~%       (setf %vk:~(~a~)" (fix-type-name (name m) (tags vk-spec)))
-             (format out "~%             (vk:~(~a~) ~a)))" (fix-type-name (name m) (tags vk-spec)) value-str))
-            (t
-             (format out "~%       (setf %vk:~(~a~)" (fix-type-name (name m) (tags vk-spec)))
-             (format out "~%             (vk-alloc:foreign-allocate-and-fill ~(~a~)" member-type-specifier)
-             (format out "~%                                                  (vk:~(~a~) ~a)" (fix-type-name (name m) (tags vk-spec)) value-str)
-             (format out "~%                                                  ~a)))" ptr-str))))
-    (format out ")))~%~%")))
+          (format out "~%       ~:[~;,~]ptr~%       (:union %vk:~(~a~)))"
+                  expand-p
+                  fixed-type-name)
+          (format out "~%    ~:[~; ~](cond"
+                  expand-p)
+          (loop with value-str = (format nil "~:[~;,~]value" expand-p)
+                with ptr-str = (format nil "~:[~;,~]ptr" expand-p)
+                for m in (members struct)
+                for primitive-p = (and (not (array-sizes m))
+                                       (or (gethash (type-name (type-info m)) *vk-platform*)
+                                           (member (type-name (type-info m)) '("VkBool32" "VkResult") :test #'string=)
+                                           (gethash (type-name (type-info m)) (enums vk-spec))
+                                           (gethash (type-name (type-info m)) (bitmasks vk-spec))
+                                           (gethash (type-name (type-info m)) (base-types vk-spec))))
+                for member-type-specifier = (cond
+                                              ((string= "char" (type-name (type-info m)))
+                                               "string")
+                                              ((gethash (type-name (type-info m)) *vk-platform*)
+                                               (format nil "~(~s~)" (gethash (type-name (type-info m)) *vk-platform*)))
+                                              ((gethash (type-name (type-info m)) (structures vk-spec))
+                                               (format nil "'(~:[:struct~;:union~] %vk:~(~a~))"
+                                                       (is-union-p (gethash (type-name (type-info m)) (structures vk-spec)))
+                                                       (fix-type-name (type-name (type-info m)) (tags vk-spec))))
+                                              ((not primitive-p)
+                                               (error "Non-primitive member type <~a> not handled for union <~a>"
+                                                      (type-name (type-info m))
+                                                      struct)))
+                for i from 1 do
+                (format out "~%      ((slot-boundp ~a 'vk:~(~a~))" value-str (fix-type-name (name m) (tags vk-spec)))
+                (cond
+                  ((and (array-sizes m)
+                        (gethash (type-name (type-info m)) *vk-platform*))
+                   (format out "~%       (cffi:lisp-array-to-foreign (vk:~(~a~) ~a) ~a '(:array ~(~s~) ~a)))"
+                           (fix-type-name (name m) (tags vk-spec))
+                           value-str
+                           ptr-str
+                           (gethash (type-name (type-info m)) *vk-platform*)
+                           (first (array-sizes m))))
+                  (primitive-p
+                   (format out "~%       (setf %vk:~(~a~)" (fix-type-name (name m) (tags vk-spec)))
+                   (format out "~%             (vk:~(~a~) ~a)))" (fix-type-name (name m) (tags vk-spec)) value-str))
+                  (t
+                   (format out "~%       (setf %vk:~(~a~)" (fix-type-name (name m) (tags vk-spec)))
+                   (format out "~%             (vk-alloc:foreign-allocate-and-fill ~(~a~)" member-type-specifier)
+                   (format out "~%                                                  (vk:~(~a~) ~a)" (fix-type-name (name m) (tags vk-spec)) value-str)
+                   (format out "~%                                                  ~a)))" ptr-str))))
+          
+          (format out "))")))
+    (format out ")~%~%")))
 
 (defun write-translate-from (out struct expand-p vk-spec)
   (let ((fixed-type-name (fix-type-name (name struct) (tags vk-spec)))

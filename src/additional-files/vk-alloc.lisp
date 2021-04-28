@@ -106,7 +106,6 @@ See CFFI:NULL-POINTER-P"
                         (cffi:null-pointer)
                         ,content)))
           ,@body)
-        ;; this could be further optimized by branching on more types at compile time (e.g. in case of heap exhaustion during compilation)
         ,(cond
            ((eq type :string)
             ;; cffi:with-foreign-object seems to do something different with strings than cffi:with-foreign-string does
@@ -128,7 +127,6 @@ See CFFI:NULL-POINTER-P"
                                   (list ,content))))
                (cffi:with-foreign-object (,var
                                           ,type
-                                          ;; VkFlags might come in as lists of keywords but should be translated within a single cffi:mem-aref
                                           (length ,contents))
                  (unwind-protect
                       (progn
