@@ -12,6 +12,8 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
       ((and as-accessor-p
             (string= "P-WAIT-SEMAPHORES" fixed-type-name))
        fixed-type-name)
+      ((string= "P-FUNCTION" fixed-type-name)
+       "FUNCTION-HANDLE")
       ((alexandria:starts-with-subseq "P-" fixed-type-name)
        (subseq fixed-type-name 2))
       ((and (alexandria:starts-with-subseq "PP-" fixed-type-name)

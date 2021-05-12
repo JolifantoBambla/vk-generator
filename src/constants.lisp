@@ -43,6 +43,7 @@
     "FB" ;; directfb.h
     "CA" ;; CAMetalLayer
     "OS" ;; MacOS
+    "NVX" ;; nvidia experimental extensions
     "ETC2" "ASTC" "ASTC_" "LDR" "BC" "RR")
   "A sequence of special words that are used in the specification of the Vulkan API.")
 

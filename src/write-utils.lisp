@@ -36,14 +36,16 @@ E.g.: \"VkPhysicalDevice\" becomes \"PHYSICAL-DEVICE\"
 See *SPECIAL-WORDS*
 See TAGS
 "
-  (if (not (stringp name))
-      name
-      (let* ((start (if (alexandria:starts-with-subseq "Vk" name) 2 0)))
-        (when (zerop start)
-          (setf name (ppcre:regex-replace-all "PFN_vk" name "Pfn")))
-        (cffi:translate-camelcase-name (subseq name start)
-                                       :special-words (append *special-words*
-                                                              vendor-ids)))))
+  (if (string= "function" name)
+      "function-handle"
+      (if (not (stringp name))
+             name
+             (let* ((start (if (alexandria:starts-with-subseq "Vk" name) 2 0)))
+               (when (zerop start)
+                 (setf name (ppcre:regex-replace-all "PFN_vk" name "Pfn")))
+               (cffi:translate-camelcase-name (subseq name start)
+                                              :special-words (append *special-words*
+                                                                     vendor-ids))))))
 
 (defun fix-function-name (name vendor-ids)
   "Converts a given camel-cased NAME of a function from the C Vulkan API to a lispy name.
