@@ -678,11 +678,6 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
 
 (defun add-enum-alias (enum name alias-name vk-hpp-name)
   "TODO"
-  (assert (or (find-if (lambda (v)
-                           (string= alias-name (name v)))
-                         (enum-values enum))
-                (gethash alias-name (aliases enum)))
-            () "unknown enum alias <~a>" alias-name)
   (let ((alias (gethash name (aliases enum))))
     (assert (or (not alias)
                 (string= (first alias) alias-name))
