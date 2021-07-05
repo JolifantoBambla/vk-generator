@@ -1,25 +1,6 @@
 # vk-generator
 A generator for low-level Common Lisp/CFFI bindings for the Vulkan API.
 
-## Important Notes
-
-This project is still under development.
-Most bindings have not been tested at all.
-Support for Windows and MacOS is completely untested.
-
-I'm currently testing with SDK version 1.2.153 only.
-Support for other versions is not guaranteed at the moment, but the goal is to support at least every new version of the SDK.
-
-## Memory Management in VK
-
-TODO: describe vk-alloc stuff, special care when multithreading (e.g. bordeaux-threads:*default-special-bindings*)
-
-## Misc
-
-`VK` shadows: `format`, `set`, `stream`, `type` `values`
-
-All accessors to slots named `wait-semaphores` (i.e. `pWaitSemaphores` in the C API) are called `p-wait-semaphores` because there is also a function named `vk:wait-semaphores`.
-
 ## Known Issues
 
 ### size-t
