@@ -8,6 +8,7 @@
 
 (in-package :vk-generator)
 
+;; todo: I think there is an alexandria function for this...
 (defun tokenize (str)
   "Splits a comma-separated string."
   (let ((tokenized (split-sequence:split-sequence #\, str)))
@@ -168,7 +169,7 @@ See also:
                          :category :basetype))))
 
 (defun parse-bitmask (node vk-spec)
-  "TODO"
+  "Parses a "
   (let ((alias (xps (xpath:evaluate "@alias" node))))
     (if alias
         (let* ((alias (xps (xpath:evaluate "@alias" node)))
@@ -360,7 +361,11 @@ See also:
                                :category :handle))))))
 
 (defun parse-type-include (node vk-spec)
-  "TODO"
+  "Parse a \"type\" tag belonging to the \"include\" category from the given NODE and stores its name in the list of include types in the list bound to the INCLUDES slot of the given VULKAN-SPEC instance.
+
+See INCLUDES
+See VULKAN-SPEC
+"
   (let ((name (xps (xpath:evaluate "@name" node))))
     (assert (not (find name (includes vk-spec)))
             () "include named <~a> already specified" name)
@@ -520,7 +525,11 @@ See also:
 
 
 (defun parse-requires (node vk-spec)
-  "TODO"
+  "Parses a \"type\" tag with a \"requires\" attribute but no \"category\" from the given NODE into a VK-TYPE and stores them in the hash map bound to the TYPES slot of the given VULKAN-SPEC instance.
+
+See VK-TYPE
+See VULKAN-SPEC
+"
   (let ((name (xps (xpath:evaluate "@name" node)))
         (requires (xps (xpath:evaluate "@requires" node))))
     (assert (not (gethash name (types vk-spec)))
@@ -542,7 +551,19 @@ See also:
                                :category :unknown))))))
 
 (defun parse-types (vk.xml vk-spec)
-  "TODO"
+  "Parses all \"type\" tags in the given vk.xml to their representations in VULKAN-SPEC and stores them in the given VULKAN-SPEC instance.
+
+See PARSE-TYPE-INCLUDE
+See PARSE-REQUIRES
+See PARSE-BASETYPE
+See PARSE-BITMASK
+See PARSE-DEFINE
+See PARSE-ENUM-TYPE
+See PARSE-HANDLE
+See PARSE-STRUCT
+See PARSE-FUNCPOINTER
+See VULKAN-SPEC
+"
   (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[(@category=\"include\")]" vk.xml))
     (parse-type-include node vk-spec))
   (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[not(@category)]" vk.xml))
@@ -812,7 +833,11 @@ See also:
 
 
 (defun parse-tags (vk.xml vk-spec)
-  "TODO"
+  "Parses all tags in the given vk.xml and stores them in the list of tags bound to the TAGS slot of the given VULKAN-SPEC instance.
+
+See TAGS
+See VULKAN-SPEC
+"
   (xpath:do-node-set (node (xpath:evaluate "/registry/tags/tag" vk.xml))
     (let ((name (xps (xpath:evaluate "@name" node))))
       (assert (not (find name (tags vk-spec)))
@@ -1185,7 +1210,19 @@ See also:
                   (parse-extension-require-type type-node name vk-spec)))))))))
 
 (defun parse-platforms (vk.xml vk-spec)
-  "TODO"
+  "Parses platform tags in the given vk.xml into PLATFORM instances and stores them in the hash map bound to the PLATFORMS slot of the given VULKAN-SPEC instance.
+
+E.g.:
+...
+<platforms comment=\"...\">
+  <platform name=\"xlib\" protect=\"VK_USE_PLATFORM_XLIB_KHR\" comment=\"X Window System, Xlib client library\"/>
+  ...
+</patforms>
+
+See PLATFORM
+See PLATFORMS
+See VULKAN-SPEC
+"
   (xpath:do-node-set (node (xpath:evaluate "/registry/platforms/platform" vk.xml))
     (let ((name (xps (xpath:evaluate "@name" node)))
           (protect (xps (xpath:evaluate "@protect" node))))
@@ -1237,7 +1274,22 @@ See also:
                       name)))))))))
 
 (defun parse-copyright (vk.xml vk-spec)
-  "TODO"
+  "Searches and parses the copyright notice from the top level comments in the given vk.xml and binds the result to the VULKAN-LICENCE-HEADER slot in the given VULKAN-SPEC instance.
+
+E.g.:
+...
+<registry>
+  <comment>
+Copyright 2015-2021 The Khronos Group Inc.
+
+SPDX-License-Identifier: Apache-2.0 OR MIT
+  </comment>
+</registry>
+...
+
+See VULKAN-LICENCE-HEADER
+See VULKAN-SPEC
+"
   (xpath:do-node-set (node (xpath:evaluate "/registry/comment" vk.xml))
     (let ((text (xps node)))
       (when (search "Copyright" text)
