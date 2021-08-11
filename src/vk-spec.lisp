@@ -307,7 +307,17 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
     :initarg :single-bit-p
     :type boolean
     :initform nil
-    :accessor single-bit-p))
+    :accessor single-bit-p)
+   (protect
+    :initarg :protect
+    :type string
+    :initform nil
+    :accessor protect)
+   (extension
+    :initarg :extension
+    :type string
+    :initform nil
+    :accessor extension))
   (:documentation "TODO"))
 
 (defclass api-constant (enum-value has-alias)
@@ -325,6 +335,11 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
     :type boolean
     :initform nil
     :accessor is-bitmask-p)
+   (bitwdith
+    :initarg :bitwidth
+    :type string
+    :initform nil
+    :accessor bitwidth)
    (enum-values
     :initarg :enum-values
     :type list ;; enum-value

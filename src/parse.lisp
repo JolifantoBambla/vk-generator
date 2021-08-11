@@ -136,6 +136,7 @@ See also:
                    :prefix prefix
                    :postfix postfix)))
 
+;; See VulkanHppGenerator::readBaseType
 (defun parse-basetype (node vk-spec)
   "TODO"
   ;; todo: check attributes
@@ -168,6 +169,7 @@ See also:
                          :name (name name-data)
                          :category :basetype))))
 
+;; see VulkanHppGenerator::readBitmask && VulkanHppGenerator::readBitmaskAlias
 (defun parse-bitmask (node vk-spec)
   "Parses a "
   (let ((alias (xps (xpath:evaluate "@alias" node))))
@@ -213,6 +215,7 @@ See also:
                                :name (name name-data)
                                :category :bitmask))))))
 
+;; see VulkanHppGenerator::readDefine
 (defun parse-define (node vk-spec)
   "TODO"
   (let* ((name (xps (xpath:evaluate "name" node)))
@@ -255,6 +258,7 @@ See also:
                          :calls type
                          :args args))))
 
+;; see VulkanHppGenerator::readTypeEnum
 (defun parse-enum-type (node vk-spec)
   "TODO"
   (let ((alias (xps (xpath:evaluate "@alias" node)))
@@ -583,6 +587,7 @@ See VULKAN-SPEC
   (xpath:do-node-set (node (xpath:evaluate "/registry/types/type[@category=\"funcpointer\"]" vk.xml))
     (parse-funcpointer node vk-spec)))
 
+;; see VulkanHppGenerator::readEnumConstant
 (defun parse-enum-constant (node vk-spec)
   "TODO"
   (let ((name (xps (xpath:evaluate "@name" node)))
@@ -710,7 +715,8 @@ E.g. \"VK_RESULT\" becomes \"VkResult\".
     (setf (gethash name (aliases enum))
           (list alias-name vk-hpp-name))))
 
-(defun parse-enum-value (node enum is-bitmask-p prefix postfix vk-spec)
+;; see VulkanHppGenerator::readEnum & VulkanHppGenerator::readEnumAlias
+(defun parse-enum-value (node enum vk-spec)
   "Parses an enum value node into an ENUM-VALUE instance and stores it in the given ENUM instance.
 
 A node could look like this:
@@ -725,46 +731,50 @@ Which could be a child of the following enum node:
 Note that the created ENUM-VALUE instance is appended at the front of the ENUM-VALUES slot of the given ENUM instance.
 Depending on what you want to do with it you might want to reverse the order of the list after parsing all values of an enum like it is done in PARSE-ENUMS.
 
-See also:
-- PARSE-ENUMS
-- ENUM-VALUE
-- ENUM
-- VULKAN-SPEC
+See PARSE-ENUMS
+See ENUM-VALUE
+See ENUM
+See VULKAN-SPEC
 "
-  (let* ((name (xps (xpath:evaluate "@name" node)))
-         (alias (xps (xpath:evaluate "@alias" node)))
-         (tag (find-tag (tags vk-spec) name postfix))
-         (vk-hpp-name
-           (create-enum-vk-hpp-name name
-                                    prefix
-                                    postfix
-                                    is-bitmask-p
-                                    tag))
-         (comment (xps (xpath:evaluate "@comment" node))))
-    (if alias
-        (add-enum-alias enum name alias vk-hpp-name)
-        (let* ((bitpos-string (xps (xpath:evaluate "@bitpos" node)))
-               (value-string (xps (xpath:evaluate "@value" node)))
-               (bitpos (numeric-value bitpos-string))
-               (value (numeric-value value-string))
-               (enum-value (find-if (lambda (e)
-                                      (string= (vk-hpp-name e) vk-hpp-name))
-                                    (enum-values enum))))
-          (assert (or (and (not bitpos) value)
-                      (and bitpos (not value)))
-                  () "invalid set of attributes for enum <~a> name")
-          (if enum-value
-              (assert (string= (name enum-value) name)
-                      () "enum value <~a> maps to same vk-hpp-name as <~a>" name (name enum-value))
-              (push (make-instance 'enum-value
-                                   :name name
-                                   :comment comment
-                                   :number-value (or value (ash 1 bitpos))
-                                   :string-value (or value-string bitpos-string)
-                                   :vk-hpp-name vk-hpp-name
-                                   :single-bit-p (not value))
-                    (enum-values enum)))))))
+  (multiple-value-bind (prefix postfix)
+      (get-enum-pre-and-postfix (name enum) (is-bitmask-p enum) (tags vk-spec))
+    (let* ((name (xps (xpath:evaluate "@name" node)))
+           (alias (xps (xpath:evaluate "@alias" node)))
+           (tag (find-tag (tags vk-spec) name postfix))
+           (vk-hpp-name
+             (create-enum-vk-hpp-name name
+                                      prefix
+                                      postfix
+                                      (is-bitmask-p enum)
+                                      tag))
+           (comment (xps (xpath:evaluate "@comment" node)))
+           (protect (xps (xpath:evaluate "@protect" node))))
+      (if alias
+          (add-enum-alias enum name alias vk-hpp-name)
+          (let* ((bitpos-string (xps (xpath:evaluate "@bitpos" node)))
+                 (value-string (xps (xpath:evaluate "@value" node)))
+                 (bitpos (numeric-value bitpos-string))
+                 (value (numeric-value value-string))
+                 (enum-value (find-if (lambda (e)
+                                        (string= (vk-hpp-name e) vk-hpp-name))
+                                      (enum-values enum))))
+            (assert (or (and (not bitpos) value)
+                        (and bitpos (not value)))
+                    () "invalid set of attributes for enum <~a> name")
+            (if enum-value
+                (assert (string= (name enum-value) name)
+                        () "enum value <~a> maps to same vk-hpp-name as <~a>" name (name enum-value))
+                (push (make-instance 'enum-value
+                                     :name name
+                                     :comment comment
+                                     :number-value (or value (ash 1 bitpos))
+                                     :string-value (or value-string bitpos-string)
+                                     :vk-hpp-name vk-hpp-name
+                                     :single-bit-p (not value)
+                                     :protect protect)
+                      (enum-values enum))))))))
 
+;; see VulkanHppGenerator::readEnums
 (defun parse-enums (vk.xml vk-spec)
   "Parses an enum node into an ENUM instance and stores it in the given VULKAN-SPEC instance.
 
@@ -776,11 +786,11 @@ A node could look like this:
 
 The enum's child nodes are parsed into ENUM-VALUE instances in the process.
 
-See also:
-- PARSE-ENUM-VALUE
-- ENUM
-- ENUM-VALUE
-- VULKAN-SPEC
+See PARSE-ENUM-CONSTANT
+See PARSE-ENUM-VALUE
+See ENUM
+See ENUM-VALUE
+See VULKAN-SPEC
 "
   (xpath:do-node-set (node (xpath:evaluate "/registry/enums[@name=\"API Constants\"]/enum" vk.xml))
     (parse-enum-constant node vk-spec))
@@ -789,6 +799,7 @@ See also:
            (type (xps (xpath:evaluate "@type" node)))
            (comment (xps (xpath:evaluate "@comment" node)))
            (is-bitmask-p (string= type "bitmask"))
+           (bitwidth (xps (xpath:evaluate "@bitwidth" node)))
            (enum (gethash name (enums vk-spec))))
       (unless enum
         (warn "enum <~a> is not listed as enum in the types section" name)
@@ -796,6 +807,7 @@ See also:
               (make-instance 'enum
                              :name name
                              :is-bitmask-p is-bitmask-p
+                             :bitwidth bitwidth
                              :comment comment))
         (assert (not (gethash name (types vk-spec)))
                 () "enum <~a> already specified as a type" name)
@@ -807,27 +819,13 @@ See also:
       (assert (not (enum-values enum))
               () "enum <~a> already holds values" name)
       (setf (is-bitmask-p enum) is-bitmask-p)
+      (setf (bitwidth enum) bitwidth)
       (setf (comment enum) comment)
       (when is-bitmask-p
-        (let ((bitmask (loop for b being each hash-values of (bitmasks vk-spec)
-                             when (string= (requires b) name)
-                             return b)))
-          (unless bitmask
-            (warn "enum <~a> is not listed as an requires for any bitmask in the types section" name)
-            (let ((flag-bits-pos (search "FlagBits" name)))
-              (assert flag-bits-pos
-                      () "enum <~a> does not contain <FlagBits> as substring")
-              (let* ((bitmask-name (concatenate 'string
-                                                (subseq name 0 flag-bits-pos)
-                                                "Flags"
-                                                (subseq name (+ flag-bits-pos 8)))))
-                (setf bitmask (gethash bitmask-name (bitmasks vk-spec)))
-                (assert bitmask
-                        () "enum <~a> has no corresponding bitmask <~a> listed in the types section" name bitmask-name)
-                (setf (requires bitmask) name))))))
-      (multiple-value-bind (prefix postfix) (get-enum-pre-and-postfix name is-bitmask-p (tags vk-spec))
-        (xpath:do-node-set (enum-value-node (xpath:evaluate "enum" node))
-          (parse-enum-value enum-value-node enum is-bitmask-p prefix postfix vk-spec)))
+        (assert (search "FlagBits" name)
+                () "enum <~a> does not contain <FlagBits> as substring"))
+      (xpath:do-node-set (enum-value-node (xpath:evaluate "enum" node))
+          (parse-enum-value enum-value-node enum vk-spec))
       (setf (enum-values enum)
             (remove-duplicates (reverse (enum-values enum)))))))
 
