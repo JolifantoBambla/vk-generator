@@ -22,7 +22,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator)
+(in-package #:vulkan-spec)
 
 (defun numeric-value (str)
   "Parses a string into a numeric value."

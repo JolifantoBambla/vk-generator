@@ -6,7 +6,7 @@
  SPDX-License-Identifier: Apache-2.0
 |#
 
-(in-package :vk-generator)
+(in-package #:vulkan-spec)
 
 ;; todo: I think there is an alexandria function for this...
 (defun tokenize (str)
@@ -64,11 +64,10 @@ E.g.:
 
 Note:array sizes of struct members are handled by PARSE-STRUCT-MEMBER
 
-See also:
-- PARSE-NAME-DATA
-- NAME-DATA
-- PARSE-STRUCT-MEMBER
-- VULKAN-SPEC
+See PARSE-NAME-DATA
+See NAME-DATA
+See PARSE-STRUCT-MEMBER
+See VULKAN-SPEC
 "
   (let ((array-sizes nil)
         (bit-count nil)
@@ -111,10 +110,9 @@ E.g.:
   [4]
 </param>
 
-See also:
-- PARSE-MODIFIERS
-- NAME-DATA
-- VULKAN-SPEC
+See PARSE-MODIFIERS
+See NAME-DATA
+See VULKAN-SPEC
 "
   ;; todo: check attributes
   (let ((name (xps (xpath:evaluate "name" node))))
@@ -1067,21 +1065,36 @@ See VULKAN-SPEC
                 (assert (gethash name (constants vk-spec))
                         () "unknown required enum <~a>" name)))))))
 
-(defun parse-extension-require-command (node extension-name vk-spec)
+(defun parse-extension-require-command (node extension-name require-data vk-spec)
   "TODO"
   (let* ((name (xps (xpath:evaluate "@name" node)))
          (command (gethash name (commands vk-spec))))
-    (if command
-        (push extension-name
-              (extensions command))
-        (progn
-          (setf command (find-if (lambda (c)
-                                   (gethash name (alias c)))
-                                 (alexandria:hash-table-values (commands vk-spec))))
-          (assert command
-                  () "extension <~a> requires unknown command <~a>" extension-name name)
-          (push extension-name
-                (extensions (gethash name (alias command))))))))
+    (unless command
+      (setf command (find-if (lambda (c)
+                               (gethash name (alias c)))
+                             (alexandria:hash-table-values (commands vk-spec))))
+      (assert command
+              () "extension <~a> requires unknown command <~a>" extension-name name))
+    (if (not (referenced-in command))
+        (setf (referenced-in command) extension-name)
+        (assert (string= (get-platform (referenced-in command) vk-spec)
+                         (get-platform extension-name vk-spec))
+                () "command <~a> is referenced in extensions <~a> and <~a> and thus protected by different platforms <~a> and <~a>!"
+                name
+                (referenced-in command)
+                extension-name
+                (get-platform (referenced-in command) vk-spec)
+                (get-platform extension-name vk-spec)))
+    (assert (not (member name (commands require-data) :test #'string=)) ()
+            "command <~a> already listed in require-data of extension <~a>" name extension-name)
+    (push name (commands require-data))))
+
+(defun get-platform (title vk-spec)
+  (unless (gethash title (features vk-spec))
+    (let ((extension (gethash title (extensions vk-spec))))
+      (assert extension ()
+              "extension <~a> not found" title)
+      (platform extension))))
 
 (defun get-platforms (extension-names vk-spec)
   "Returns a list of unique platform names for a given sequence of extension names."
@@ -1089,25 +1102,37 @@ See VULKAN-SPEC
    (loop for e in extension-names
          collect (platform (gethash e (extensions vk-spec))))))
 
-(defun parse-extension-require-type (node extension-name vk-spec)
+(defun parse-extension-require-type (node extension-name require-data vk-spec)
   "TODO"
   (let* ((name (xps (xpath:evaluate "@name" node)))
          (type (gethash name (types vk-spec))))
     (assert type
             () "failed to find required type <~a>" name)
-    (push extension-name (extensions type))
-    (assert (= (length (get-platforms (extensions type) vk-spec))
-               1)
-            () "type <~a> is protected by more than one platform" name)))
+    (if (not (referenced-in type))
+        (progn
+          (setf (referenced-in type) extension-name)
+          (assert (not (member name (types require-data) :test #'string=)) ()
+                  "type <~a> already listed in require-data of extension <~a>" name extension-name)
+          (push name (types require-data)))
+        (assert (string= (get-platform (referenced-in type) vk-spec)
+                         (get-platform extension-name vk-spec))
+                () "type <~a> is referenced in extensions <~a> and <~a> and thus protected by different platforms <~a> and <~a>!"
+                name
+                (referenced-in type)
+                extension-name
+                (get-platform (referenced-in type) vk-spec)
+                (get-platform extension-name vk-spec)))))
 
 (defun parse-extensions (vk.xml vk-spec)
   "TODO"
   (xpath:do-node-set (node (xpath:evaluate "/registry/extensions/extension" vk.xml))
     (let ((name (xps (xpath:evaluate "@name" node)))
+          (number (xps (xpath:evaluate "@number" node)))
           (platform (xps (xpath:evaluate "@platform" node)))
           (deprecated-by (xps (xpath:evaluate "@deprecatedby" node)))
           (obsoleted-by (xps (xpath:evaluate "@obsoletedby" node)))
           (promoted-to (xps (xpath:evaluate "@promotedto" node)))
+          (provisional (xps (xpath:evaluate "@provisional" node)))
           (requirements
             (remove-duplicates
              (tokenize (xps (xpath:evaluate "@requires" node)))
@@ -1119,10 +1144,11 @@ See VULKAN-SPEC
               () "unknown platform <~a>" platform)
       (assert (or (not requires-core)
                   (find-if (lambda (f)
-                             (string= f requires-core))
+                             (string= (feature-number f) requires-core))
                            (alexandria:hash-table-values (features vk-spec))))
               () "unknown feature number <~a>" requires-core)
       (if (string= supported "disabled")
+          ;; see VulkanHppGenerator::readExtensionDisabledRequire
           (xpath:do-node-set (require-node (xpath:evaluate "require" node))
             ;; todo: remove disabled stuff
             (xpath:do-node-set (disable-node (xpath:evaluate "command" require-node))
@@ -1136,7 +1162,8 @@ See VULKAN-SPEC
                         (assert handle
                                 () "cannot find handle corresponding to command <~a>" command-name)
                         (remove command-name (commands handle) :test 'string=))))))
-            (xpath:do-node-set (disable-node (xpath:evaluate "enum" require-node))
+            ;; disabled enums are skipped by VulkanHppGenerator
+            #|(xpath:do-node-set (disable-node (xpath:evaluate "enum" require-node))
               (let ((enum-name (xps (xpath:evaluate "@name" disable-node)))
                     (enum-extends (xps (xpath:evaluate "@extends" disable-node))))
                 (when enum-extends
@@ -1146,7 +1173,7 @@ See VULKAN-SPEC
                     (assert (not (find-if (lambda (v)
                                        (string= (name v) enum-name))
                                      (enum-values enum)))
-                            () "disabled extension <~a> references known enum value <~a>" name enum-name)))))
+                            () "disabled extension <~a> references known enum value <~a>" name enum-name)))))|#
             (xpath:do-node-set (disable-node (xpath:evaluate "type" require-node))
               (let* ((type-name (xps (xpath:evaluate "@name" disable-node)))
                      (type (gethash type-name (types vk-spec))))
@@ -1182,30 +1209,46 @@ See VULKAN-SPEC
                                           :deprecated-by deprecated-by
                                           :obsoleted-by obsoleted-by
                                           :promoted-to promoted-to
-                                          :requirements requirements)))
+                                          :requires-attribute requirements)))
             (assert (not (gethash name (extensions vk-spec)))
                     () "already encountered extension <~a>" name)
             (setf (gethash name (extensions vk-spec))
                   extension)
-            (xpath:do-node-set (require-node (xpath:evaluate "require" node))
-              (let ((@extension (xps (xpath:evaluate "@extension" require-node)))
-                    (@feature (xps (xpath:evaluate "@feature" require-node))))
-                (when @extension
-                  (assert (not (find @extension (requirements extension) :test 'string=))
-                          () "require extension <~a> already listed" @extension)
-                  (push @extension (requirements extension)))
-                (assert (or (not @feature)
-                            (gethash @feature (features vk-spec)))
-                        () "unknown feature <~a>" @feature))
-              (let ((tag (second (split-sequence:split-sequence #\_ name))))
-                (assert (find tag (tags vk-spec) :test 'string=)
+            ;; check if extension tag is known: VK_<tag>_<other>
+            (let ((tag (second (split-sequence:split-sequence #\_ name))))
+              (assert (find tag (tags vk-spec) :test 'string=)
                         () "name <~a> is using an unknown tag <~a>" name tag)
-                (xpath:do-node-set (command-node (xpath:evaluate "command" require-node))
-                  (parse-extension-require-command command-node name vk-spec))
-                (xpath:do-node-set (enum-node (xpath:evaluate "enum" require-node))
-                  (parse-require-enum enum-node tag vk-spec))
-                (xpath:do-node-set (type-node (xpath:evaluate "type" require-node))
-                  (parse-extension-require-type type-node name vk-spec)))))))))
+              ;; see VulkanHppGenerator::readExtensionRequire
+              (xpath:do-node-set (require-node (xpath:evaluate "require" node))
+                (let* ((@extension (xps (xpath:evaluate "@extension" require-node)))
+                       (@feature (xps (xpath:evaluate "@feature" require-node)))
+                       (require-title (or @extension @feature)))
+                  (assert (not (and @extension @feature)) ()
+                          "require node is both a feature and an extension")
+                  (when @extension
+                    (assert (not (find-if (lambda (req)
+                                            (string= (title req) @extension))
+                                          (require-data extension)))
+                            () "require extension <~a> already listed" @extension))
+                  (when @feature
+                    (assert (gethash @feature (features vk-spec))
+                            () "unknown feature <~a>" @feature))
+                  (let ((require-data (make-instance 'require-data
+                                                     :name require-title
+                                                     :title require-title))
+                        (require-data-empty-p t)
+                        (extension-name (or require-title name)))
+                    (xpath:do-node-set (command-node (xpath:evaluate "command" require-node))
+                      (parse-extension-require-command command-node name require-data vk-spec)
+                      (setf require-data-empty-p nil))
+                    (xpath:do-node-set (enum-node (xpath:evaluate "enum" require-node))
+                      (parse-require-enum enum-node tag vk-spec))
+                    (xpath:do-node-set (type-node (xpath:evaluate "type" require-node))
+                      (parse-extension-require-type type-node name require-data vk-spec)
+                      (setf require-data-empty-p nil))
+                    (unless require-data-empty-p
+                      (push require-data
+                            (require-data (gethash name (extensions vk-spec))))))))))))))
 
 (defun parse-platforms (vk.xml vk-spec)
   "Parses platform tags in the given vk.xml into PLATFORM instances and stores them in the hash map bound to the PLATFORMS slot of the given VULKAN-SPEC instance.
@@ -1235,41 +1278,58 @@ See VULKAN-SPEC
                            :name name
                            :protect protect)))))
 
+;; see VulkanHppGenerator::readFeature
 (defun parse-features (vk.xml vk-spec)
   "TODO"
   (xpath:do-node-set (node (xpath:evaluate "/registry/feature" vk.xml))
     (let* ((name (xps (xpath:evaluate "@name" node)))
-           (number (xps (xpath:evaluate "@number" node))))
+           (feature-number (xps (xpath:evaluate "@number" node))))
       (assert (string= name
-                       (concatenate 'string "VK_VERSION_" (substitute #\_ #\. number)))
+                       (concatenate 'string "VK_VERSION_" (substitute #\_ #\. feature-number)))
               () "unexpected formatting of name <~a>" name)
       (assert (not (gethash name (features vk-spec)))
               () "already specified feature <~a>" name)
       (setf (gethash name (features vk-spec))
-            number)
+            (make-instance 'feature
+                           :name name
+                           :feature-number feature-number))
+      ;; see VulkanHppGenerator::readFeatureRequire
       (xpath:do-node-set (require-node (xpath:evaluate "require" node))
-        (xpath:do-node-set (command-node (xpath:evaluate "command" require-node))
-          (let* ((command-name (xps (xpath:evaluate "@name" command-node)))
-                 (command (gethash command-name (commands vk-spec))))
-            (assert command
-                    () "feature requires unknown command <~a>" command-name)
-            (assert (not (feature command))
-                    () "command <~a> already listed with feature <~a>" command-name (feature command))
-            (setf (feature command) name)))
-        (xpath:do-node-set (enum-node (xpath:evaluate "enum" require-node))
-          (parse-require-enum enum-node "" vk-spec))
-        (xpath:do-node-set (type-node (xpath:evaluate "type" require-node))
-          (let ((type-name (xps (xpath:evaluate "@name" type-node))))
-            (when (and (not (gethash type-name (defines vk-spec)))
-                       (not (find type-name (includes vk-spec) :test 'string=)))
-              (let ((type (gethash type-name (types vk-spec))))
-                (assert type
-                        () "feature requires unknown type <~a>" type-name)
-                (assert (or (not (feature type))
-                            (string= (feature type) name))
-                        () "type <~a> already listed on feature <~a>" type-name (feature type))
-                (setf (feature type)
-                      name)))))))))
+        (let ((require-data (make-instance 'require-data))
+              (require-data-empty-p t))
+          ;; see VulkanHppGenerator::readFeatureRequireCommand
+          (xpath:do-node-set (command-node (xpath:evaluate "command" require-node))
+            (let* ((command-name (xps (xpath:evaluate "@name" command-node)))
+                   (command (gethash command-name (commands vk-spec))))
+              (assert command
+                      () "feature requires unknown command <~a>" command-name)
+              (assert (not (referenced-in command))
+                      () "command <~a> already listed with feature <~a>" command-name (referenced-in command))
+              (setf (referenced-in command) name)
+              (assert (not (find command-name (commands require-data) :test #'string=)) ()
+                      "command <~a> already listed in require of feature <~a>" command-name name)
+              (push command-name (commands require-data))
+              (setf require-data-empty-p nil)))
+          ;; see VulkanHppGenerator::readFeatureRequireEnum
+          (xpath:do-node-set (enum-node (xpath:evaluate "enum" require-node))
+            (parse-require-enum enum-node "" vk-spec))
+          ;; see VulkanHppGenerator::readFeatureRequireType
+          (xpath:do-node-set (type-node (xpath:evaluate "type" require-node))
+            (let ((type-name (xps (xpath:evaluate "@name" type-node))))
+              (when (and (not (gethash type-name (defines vk-spec)))
+                         (not (find type-name (includes vk-spec) :test 'string=)))
+                (let ((type (gethash type-name (types vk-spec))))
+                  (assert type
+                          () "feature requires unknown type <~a>" type-name)
+                  (assert (or (not (referenced-in type))
+                              (string= (referenced-in type) name))
+                          () "type <~a> already listed on feature <~a>" type-name (referenced-in type))
+                  (setf (referenced-in type)
+                        name)
+                  (push type-name (types require-data))
+                  (setf require-data-empty-p nil)))))
+          (unless require-data-empty-p
+            (push require-data (require-data (gethash name (features vk-spec))))))))))
 
 (defun parse-copyright (vk.xml vk-spec)
   "Searches and parses the copyright notice from the top level comments in the given vk.xml and binds the result to the VULKAN-LICENCE-HEADER slot in the given VULKAN-SPEC instance.
@@ -1297,6 +1357,47 @@ See VULKAN-SPEC
   (assert (vulkan-license-header vk-spec)
           () "no copyright notice found in vk.xml"))
 
+;; see VulkanHppGenerator::addMissingFlagBits
+(defun add-missing-flag-bits (require-data referenced-in vk-spec)
+  "Adds *FlagBits which are missing in the \"types\" section of the vk.xml to a given VULKAN-SPEC instance."
+  (loop for require in require-data
+        for new-types = nil do
+        (loop for type in (types require)
+              for bitmask = (gethash type (bitmasks vk-spec))
+              when (and bitmask (not (requires bitmask))) do
+              (let* ((mask-name (name bitmask))
+                     (pos (search "Flags" mask-name)))
+                (assert pos ()
+                        "bitmask <~a> does not contain <Flags> as a substring" mask-name)
+                (let ((flag-bits (format nil "~aBit~a"
+                                         (subseq mask-name 0 (+ pos 4))
+                                         (subseq mask-name (+ pos 4)))))
+                  (setf (requires bitmask) flag-bits)
+                  (if (not (gethash flag-bits (enums vk-spec)))
+                      (progn
+                        (setf (gethash flag-bits (enums vk-spec))
+                              (make-instance 'enum
+                                             :name flag-bits
+                                             :is-bitmask-p t))
+                        (assert (not (gethash flag-bits (types vk-spec))) ()
+                                "bitmask <~a> already specified as a type" flag-bits)
+                        (setf (gethash flag-bits (types vk-spec))
+                              (make-instance 'vk-type
+                                             :name flag-bits
+                                             :category :bitmask
+                                             :referenced-in referenced-in)))
+                      (assert (gethash flag-bits (types vk-spec)) ()
+                              "bitmask <~a> is not backed by a type" flag-bits))
+                  (if (find-if (lambda (require-type)
+                                 (string= require-type flag-bits))
+                               (types require))
+                      (warn "flag bits <~a> not specified in types section, but already present in require-data" flag-bits)
+                      (push flag-bits new-types)))))
+        (setf (types require)
+              (concatenate 'list
+                           (types require)
+                           (reverse new-types)))))
+
 (defun parse-vk-xml (version vk-xml-pathname)
   "Parses the vk.xml file at VK-XML-PATHNAME into a VK-SPEC instance."
   (let* ((vk.xml (cxml:parse-file vk-xml-pathname
@@ -1317,6 +1418,13 @@ See VULKAN-SPEC
     (parse-commands vk.xml vk-spec)
     (parse-features vk.xml vk-spec)
     (parse-extensions vk.xml vk-spec)
+
+    (loop for feature being the hash-values of (features vk-spec)
+          using (hash-key feature-name)
+          do (add-missing-flag-bits (require-data feature) feature-name vk-spec))
+    (loop for extension being the hash-values of (extensions vk-spec)
+          using (hash-key extension-name)
+          do (add-missing-flag-bits (require-data extension) extension-name vk-spec))
     
     ;; reverse order of lists 
     (setf (extended-structs vk-spec)

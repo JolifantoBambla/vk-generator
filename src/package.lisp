@@ -1,11 +1,21 @@
-(uiop:define-package :vk-generator
-    (:use :cl)
+(defpackage #:vk-generator.constants
+  (:use :cl)
   (:export
-   ;; vk.xml related
-   :*versions*
-   :get-xml-path
-   :ensure-vk-xml
+   ;; constants
+   :*special-words*
+   :*vk-platform*
+   :*opaque-types*
+   :*opaque-struct-types*
+   :*fix-must-be*
+   :*misc-os-types*
+   :+ext-base+
+   :+ext-block-size+))
 
+(defpackage #:vulkan-spec
+  (:documentation "A CLOS-based representation of the Vulkan specifcation parsed from a vk.xml.")
+  (:use :cl
+        :vk-generator.constants)
+  (:export
    ;; vulkan-spec related
    ;; other accessors
    :name
@@ -64,8 +74,16 @@
    :is-struct-p
    :calls
    :args
+
+   ;; functions
    :sorted-elements
    :sorted-names
+   :const-pointer-p
+   :non-const-pointer-p
+   :value-p
+   :make-aliased-command
+   :extension-command-p
+   :structure-type-p
    
    ;; vulkan-spec
    :vulkan-spec
@@ -77,6 +95,7 @@
    :enums
    :extended-structs
    :extensions
+   :extension-names
    :features
    :func-pointers
    :handles
@@ -90,21 +109,23 @@
    :version
    :vulkan-license-header
 
-   ;; constants
-   :*special-words*
-   :*vk-platform*
-   :*opaque-types*
-   :*opaque-struct-types*
-   :*fix-must-be*
-   :*misc-os-types*
+   ;; parse spec
+   :parse-vk-xml))
+
+(uiop:define-package :vk-generator
+    (:use :cl
+          :vulkan-spec
+          :vk-generator.constants)
+  (:export
+   ;; vk.xml related
+   :*versions*
+   :get-xml-path
+   :ensure-vk-xml
 
    ;; fix-name
    :fix-type-name
    :fix-function-name
    :fix-bit-name
-
-   ;; parse spec
-   :parse-vk-xml
 
    ;; write package
    :write-vk-package

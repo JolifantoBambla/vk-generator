@@ -6,7 +6,7 @@
  SPDX-License-Identifier: Apache-2.0
 |#
 
-(in-package :vk-generator)
+(in-package #:vulkan-spec)
 
 ;;; CLASSES WITH HEAVILY REUSED SLOTS
 
@@ -76,6 +76,14 @@ See TYPE-NAME    the name of a type in the Vulkan API registry or a primitive C 
     :type string
     :initform nil
     :accessor bit-count)))
+
+(defclass has-referenced-in ()
+  ((referenced-in
+    :initarg :referenced-in
+    :type string
+    :initform nil
+    :accessor referenced-in))
+  (:documentation "Has a slot REFERENCED-IN holding a string which names a feature or extension referencing the instance."))
 
 ;; todo: maybe this is also a vk-element
 (defclass name-data (has-name has-array-sizes has-bit-count)
@@ -228,7 +236,7 @@ See *VK-PLATFORM*
   ()
   (:documentation "TODO"))
 
-(defclass command (vk-element has-extensions has-feature)
+(defclass command (vk-element has-extensions has-feature has-referenced-in)
   ((alias
     :initarg :alias
     :type hash-table ;; string - command-alias
@@ -347,6 +355,40 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
     :accessor enum-values))
   (:documentation "TODO"))
 
+(defclass require-data (vk-element)
+  ((name
+    :initarg :name
+    :type string
+    :initform ""
+    :accessor name)
+   (title
+    :initarg :title
+    :type string
+    :initform nil
+    :accessor title)
+   (commands
+    :initarg :commands
+    :type list ;; of strings
+    :initform nil
+    :accessor commands)
+   (types
+    :initarg :types
+    :type list ;; of strings
+    :initform nil
+    :accessor types)))
+
+(defclass feature (vk-element)
+  ((feature-number
+    :initarg :feature-number
+    :type string
+    :initform nil
+    :accessor feature-number)
+   (require-data
+    :initarg :require-data
+    :type list ;; of require-data
+    :initform nil
+    :accessor require-data)))
+
 (defclass extension (vk-element)
   ((deprecated-by
     :initarg :deprecated-by
@@ -364,11 +406,16 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
     :initarg :promoted-to
     :type string
     :accessor promoted-to)
-   (requirements
-    :initarg :requirements
-    :type list ;; string (used to be a mapping of requirement name to xml-line
+   (requires-attribute
+    :initarg :requires-attribute
+    :type list ;; a set of strings
     :initform nil
-    :accessor requirements))
+    :accessor requires-attribute)
+   (require-data
+    :initarg :require-data
+    :type list ;; of require-data
+    :initform nil
+    :accessor require-data))
   (:documentation "TODO"))
 
 (defclass func-pointer (vk-element)
@@ -378,6 +425,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
     :accessor requirements))
   (:documentation "TODO"))
 
+;; todo: there is new stuff here as well (e.g. objtypeenum, parent is singular now?, secondLevelCommands
 (defclass handle (vk-element has-alias)
   ((children
     :initarg :children
@@ -530,10 +578,11 @@ See MEMBERS    an ordered list of MEMBER-DATA instances describing members of th
     :union
     :unknown))
 
-(defclass vk-type (vk-element has-extensions has-feature)
+(defclass vk-type (vk-element has-extensions has-feature has-referenced-in)
   ((category
     :initarg :category
     :type type-category
+    :initform :unknown
     :accessor category))
   (:documentation "TODO"))
 
@@ -626,7 +675,7 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :accessor extension-names)
    (features
     :initarg :features
-    :type hash-table ;; string to string
+    :type hash-table ;; string to feature
     :initform (make-hash-table :test 'equal)
     :accessor features)
    (func-pointers

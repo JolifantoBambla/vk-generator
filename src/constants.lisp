@@ -26,7 +26,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package :vk-generator)
+(in-package #:vk-generator.constants)
 
 (defparameter *special-words*
   '("Bool32" "Win32"
