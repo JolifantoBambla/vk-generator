@@ -74,6 +74,7 @@
    :is-struct-p
    :calls
    :args
+   :extension-p
 
    ;; functions
    :sorted-elements

@@ -61,7 +61,7 @@
      "int32_t" :int32
      "int64_t" :int64 ;; added this after v1.1.119 failed (not sure which version added this)
      "int" :int
-     "size_t" size-t)
+     "size_t" :size)
    :test 'equal))
 
 (defparameter *opaque-types*

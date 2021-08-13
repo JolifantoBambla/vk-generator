@@ -1068,13 +1068,15 @@ See VULKAN-SPEC
 (defun parse-extension-require-command (node extension-name require-data vk-spec)
   "TODO"
   (let* ((name (xps (xpath:evaluate "@name" node)))
-         (command (gethash name (commands vk-spec))))
-    (unless command
-      (setf command (find-if (lambda (c)
-                               (gethash name (alias c)))
-                             (alexandria:hash-table-values (commands vk-spec))))
-      (assert command
-              () "extension <~a> requires unknown command <~a>" extension-name name))
+         (aliasp (not (gethash name (commands vk-spec))))
+         (command (or (gethash name (commands vk-spec))
+                      (find-if (lambda (c)
+                                 (gethash name (alias c)))
+                               (alexandria:hash-table-values (commands vk-spec))))))
+    (assert command
+            () "extension <~a> requires unknown command <~a>" extension-name name)
+    (when aliasp
+      (setf command (gethash name (alias command))))
     (if (not (referenced-in command))
         (setf (referenced-in command) extension-name)
         (assert (string= (get-platform (referenced-in command) vk-spec)
@@ -1085,6 +1087,9 @@ See VULKAN-SPEC
                 extension-name
                 (get-platform (referenced-in command) vk-spec)
                 (get-platform extension-name vk-spec)))
+    (when (and (not (extension-p command))
+               (not (alexandria:ends-with-subseq "KHR" (name command))))
+      (setf (extension-p command) t))
     (assert (not (member name (commands require-data) :test #'string=)) ()
             "command <~a> already listed in require-data of extension <~a>" name extension-name)
     (push name (commands require-data))))
@@ -1162,18 +1167,7 @@ See VULKAN-SPEC
                         (assert handle
                                 () "cannot find handle corresponding to command <~a>" command-name)
                         (remove command-name (commands handle) :test 'string=))))))
-            ;; disabled enums are skipped by VulkanHppGenerator
-            #|(xpath:do-node-set (disable-node (xpath:evaluate "enum" require-node))
-              (let ((enum-name (xps (xpath:evaluate "@name" disable-node)))
-                    (enum-extends (xps (xpath:evaluate "@extends" disable-node))))
-                (when enum-extends
-                  (let ((enum (gethash enum-extends (enums vk-spec))))
-                    (assert enum
-                            () "disabled extension <~a> references unknown enum <~a>" name enum-extends)
-                    (assert (not (find-if (lambda (v)
-                                       (string= (name v) enum-name))
-                                     (enum-values enum)))
-                            () "disabled extension <~a> references known enum value <~a>" name enum-name)))))|#
+            ;; disabled enums are skipped also by VulkanHppGenerator
             (xpath:do-node-set (disable-node (xpath:evaluate "type" require-node))
               (let* ((type-name (xps (xpath:evaluate "@name" disable-node)))
                      (type (gethash type-name (types vk-spec))))

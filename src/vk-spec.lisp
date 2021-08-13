@@ -232,11 +232,19 @@ See *VK-PLATFORM*
     :accessor optional-p))
   (:documentation "TODO"))
 
-(defclass command-alias (vk-element has-extensions has-feature)
+(defclass has-extension-p ()
+  ((extension-p
+    :initarg :extension-p
+    :type boolean
+    :initform nil
+    :accessor extension-p))
+  (:documentation "TODO"))
+
+(defclass command-alias (vk-element has-referenced-in has-extension-p)
   ()
   (:documentation "TODO"))
 
-(defclass command (vk-element has-extensions has-feature has-referenced-in)
+(defclass command (vk-element has-referenced-in has-extension-p)
   ((alias
     :initarg :alias
     :type hash-table ;; string - command-alias
@@ -278,8 +286,7 @@ See HAS-FEATURE
   "Creates an aliased command from a COMMAND and a COMMAND-ALIAS instance."
   (make-instance 'command
                  :name (name command-alias)
-                 :extensions (extensions command-alias)
-                 :feature (feature command-alias)
+                 :referenced-in (referenced-in command-alias)
                  :comment (comment command-alias)
                  :error-codes (error-codes command)
                  :handle (handle command)
@@ -291,8 +298,7 @@ See HAS-FEATURE
   "Checks if a command is from the core API or an extension function.
 Note that *KHR-functions are extension functions, but reside in the core shared library (libvulkan.so/vulkan-1.dll/libvulkan.1.dylib)
 and so their function pointers don't have to be loaded dynamically using vkGet*ProcAddr."
-  (and (extensions command)
-             (not (alexandria:ends-with-subseq "KHR" (name command)))))
+  (extension-p command))
 
 (defclass enum-value (vk-element)
   ((number-value
