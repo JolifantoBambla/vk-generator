@@ -77,6 +77,6 @@ jobs:
           sbcl \
             --non-interactive \
             --eval "(ql:quickload :vk-generator)" \
-            --eval "(vk-generator:generate :version \"${{ matrix.vulkan-sdk }}\")" \
+            --eval "(vk-generator:generate :version \"v${{ matrix.vulkan-sdk }}\")" \
             --eval "(asdf:load-system :vk)" \
             --eval "(sb-ext:quit)"
