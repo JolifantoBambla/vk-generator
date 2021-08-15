@@ -26,7 +26,7 @@
 ;;; DEALINGS IN THE SOFTWARE.
 ;;;
 
-(in-package #:vk-generator.constants)
+(in-package #:vulkan-spec.constants)
 
 (defparameter *special-words*
   '("Bool32" "Win32"

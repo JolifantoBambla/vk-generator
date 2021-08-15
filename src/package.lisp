@@ -1,4 +1,4 @@
-(defpackage #:vk-generator.constants
+(defpackage #:vulkan-spec.constants
   (:use :cl)
   (:export
    ;; constants
@@ -14,10 +14,32 @@
 (defpackage #:vulkan-spec
   (:documentation "A CLOS-based representation of the Vulkan specifcation parsed from a vk.xml.")
   (:use :cl
-        :vk-generator.constants)
+        :vulkan-spec.constants)
   (:export
-   ;; vulkan-spec related
-   ;; other accessors
+   ;; classes
+   :api-constant
+   :base-type
+   :bitmask
+   :command
+   :command-alias
+   :define
+   :enum
+   :enum-value
+   :extension
+   :feature
+   :func-pointer
+   :handle
+   :member-data
+   :name-data
+   :param
+   :platform
+   :require-data
+   :struct
+   :type-category
+   :type-info
+   :vk-type
+   
+   ;; accessors
    :name
    :alias
    :type-info
@@ -74,7 +96,7 @@
    :is-struct-p
    :calls
    :args
-   :extension-p
+   :needs-explicit-loading-p
 
    ;; functions
    :sorted-elements
@@ -116,7 +138,7 @@
 (uiop:define-package :vk-generator
     (:use :cl
           :vulkan-spec
-          :vk-generator.constants)
+          :vulkan-spec.constants)
   (:export
    ;; vk.xml related
    :*versions*

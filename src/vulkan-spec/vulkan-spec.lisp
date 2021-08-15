@@ -32,17 +32,6 @@ See NAME    the name of the instance in the Vulkan API registry."))
 Slots:
 See ALIAS   the alias for this instance."))
 
-(defclass has-extensions ()
-  ((extensions
-    :initarg :extensions
-    :type list ;; string
-    :initform nil
-    :accessor extensions))
-  (:documentation "Provides an optional EXTENSIONS slot.
-
-Slots:
-See EXTENSIONS    a list of names for extensions this instance belongs to."))
-
 (defclass has-type-name ()
   ((type-name
     :initarg :type-name
@@ -53,14 +42,6 @@ See EXTENSIONS    a list of names for extensions this instance belongs to."))
 
 Slots:
 See TYPE-NAME    the name of a type in the Vulkan API registry or a primitive C type."))
-
-(defclass has-feature ()
-  ((feature
-    :initarg :feature
-    :type string
-    :initform nil
-    :accessor feature))
-  (:documentation "TODO"))
 
 (defclass has-array-sizes ()
   ((array-sizes
@@ -232,19 +213,25 @@ See *VK-PLATFORM*
     :accessor optional-p))
   (:documentation "TODO"))
 
-(defclass has-extension-p ()
-  ((extension-p
-    :initarg :extension-p
+(defclass has-needs-explicit-loading-p ()
+  ((needs-explicit-loading-p
+    :initarg :needs-explicit-loading-p
     :type boolean
     :initform nil
-    :accessor extension-p))
-  (:documentation "TODO"))
+    :accessor needs-explicit-loading-p))
+  (:documentation "Provides an optional NEEDS-EXPLICIT-LOADING-P slot.
 
-(defclass command-alias (vk-element has-referenced-in has-extension-p)
+Slots:
+See NEEDS-EXPLICIT-LOADING-P   If true, the command is an extension function which needs to be loaded explicitly.
+                               Note that *KHR-functions are extension functions, but reside in the core shared library (libvulkan.so/vulkan-1.dll/libvulkan.1.dylib),
+                               so their function pointers don't have to be loaded dynamically using vkGet*ProcAddr.
+"))
+
+(defclass command-alias (vk-element has-referenced-in has-needs-explicit-loading-p)
   ()
   (:documentation "TODO"))
 
-(defclass command (vk-element has-referenced-in has-extension-p)
+(defclass command (vk-element has-referenced-in has-needs-explicit-loading-p)
   ((alias
     :initarg :alias
     :type hash-table ;; string - command-alias
@@ -278,8 +265,8 @@ See *VK-PLATFORM*
   (:documentation "TODO
 
 See VK-ELEMENT
-See HAS-EXTENSIONS
-See HAS-FEATURE
+See HAS-REFERENCED-IN
+See HAS-EXTENSION-P
 "))
 
 (defun make-aliased-command (command command-alias)
@@ -293,12 +280,6 @@ See HAS-FEATURE
                  :params (params command)
                  :return-type (return-type command)
                  :success-codes (success-codes command)))
-
-(defun extension-command-p (command)
-  "Checks if a command is from the core API or an extension function.
-Note that *KHR-functions are extension functions, but reside in the core shared library (libvulkan.so/vulkan-1.dll/libvulkan.1.dylib)
-and so their function pointers don't have to be loaded dynamically using vkGet*ProcAddr."
-  (extension-p command))
 
 (defclass enum-value (vk-element)
   ((number-value
@@ -584,7 +565,7 @@ See MEMBERS    an ordered list of MEMBER-DATA instances describing members of th
     :union
     :unknown))
 
-(defclass vk-type (vk-element has-extensions has-feature has-referenced-in)
+(defclass vk-type (vk-element has-referenced-in)
   ((category
     :initarg :category
     :type type-category
@@ -655,10 +636,10 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :initform (make-hash-table :test 'equal)
     :accessor constants)
    (defines
-       :initarg :defines
-       :type hash-table ;; string to define
-       :initform (make-hash-table :test 'equal)
-       :accessor defines)
+    :initarg :defines
+    :type hash-table ;; string to define
+    :initform (make-hash-table :test 'equal)
+    :accessor defines)
    (enums
     :initarg :enums
     :type hash-table ;; string to enum

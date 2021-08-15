@@ -73,7 +73,7 @@
         (success (success-codes command))
         (errors (error-codes command)))
     (format out "(~a (~s ~(~a) ~a~)"
-            (if (extension-p command) *ext-definer* *core-definer*)
+            (if (needs-explicit-loading-p command) *ext-definer* *core-definer*)
             name
             (fix-function-name name (tags vk-spec))
             (cond
