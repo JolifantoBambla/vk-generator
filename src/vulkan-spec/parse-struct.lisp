@@ -29,9 +29,9 @@
 
 (defparameter *ignore-lens*
   '("null-terminated"
-    "latexmath:[\\lceil{\\mathit{rasterizationSamples} \\over 32}\\rceil]"
     "2*VK_UUID_SIZE"
-    "2*ename:VK_UUID_SIZE")
+    "2*ename:VK_UUID_SIZE"
+    "latexmath:[2 \\times \\mathtt{VK\\_UUID\\_SIZE}]")
   "A list of <len> attributes in <member> tags.")
 
 (defun parse-struct-member (node structure vk-spec)
@@ -77,7 +77,8 @@
                                   (members structure))))
         (assert (or len-member
                     (find first-len *ignore-lens* :test #'string=)
-                    (string= first-len "latexmath:[\\textrm{codeSize} \\over 4]"))
+                    (string= first-len "latexmath:[\\textrm{codeSize} \\over 4]")
+                    (string= first-len "latexmath:[\\lceil{\\mathit{rasterizationSamples} \\over 32}\\rceil]"))
                 () "member attribute <len> holds unknown value <~a>" first-len)
         (when len-member
           (assert (and (not (prefix (type-info len-member)))

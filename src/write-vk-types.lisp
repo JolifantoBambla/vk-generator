@@ -229,7 +229,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                       (string (fix-type-name (type-name (type-info member-data)) (tags vk-spec)))
                                       (enum-values (gethash (type-name (type-info member-data)) (enums vk-spec)))
                                       (tags vk-spec)))))
-      
+
       ;; members of some VK-defined type (lists or single instances)
       ((or (gethash (type-name (type-info member-data)) (structures vk-spec))
            (member (type-name (type-info member-data)) *opaque-struct-types* :test #'string=))
@@ -259,9 +259,10 @@ Instances of this class are used as parameters of the following functions:~{~%Se
 
       ;; lists of handles
       ((and (len member-data)
-            (find-if (lambda (count-member)
-                       (string= (car (len member-data)) count-member))
-                     count-member-names))
+            (or (search "rasterizationSamples" (car (len member-data))) ;; VkPipelineMultisampleStateCreateInfo.pSampleMask (not technically a handle)
+                (find-if (lambda (count-member)
+                           (string= (car (len member-data)) count-member))
+                         count-member-names)))
        (format nil "(vk-alloc:foreign-allocate-and-fill '%vk:~(~a~) (~(vk:~a~) ~a) ~a)"
                (fix-type-name (type-name (type-info member-data)) (tags vk-spec))
                fixed-accessor-name
