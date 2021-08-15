@@ -1,13 +1,45 @@
-(uiop:define-package :vk-generator
-    (:use :cl)
+(defpackage #:vulkan-spec.constants
+  (:use :cl)
   (:export
-   ;; vk.xml related
-   :*versions*
-   :get-xml-path
-   :ensure-vk-xml
+   ;; constants
+   :*special-words*
+   :*vk-platform*
+   :*opaque-types*
+   :*opaque-struct-types*
+   :*fix-must-be*
+   :*misc-os-types*
+   :+ext-base+
+   :+ext-block-size+))
 
-   ;; vulkan-spec related
-   ;; other accessors
+(defpackage #:vulkan-spec
+  (:documentation "A CLOS-based representation of the Vulkan specifcation parsed from a vk.xml.")
+  (:use :cl
+        :vulkan-spec.constants)
+  (:export
+   ;; classes
+   :api-constant
+   :base-type
+   :bitmask
+   :command
+   :command-alias
+   :define
+   :enum
+   :enum-value
+   :extension
+   :feature
+   :func-pointer
+   :handle
+   :member-data
+   :name-data
+   :param
+   :platform
+   :require-data
+   :struct
+   :type-category
+   :type-info
+   :vk-type
+   
+   ;; accessors
    :name
    :alias
    :type-info
@@ -64,8 +96,17 @@
    :is-struct-p
    :calls
    :args
+   :needs-explicit-loading-p
+
+   ;; functions
    :sorted-elements
    :sorted-names
+   :const-pointer-p
+   :non-const-pointer-p
+   :value-p
+   :make-aliased-command
+   :extension-command-p
+   :structure-type-p
    
    ;; vulkan-spec
    :vulkan-spec
@@ -77,6 +118,7 @@
    :enums
    :extended-structs
    :extensions
+   :extension-names
    :features
    :func-pointers
    :handles
@@ -90,21 +132,23 @@
    :version
    :vulkan-license-header
 
-   ;; constants
-   :*special-words*
-   :*vk-platform*
-   :*opaque-types*
-   :*opaque-struct-types*
-   :*fix-must-be*
-   :*misc-os-types*
+   ;; parse spec
+   :parse-vk-xml))
+
+(uiop:define-package :vk-generator
+    (:use :cl
+          :vulkan-spec
+          :vulkan-spec.constants)
+  (:export
+   ;; vk.xml related
+   :*versions*
+   :get-xml-path
+   :ensure-vk-xml
 
    ;; fix-name
    :fix-type-name
    :fix-function-name
    :fix-bit-name
-
-   ;; parse spec
-   :parse-vk-xml
 
    ;; write package
    :write-vk-package

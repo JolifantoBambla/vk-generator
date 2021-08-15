@@ -6,7 +6,7 @@
  SPDX-License-Identifier: Apache-2.0
 |#
 
-(in-package :vk-generator)
+(in-package #:vulkan-spec)
 
 ;;; CLASSES WITH HEAVILY REUSED SLOTS
 
@@ -32,17 +32,6 @@ See NAME    the name of the instance in the Vulkan API registry."))
 Slots:
 See ALIAS   the alias for this instance."))
 
-(defclass has-extensions ()
-  ((extensions
-    :initarg :extensions
-    :type list ;; string
-    :initform nil
-    :accessor extensions))
-  (:documentation "Provides an optional EXTENSIONS slot.
-
-Slots:
-See EXTENSIONS    a list of names for extensions this instance belongs to."))
-
 (defclass has-type-name ()
   ((type-name
     :initarg :type-name
@@ -53,14 +42,6 @@ See EXTENSIONS    a list of names for extensions this instance belongs to."))
 
 Slots:
 See TYPE-NAME    the name of a type in the Vulkan API registry or a primitive C type."))
-
-(defclass has-feature ()
-  ((feature
-    :initarg :feature
-    :type string
-    :initform nil
-    :accessor feature))
-  (:documentation "TODO"))
 
 (defclass has-array-sizes ()
   ((array-sizes
@@ -76,6 +57,14 @@ See TYPE-NAME    the name of a type in the Vulkan API registry or a primitive C 
     :type string
     :initform nil
     :accessor bit-count)))
+
+(defclass has-referenced-in ()
+  ((referenced-in
+    :initarg :referenced-in
+    :type string
+    :initform nil
+    :accessor referenced-in))
+  (:documentation "Has a slot REFERENCED-IN holding a string which names a feature or extension referencing the instance."))
 
 ;; todo: maybe this is also a vk-element
 (defclass name-data (has-name has-array-sizes has-bit-count)
@@ -224,11 +213,25 @@ See *VK-PLATFORM*
     :accessor optional-p))
   (:documentation "TODO"))
 
-(defclass command-alias (vk-element has-extensions has-feature)
+(defclass has-needs-explicit-loading-p ()
+  ((needs-explicit-loading-p
+    :initarg :needs-explicit-loading-p
+    :type boolean
+    :initform nil
+    :accessor needs-explicit-loading-p))
+  (:documentation "Provides an optional NEEDS-EXPLICIT-LOADING-P slot.
+
+Slots:
+See NEEDS-EXPLICIT-LOADING-P   If true, the command is an extension function which needs to be loaded explicitly.
+                               Note that *KHR-functions are extension functions, but reside in the core shared library (libvulkan.so/vulkan-1.dll/libvulkan.1.dylib),
+                               so their function pointers don't have to be loaded dynamically using vkGet*ProcAddr.
+"))
+
+(defclass command-alias (vk-element has-referenced-in has-needs-explicit-loading-p)
   ()
   (:documentation "TODO"))
 
-(defclass command (vk-element has-extensions has-feature)
+(defclass command (vk-element has-referenced-in has-needs-explicit-loading-p)
   ((alias
     :initarg :alias
     :type hash-table ;; string - command-alias
@@ -262,29 +265,21 @@ See *VK-PLATFORM*
   (:documentation "TODO
 
 See VK-ELEMENT
-See HAS-EXTENSIONS
-See HAS-FEATURE
+See HAS-REFERENCED-IN
+See HAS-EXTENSION-P
 "))
 
 (defun make-aliased-command (command command-alias)
   "Creates an aliased command from a COMMAND and a COMMAND-ALIAS instance."
   (make-instance 'command
                  :name (name command-alias)
-                 :extensions (extensions command-alias)
-                 :feature (feature command-alias)
+                 :referenced-in (referenced-in command-alias)
                  :comment (comment command-alias)
                  :error-codes (error-codes command)
                  :handle (handle command)
                  :params (params command)
                  :return-type (return-type command)
                  :success-codes (success-codes command)))
-
-(defun extension-command-p (command)
-  "Checks if a command is from the core API or an extension function.
-Note that *KHR-functions are extension functions, but reside in the core shared library (libvulkan.so/vulkan-1.dll/libvulkan.1.dylib)
-and so their function pointers don't have to be loaded dynamically using vkGet*ProcAddr."
-  (and (extensions command)
-             (not (alexandria:ends-with-subseq "KHR" (name command)))))
 
 (defclass enum-value (vk-element)
   ((number-value
@@ -307,7 +302,17 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
     :initarg :single-bit-p
     :type boolean
     :initform nil
-    :accessor single-bit-p))
+    :accessor single-bit-p)
+   (protect
+    :initarg :protect
+    :type string
+    :initform nil
+    :accessor protect)
+   (extension
+    :initarg :extension
+    :type string
+    :initform nil
+    :accessor extension))
   (:documentation "TODO"))
 
 (defclass api-constant (enum-value has-alias)
@@ -325,12 +330,51 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
     :type boolean
     :initform nil
     :accessor is-bitmask-p)
+   (bitwdith
+    :initarg :bitwidth
+    :type string
+    :initform nil
+    :accessor bitwidth)
    (enum-values
     :initarg :enum-values
     :type list ;; enum-value
     :initform nil
     :accessor enum-values))
   (:documentation "TODO"))
+
+(defclass require-data (vk-element)
+  ((name
+    :initarg :name
+    :type string
+    :initform ""
+    :accessor name)
+   (title
+    :initarg :title
+    :type string
+    :initform nil
+    :accessor title)
+   (commands
+    :initarg :commands
+    :type list ;; of strings
+    :initform nil
+    :accessor commands)
+   (types
+    :initarg :types
+    :type list ;; of strings
+    :initform nil
+    :accessor types)))
+
+(defclass feature (vk-element)
+  ((feature-number
+    :initarg :feature-number
+    :type string
+    :initform nil
+    :accessor feature-number)
+   (require-data
+    :initarg :require-data
+    :type list ;; of require-data
+    :initform nil
+    :accessor require-data)))
 
 (defclass extension (vk-element)
   ((deprecated-by
@@ -349,11 +393,16 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
     :initarg :promoted-to
     :type string
     :accessor promoted-to)
-   (requirements
-    :initarg :requirements
-    :type list ;; string (used to be a mapping of requirement name to xml-line
+   (requires-attribute
+    :initarg :requires-attribute
+    :type list ;; a set of strings
     :initform nil
-    :accessor requirements))
+    :accessor requires-attribute)
+   (require-data
+    :initarg :require-data
+    :type list ;; of require-data
+    :initform nil
+    :accessor require-data))
   (:documentation "TODO"))
 
 (defclass func-pointer (vk-element)
@@ -363,6 +412,7 @@ and so their function pointers don't have to be loaded dynamically using vkGet*P
     :accessor requirements))
   (:documentation "TODO"))
 
+;; todo: there is new stuff here as well (e.g. objtypeenum, parent is singular now?, secondLevelCommands
 (defclass handle (vk-element has-alias)
   ((children
     :initarg :children
@@ -515,10 +565,11 @@ See MEMBERS    an ordered list of MEMBER-DATA instances describing members of th
     :union
     :unknown))
 
-(defclass vk-type (vk-element has-extensions has-feature)
+(defclass vk-type (vk-element has-referenced-in)
   ((category
     :initarg :category
     :type type-category
+    :initform :unknown
     :accessor category))
   (:documentation "TODO"))
 
@@ -585,10 +636,10 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :initform (make-hash-table :test 'equal)
     :accessor constants)
    (defines
-       :initarg :defines
-       :type hash-table ;; string to define
-       :initform (make-hash-table :test 'equal)
-       :accessor defines)
+    :initarg :defines
+    :type hash-table ;; string to define
+    :initform (make-hash-table :test 'equal)
+    :accessor defines)
    (enums
     :initarg :enums
     :type hash-table ;; string to enum
@@ -611,7 +662,7 @@ If IS-STRUCT-P the #define actually names a generic external type (e.g.: 'struct
     :accessor extension-names)
    (features
     :initarg :features
-    :type hash-table ;; string to string
+    :type hash-table ;; string to feature
     :initform (make-hash-table :test 'equal)
     :accessor features)
    (func-pointers

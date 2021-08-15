@@ -91,17 +91,18 @@
 
 (defun write-base-types (out vk-spec)
   (loop for base-type in (sorted-elements (alexandria:hash-table-values (base-types vk-spec)))
+        for cffi-type = (gethash (type-name base-type) *vk-platform*)
         do (format out "~((defctype ~a ~s)~)~%~%"
                    (fix-type-name (name base-type) (tags vk-spec))
-                   (gethash (type-name base-type) *vk-platform*)))
+                   (if (eq cffi-type :void) :pointer cffi-type)))
   (format out "(defctype handle :pointer)~%")
   (format out "#.(if (= 8 (foreign-type-size :pointer))~%  '(defctype non-dispatch-handle :pointer)~%  '(defctype non-dispatch-handle :uint64))~%~%")
 
   ;; todo: get these from VK-SPEC (e.g. (find-if (lambda (t) (and (= (category t) :basetype) (not (gethash (name t) (base-types vk-spec))))) (alexandria:hash-table-values (types vk-spec))) ... )
   ;; misc OS types that are just passed around as pointers
   (loop for name in *opaque-types*
-        ;; fixme: is there a better type to use here? or use empty struct?
-        do (format out "~((defctype ~a :void)~)~%~%"
+        ;; fixme: these used to be :void, but :void is only valid as a return type
+        do (format out "~((defctype ~a :pointer)~)~%~%"
                    (fix-type-name name (tags vk-spec))))
   (loop for (name type) on *misc-os-types* by #'cddr
         do (format out "~((defctype ~a ~s)~)~%~%"
