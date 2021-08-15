@@ -322,6 +322,8 @@
                                       expand-from-file
                                       vk-spec)
     (write-vk-functions vk-functions-file vk-spec)
+
+    (write-with-resource-macros vk-spec)
     
     ;; copy additional files
     (loop for to-copy in copy-files

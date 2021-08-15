@@ -85,6 +85,27 @@
                    :len len
                    :optional-p optional-p)))
 
+(defun register-creator (command vk-spec)
+  "TODO"
+  (flet ((get-type-name (param)
+           (type-name (type-info param))))
+    (let* ((params (params command))
+           (num-params (length params))
+           (key nil)
+           (value-index nil)
+           (handle-arg (find-if (lambda (p)
+                                  (and (gethash (get-type-name p) (handles vk-spec))
+                                       (non-const-pointer-p (type-info p))))
+                                params)))
+      (assert handle-arg
+              () "creator has no handle parameter <~a>" command)
+      (assert (or (not (string= (subseq (name command) 2 8) "Create"))
+                  (string= "VkAllocationCallbacks"
+                           (get-type-name (elt params (- num-params 2)))))
+              () "unexpected second to last parameter for creator <~a>" (get-type-name (elt params (- num-params 2))))
+      (push (name command)
+            (create-command (gethash (get-type-name handle-arg) (handles vk-spec)))))))
+
 (defun register-deleter (command vk-spec)
   "TODO"
   (let* ((params (params command))
@@ -155,6 +176,11 @@
             (when (or (string= (subseq name 2 9) "Destroy")
                       (string= (subseq name 2 6) "Free"))
               (register-deleter command vk-spec))
+            (when (or (and (>= (length name) 8)
+                           (string= (subseq name 2 8) "Create"))
+                      (and (>= (length name) 10)
+                           (string= (subseq name 2 10) "Allocate")))
+              (register-creator command vk-spec))
 
             (assert (> (length (params command)) 0)
                     () "command <~a> with no params" name)

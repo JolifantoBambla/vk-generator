@@ -44,6 +44,7 @@
      (:file "write-types-file")
      (:file "write-vk-types")
      (:file "write-wrappers")
+     (:file "write-with-resource")
      (:file "write-vk-package")
      (:file "generate")))))
 

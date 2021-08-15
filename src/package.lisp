@@ -78,6 +78,7 @@
    :non-dispatch-handle-p
    :delete-command
    :delete-pool
+   :create-command
    :no-autovalidity-p
    :selection
    :selector

@@ -443,7 +443,12 @@ See HAS-EXTENSION-P
     :initarg :delete-pool
     :type string
     :initform nil
-    :accessor delete-pool))
+    :accessor delete-pool)
+   (create-command
+    :initarg :create-command
+    :type string
+    :initform nil
+    :accessor create-command))
   (:documentation "TODO
 
 See CHILDREN         The names of the HANDLE types that belong to this type.
