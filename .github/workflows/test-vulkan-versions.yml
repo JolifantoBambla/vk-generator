@@ -72,11 +72,11 @@ jobs:
         run: |
           cp -r ../${{ github.event.repository.name }} ~/quicklisp/local-projects
 
-      - name: Build docs
+      - name: Generate bindings
         run: |
           sbcl \
             --non-interactive \
             --eval "(ql:quickload :vk-generator)" \
             --eval "(vk-generator:generate :version \"v${{ matrix.vulkan-sdk }}\")" \
-            --eval "(asdf:load-system :vk)" \
+            --eval "(ql:quickload :vk)" \
             --eval "(sb-ext:quit)"
