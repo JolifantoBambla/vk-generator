@@ -20,7 +20,7 @@ jobs:
   # This workflow contains a single job called "build"
   test-vulkan-versions:
     # The type of runner that the job will run on
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -31,18 +31,6 @@ jobs:
           - "1.2.162"
           - "1.2.154"
           - "1.2.148"
-          - "1.2.131"
-          - "1.1.130"
-          - "1.1.126"
-          - "1.1.121"
-          - "1.1.114"
-          - "1.1.108"
-          - "1.1.106"
-          - "1.1.101"
-          - "1.1.97"
-          - "1.1.92"
-          - "1.1.85"
-          - "1.1.82"
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -51,9 +39,9 @@ jobs:
           # Add lunarg apt sources
           wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
           if [ "${{ matrix.vulkan-sdk }}" = "latest" ]; then
-            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-bionic.list https://packages.lunarg.com/vulkan/lunarg-vulkan-bionic.list
+            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
           else
-            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${{ matrix.vulkan-sdk }}-bionic.list https://packages.lunarg.com/vulkan/${{ matrix.vulkan-sdk }}/lunarg-vulkan-${{ matrix.vulkan-sdk }}-bionic.list
+            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${{ matrix.vulkan-sdk }}-focal.list https://packages.lunarg.com/vulkan/${{ matrix.vulkan-sdk }}/lunarg-vulkan-${{ matrix.vulkan-sdk }}-focal.list
           fi
           
           # Update package lists
