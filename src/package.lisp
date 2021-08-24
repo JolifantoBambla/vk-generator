@@ -80,7 +80,7 @@
    :non-dispatch-handle-p
    :delete-command
    :delete-pool
-   :create-command
+   :create-commands
    :no-autovalidity-p
    :selection
    :selector

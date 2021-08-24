@@ -104,7 +104,7 @@
                            (get-type-name (elt params (- num-params 2)))))
               () "unexpected second to last parameter for creator <~a>" (get-type-name (elt params (- num-params 2))))
       (push (name command)
-            (create-command (gethash (get-type-name handle-arg) (handles vk-spec)))))))
+            (create-commands (gethash (get-type-name handle-arg) (handles vk-spec)))))))
 
 (defun register-deleter (command vk-spec)
   "TODO"

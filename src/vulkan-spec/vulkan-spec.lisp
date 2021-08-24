@@ -444,11 +444,11 @@ See HAS-EXTENSION-P
     :type string
     :initform nil
     :accessor delete-pool)
-   (create-command
-    :initarg :create-command
-    :type string
+   (create-commands
+    :initarg :create-commands
+    :type list ;; string
     :initform nil
-    :accessor create-command))
+    :accessor create-commands))
   (:documentation "TODO
 
 See CHILDREN         The names of the HANDLE types that belong to this type.
