@@ -139,12 +139,6 @@ See ~a~]
               (when (needs-explicit-loading-p command)
                 "*EXTENSION-LOADER*")))))
 
-(defun reverse-hash-table (hash-table)
-  (let ((result (make-hash-table)))
-    (loop for k being each hash-key of hash-table using (hash-value v)
-          do (push k (gethash v result)))
-    result))
-
 (defun get-type-to-declare (type-name vk-spec &optional param vector-params)
   (cond
     ;; the types that can't be translated and must not come in a list
