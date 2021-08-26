@@ -159,7 +159,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
 (defun get-skipped-input-params (command vk-spec)
   (with-slots (params) command
     (let ((vector-count-params (get-vector-count-params command vk-spec))
-          (count-to-vector-param-indices (determine-count-to-vector-param-indices command vk-spec))
+          (count-to-vector-param-indices (determine-count-to-vector-param-indices params vk-spec))
           (non-const-pointer-param-indices (determine-non-const-pointer-param-indices params))
           (required-params (get-required-params command vk-spec))
           (optional-params (get-optional-params command vk-spec)))
