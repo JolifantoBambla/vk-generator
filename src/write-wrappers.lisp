@@ -66,7 +66,7 @@
                                                                 "INTEGER")
                                                                (t (error "unhandled output arg in doc generation: ~a" (type-name (type-info param)))))
                                                              (fix-type-name (type-name (type-info param)) (tags vk-spec)))
-                                                         (when array-arg-p "s"))))))
+                                                         (if array-arg-p "s" ""))))))
       (when (needs-explicit-loading-p command)
         (setf formatted-optional-args
               (concatenate 'list
