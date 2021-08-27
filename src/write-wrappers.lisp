@@ -137,7 +137,7 @@ See ~a~]
                                (params command))
                 "*DEFAULT-ALLOCATOR*")
               (when (needs-explicit-loading-p command)
-                "*EXTENSION-LOADER*")))))
+                "*DEFAULT-EXTENSION-LOADER*")))))
 
 (defun get-type-to-declare (type-name vk-spec &optional param vector-params)
   (cond

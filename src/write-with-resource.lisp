@@ -18,15 +18,9 @@
          (optional-delete-params (get-optional-params delete-command vk-spec))
          (extensionp (needs-explicit-loading-p create-command))
          (command-type (determine-command-type create-command vk-spec))
-         (multiplep (eq command-type :create-multiple-handles))
-         (destructor-string (format nil "(~(vk:~a~{ ,~a~}~:[~; ,extension-loader~]~))"
-                                    (fix-function-name delete-command-name (tags vk-spec))
-                                    (loop for p in (concatenate 'list required-delete-params optional-delete-params)
-                                          collect (if (string= (name handle)
-                                                               (type-name (type-info p)))
-                                                      "resource"
-                                                      (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))
-                                    extensionp))
+         (multiplep (and (eq command-type :create-multiple-handles)
+                         (not (or (string= delete-command-name "vkFreeCommandBuffers")
+                                  (string= delete-command-name "vkFreeDescriptorSets")))))
          (resource-arg-string (cond
                                 ((eq command-type :create-multiple-handles)
                                  "resources")
@@ -34,6 +28,25 @@
                                  "resource")
                                 (t (error "Command does not create a handle: ~a"
                                           create-command-name))))
+         (destructor-string (format nil "(~(vk:~a~{ ~a~}~:[~; ,extension-loader~]~))"
+                                    (fix-function-name delete-command-name (tags vk-spec))
+                                    (loop for p in (concatenate 'list required-delete-params optional-delete-params)
+                                          collect (cond
+                                                    ((string= (name handle)
+                                                              (type-name (type-info p)))
+                                                     (if (or (string= delete-command-name "vkFreeCommandBuffers")
+                                                             (string= delete-command-name "vkFreeDescriptorSets"))
+                                                         (format nil ",~(~a~)" resource-arg-string)
+                                                         ",resource"))
+                                                    ((and (string= delete-command-name "vkFreeCommandBuffers")
+                                                          (string= (name p) "commandPool"))
+                                                     "(command-pool ,allocate-info)")
+                                                    ((and (string= delete-command-name "vkFreeDescriptorSets")
+                                                          (string= (name p) "descriptorPool"))
+                                                     "(descriptor-pool ,allocate-info)")
+                                                    (t (format nil ",~(~a~)"
+                                                               (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))))
+                                    extensionp))
          (let-string (format nil "(,~a (~a))"
                              resource-arg-string
                              (format nil "~(vk:~a~{ ,~a~}~:[~; ,extension-loader~]~)"
