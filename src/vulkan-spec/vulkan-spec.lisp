@@ -443,7 +443,12 @@ See HAS-EXTENSION-P
     :initarg :delete-pool
     :type string
     :initform nil
-    :accessor delete-pool))
+    :accessor delete-pool)
+   (create-commands
+    :initarg :create-commands
+    :type list ;; string
+    :initform nil
+    :accessor create-commands))
   (:documentation "TODO
 
 See CHILDREN         The names of the HANDLE types that belong to this type.
@@ -453,6 +458,20 @@ See COMMANDS         The names of the COMMAND types that are performed using
 See DELETE-COMMAND   The name of the command that deletes this handle.
 See DELETE-POOL
 "))
+
+(defun handlep (type-name vk-spec)
+  (or (gethash type-name (handles vk-spec))
+      (find-if (lambda (h)
+                 (string= type-name
+                          (alias h)))
+               (alexandria:hash-table-values (handles vk-spec)))))
+
+(defun get-handle (type-name vk-spec)
+  (or (gethash type-name (handles vk-spec))
+      (find-if (lambda (h)
+                 (string= type-name
+                          (alias h)))
+               (alexandria:hash-table-values (handles vk-spec)))))
 
 (defclass member-data (vk-element name-data has-type-info)
   ((len

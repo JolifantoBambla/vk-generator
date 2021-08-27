@@ -8,96 +8,6 @@
 
 (in-package :vk-generator)
 
-(defparameter *special-pointer-types*
-  '("Display"
-    "IDirectFB"
-    "wl_display"
-    "xcb_connection_t")
-  "A sequence of pointer types which are never used as const-qualified call arguments, but are never used as return arguments.")
-
-(defparameter *special-base-types*
-  '("ANativeWindow"
-    "AHardwareBuffer"))
-
-(defun split-len-by-struct-member (name)
-  "Splits a given len NAME into two parts: the name of the referenced parameter and the slot name containing the length within the referenced parameter.
-Returns NIL if the given NAME does not reference a slot of another parameter."
-  (let ((name-parts (cl-ppcre:split "->" name)))
-    (when (= (length name-parts) 1)
-      ;; older version of the Vulkan API registry used the notation parameter::member instead of parameter->member
-      (setf name-parts (cl-ppcre:split "::" name)))
-    (when (and (= (length name-parts) 2))
-      name-parts)))
-
-(defun len-by-struct-member-p (name param vk-spec)
-  "Checks if a given NAME references a MEMBER-DATA instance of a STRUCT instance and this STRUCT instances is the type of the given PARAM instance.
- 
-E.g.: In \"vkAllocateDescriptorSets\" the \"len\" \"pAllocateInfo->descriptorSetCount\" of parameter \"pDescriptorSets\" references the parameter \"pAllocateInfo\" of type \"VkDescriptorSetAllocateInfo\" which has a member named \"descriptorSetCount\".
-"
-  (let ((name-parts (cl-ppcre:split "->" name)))
-    (when (= (length name-parts) 1)
-      ;; older version of the Vulkan API registry used the notation parameter::member instead of parameter->member
-      (setf name-parts (cl-ppcre:split "::" name)))
-    (when (and (= (length name-parts) 2)
-               (string= (first name-parts) (name param)))
-      (let ((struct (gethash (type-name (type-info param)) (structures vk-spec))))
-        (assert struct
-                () "Undefined structure <~a>" (type-name (type-info param)))
-        (assert (find-if (lambda (m)
-                           (string= (second name-parts) (name m)))
-                         (members struct))
-                () "Structure <~a> has no member named <~a>" (name struct) (second name-parts))
-        t))))
-
-(defun structure-chain-anchor-p (struct-name vk-spec)
-  "Determines if STRUCT-NAME names a struct type in the Vulkan API that is a structure chain anchor."
-  (when (alexandria:starts-with-subseq "Vk" struct-name)
-    (let ((struct (or (gethash struct-name (structures vk-spec))
-                      (find-if (lambda (s)
-                                 (find struct-name (aliases s) :test #'string=))
-                               (alexandria:hash-table-values (structures vk-spec))))))
-      (and struct
-           (find (name struct) (extended-structs vk-spec) :test #'string=)))))
-
-(defun determine-vector-param-indices (params vk-spec)
-  "Creates a mapping of indices of array arguments to indices of the arguments specifying the number of elements within the array in a given sequence of PARAM instances.
-
-E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of \"VkSubmitInfo\" instances in \"pSubmits\".
-
-Note: For arbitrary data sizes (i.e. the vector parameter is a void pointer) the vector parameter and its size parameter are ignored.
-Both are treated as unrelated input parameters of the resulting function.
-E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
-"
-  (let ((vector-param-indices (make-hash-table :test 'equal)))
-    (loop for param in params and param-index from 0
-          for len = (len param)
-          when (and len
-                    (not (string= "void" (type-name (type-info param)))))
-          do (let ((len-param-index
-                     (position-if
-                      (lambda (p)
-                        (or (string= len (name p))
-                            (len-by-struct-member-p len p vk-spec)))
-                      params)))
-               (when len-param-index
-                 (setf (gethash param-index vector-param-indices) len-param-index))))
-    vector-param-indices))
-
-(defun determine-non-const-pointer-param-indices (params)
-  "Find all indices of PARAM instances describing output arguments in a given sequence of PARAM instances."
-  (loop for param in params and param-index from 0
-        when (and (non-const-pointer-p (type-info param))
-                  (not (find (type-name (type-info param)) *special-pointer-types* :test #'string=))
-                  (not (string= "void" (type-name (type-info param)))))
-        collect param-index))
-
-(defun determine-const-pointer-param-indices (params vk-spec)
-  "Find all indices of PARAM instances describing input arguments in a given sequence of PARAM instances."
-  (let ((non-const-pointer-param-indices (determine-non-const-pointer-param-indices params)))
-    (loop for param-index from 0 to (1- (length params))
-          unless (find param-index non-const-pointer-param-indices)
-          collect param-index)))
-
 (defun make-command-docstring (command required-params optional-params output-params vector-params vk-spec)
   ;; todo: reference VkStructs, list arguments, document return type, if command starts with vkGet -> gets foo, if command is registered as a create-func or destroy-func -> Creates/Destroys a foo handle from bla belonging to a bar, document success codes, document error codes (= signalled conditions)
   (flet ((format-arg-doc (param &optional (optional-p nil) (default-arg nil))
@@ -156,7 +66,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                                                                 "INTEGER")
                                                                (t (error "unhandled output arg in doc generation: ~a" (type-name (type-info param)))))
                                                              (fix-type-name (type-name (type-info param)) (tags vk-spec)))
-                                                         (when array-arg-p "s"))))))
+                                                         (if array-arg-p "s" ""))))))
       (when (needs-explicit-loading-p command)
         (setf formatted-optional-args
               (concatenate 'list
@@ -227,13 +137,7 @@ See ~a~]
                                (params command))
                 "*DEFAULT-ALLOCATOR*")
               (when (needs-explicit-loading-p command)
-                "*EXTENSION-LOADER*")))))
-
-(defun reverse-hash-table (hash-table)
-  (let ((result (make-hash-table)))
-    (loop for k being each hash-key of hash-table using (hash-value v)
-          do (push k (gethash v result)))
-    result))
+                "*DEFAULT-EXTENSION-LOADER*")))))
 
 (defun get-type-to-declare (type-name vk-spec &optional param vector-params)
   (cond
@@ -627,20 +531,6 @@ See ~a~]
                                                                         non-const-pointer-param-indices))))
                                               (concatenate 'list required-params optional-params))))
 
-    (when nil
-      (format t "~%handle: ~{~a, ~}~%"
-             (loop for p in handle-params 
-                   collect (name p)))
-     (format t "~%non-struct: ~{~a, ~}~%"
-             (loop for p in non-struct-params
-                   collect (name p)))
-     (format t "~%struct: ~{~a, ~}~%"
-             (loop for p in struct-params
-                   collect (name p)))
-     (format t "~%output: ~{~a, ~}~%"
-             (loop for p in output-params
-                   collect (name p))))
-
     ;; todo: port conditions from vulkanhppgenerator to check if really all commands are written correctly. (e.g. there is one case without a single function - probably a bug)
     (cond
       ((not output-params)
@@ -788,5 +678,3 @@ See ~a~]
           do (loop for alias in (alexandria:hash-table-values (alias command))
                    do (write-command out (make-aliased-command command alias) vk-spec)))))
 
-
-(defun foo () (ql:quickload :vk-generator) (generate :version "v1.2.153"))

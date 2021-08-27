@@ -3,6 +3,8 @@
   (:export
    ;; constants
    :*special-words*
+   :*special-pointer-types*
+   :*special-base-types*
    :*vk-platform*
    :*opaque-types*
    :*opaque-struct-types*
@@ -78,6 +80,7 @@
    :non-dispatch-handle-p
    :delete-command
    :delete-pool
+   :create-commands
    :no-autovalidity-p
    :selection
    :selector
@@ -107,6 +110,26 @@
    :make-aliased-command
    :extension-command-p
    :structure-type-p
+   :split-len-by-struct-member
+   :len-by-struct-member-p
+   :structure-chain-anchor-p
+   :determine-vector-param-indices
+   :determine-count-to-vector-param-indices
+   :determine-non-const-pointer-param-indices
+   :determine-const-pointer-param-indices
+   :get-vector-params
+   :get-vector-count-params
+   :get-output-params
+   :get-handle-params
+   :get-non-struct-params
+   :get-struct-params
+   :get-required-params
+   :get-optional-params
+   :get-skipped-input-params
+   :determine-command-type
+   :reverse-hash-table
+   :handlep
+   :get-handle
    
    ;; vulkan-spec
    :vulkan-spec

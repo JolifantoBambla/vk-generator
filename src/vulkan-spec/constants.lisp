@@ -123,3 +123,15 @@
 ;; from generator.py
 (defconstant +ext-base+ 1000000000)
 (defconstant +ext-block-size+ 1000)
+
+(defparameter *special-pointer-types*
+  '("Display"
+    "IDirectFB"
+    "wl_display"
+    "xcb_connection_t")
+  "A sequence of pointer types which are never used as const-qualified call arguments, but are never used as return arguments.")
+
+(defparameter *special-base-types*
+  '("ANativeWindow"
+    "AHardwareBuffer"))
+
