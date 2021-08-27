@@ -29,7 +29,7 @@
                                 (t (error "Command does not create a handle: ~a command-type: ~a"
                                           create-command-name
                                           command-type))))
-         (destructor-string (format nil "(~(vk:~a~{ ~a~}~:[~; ,extension-loader~]~))"
+         (destructor-string (format nil "(~(vk:~a~{ ~a~}~:[~; (or ,extension-loader vk:*default-extension-loader*)~]~))"
                                     (fix-function-name delete-command-name (tags vk-spec))
                                     (loop for p in (concatenate 'list required-delete-params optional-delete-params)
                                           collect (cond
@@ -45,15 +45,20 @@
                                                     ((and (string= delete-command-name "vkFreeDescriptorSets")
                                                           (string= (name p) "descriptorPool"))
                                                      "(descriptor-pool ,allocate-info)")
+                                                    ((string= (name p) "pAllocator")
+                                                     "(or ,allocator vk:*default-allocator*)")
                                                     (t (format nil ",~(~a~)"
                                                                (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))))
                                     extensionp))
          (let-string (format nil "(,~a (~a))"
                              resource-arg-string
-                             (format nil "~(vk:~a~{ ,~a~}~:[~; ,extension-loader~]~)"
+                             (format nil "~(vk:~a~{ ~a~}~:[~; (or ,extension-loader vk:*default-extension-loader*)~]~)"
                                      (fix-function-name create-command-name (tags vk-spec))
                                      (loop for p in (concatenate 'list required-create-params optional-create-params)
-                                           collect (fix-slot-name (name p) (type-name (type-info p)) vk-spec))
+                                           collect (if (string= (name p) "pAllocator")
+                                                       "(or ,allocator vk:*default-allocator*)"
+                                                       (format nil ",~(~a~)"
+                                                               (fix-slot-name (name p) (type-name (type-info p)) vk-spec))))
                                      extensionp)))
          (body-string (format nil (if multiplep
                                       "
@@ -75,14 +80,12 @@
                              (fix-function-name create-command-name (tags vk-spec))
                              (fix-function-name create-command-name (tags vk-spec))
                              (fix-function-name delete-command-name (tags vk-spec)))))
-       (format out "(defmacro ~a ((~a~(~{ ~a~}~) &key~(~{ ~a~}~)~:[~; (extension-loader vk:*default-extension-loader*)~]) &body body)~a~a)~%~%"
+       (format out "(defmacro ~a ((~a~(~{ ~a~}~) &key~(~{ ~a~}~)~:[~; extension-loader~]) &body body)~a~a)~%~%"
                (make-def-with-name create-command-name vk-spec)
                resource-arg-string
                (loop for p in required-create-params collect (fix-slot-name (name p) (type-name (type-info p)) vk-spec))
                (loop for p in optional-create-params
-                     collect (format nil "(~(~a ~:[nil~;vk:*default-allocator*~]~))"
-                                     (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
-                                     (string= (name p) "pAllocator")))
+                     collect (fix-slot-name (name p) (type-name (type-info p)) vk-spec))
                extensionp
                doc-string
                body-string)))
