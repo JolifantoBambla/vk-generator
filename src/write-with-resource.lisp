@@ -2,30 +2,6 @@
 
 (in-package #:vk-generator)
 
-;; must look something like this
-(defmacro define-with-resource (name constructor destructor args (multiple-handles-p nil))
-  ;; TODO: args need to be split into constructor and destructor args
-  ;; TODO: must determine if single handle or multiple handles are created
-  ;; TODO: must match constructor args and destructor args (e.g. instance in vkCreateDevice and vkDestroyDevice)
-  (let* ((resource (gensym "RESOURCE"))
-         (element (gensym "ELEMENT"))
-         (arg-symbols (map 'list
-                           (lambda (arg)
-                             (gensym (first arg))) ;; assuming (first arg) is the arg's name
-                           args))
-         (required-args nil)
-         (optional-args nil)
-         (constructor-args nil)
-         (destructor-args nil))
-   `(defmacro ,name ((,@required-args &key ,@optional-args) &body body)
-      `(let (,resource (,,constructor ,@constructor-args))
-         (unwind-protect
-              (progn ,@body)
-           ,(if multiple-handles-p
-                `(loop for ,element in ,resource do
-                       (,,destructor ,@destructor-args))
-                `(,,destructor ,@destructor-args)))))))
-
 (defun make-def-with-name (name vk-spec)
   (format nil "with-~(~a~)"
           (fix-function-name (if (alexandria:starts-with-subseq "vkCreate" name)
@@ -33,40 +9,81 @@
                                  (subseq name 10))
                              (tags vk-spec))))
 
-(defun write-with-resource (handle create-command-name delete-command-name vk-spec)
-  (format t "  ~a: ~a -> ~a~%"
-          (make-def-with-name create-command-name vk-spec)
-          create-command-name
-          delete-command-name)
+(defun write-with-resource (out handle create-command-name delete-command-name vk-spec)
   (let* ((create-command (gethash create-command-name (commands vk-spec)))
          (delete-command (gethash delete-command-name (commands vk-spec)))
          (required-create-params (get-required-params create-command vk-spec))
          (optional-create-params (get-optional-params create-command vk-spec))
-         (skipped-create-params (get-skipped-input-params create-command vk-spec))
          (required-delete-params (get-required-params delete-command vk-spec))
          (optional-delete-params (get-optional-params delete-command vk-spec))
-         (skipped-delete-params (get-skipped-input-params delete-command vk-spec))
          (extensionp (needs-explicit-loading-p create-command))
-         (command-type (determine-command-type create-command vk-spec)))
-    (format t "    required: ~a optional: ~a skipped: ~a~%"
-            required-create-params
-            optional-create-params
-            skipped-create-params)
-    (format t "    required: ~a optional: ~a skipped: ~a~%"
-            required-delete-params
-            optional-delete-params
-            skipped-delete-params)
-    (format t "    extension: ~a type:~a~%"
-            extensionp
-            command-type)))
+         (command-type (determine-command-type create-command vk-spec))
+         (multiplep (eq command-type :create-multiple-handles))
+         (destructor-string (format nil "(~(vk:~a~{ ,~a~}~:[~; ,extension-loader~]~))"
+                                    (fix-function-name delete-command-name (tags vk-spec))
+                                    (loop for p in (concatenate 'list required-delete-params optional-delete-params)
+                                          collect (if (string= (name handle)
+                                                               (type-name (type-info p)))
+                                                      "resource"
+                                                      (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))
+                                    extensionp))
+         (resource-arg-string (cond
+                                ((eq command-type :create-multiple-handles)
+                                 "resources")
+                                ((eq command-type :create-single-handle)
+                                 "resource")
+                                (t (error "Command does not create a handle: ~a"
+                                          create-command-name))))
+         (let-string (format nil "(,~a (~a))"
+                             resource-arg-string
+                             (format nil "~(vk:~a~{ ,~a~}~:[~; ,extension-loader~]~)"
+                                     (fix-function-name create-command-name (tags vk-spec))
+                                     (loop for p in (concatenate 'list required-create-params optional-create-params)
+                                           collect (fix-slot-name (name p) (type-name (type-info p)) vk-spec))
+                                     extensionp)))
+         (body-string (format nil (if multiplep
+                                      "
+  (let ((resource (gensym \"RESOURCE\")))
+    `(let (~a)
+       (unwind-protect
+           (progn ,@body)
+         (loop for ,resource in ,resources do
+               ~a))))"
+                                      "
+  `(let (~a)
+     (unwind-protect
+         (progn ,@body)
+       ~a))")
+                              let-string
+                              destructor-string))
+         (doc-string (format nil "~%  \"Binds ~:@(~a~) to the result of a VK:~:@(~a~).~%See VK:~:@(~a~)~%See VK:~:@(~a~)\""
+                             resource-arg-string
+                             (fix-function-name create-command-name (tags vk-spec))
+                             (fix-function-name create-command-name (tags vk-spec))
+                             (fix-function-name delete-command-name (tags vk-spec)))))
+       (format out "(defmacro ~a ((~a~(~{ ~a~}~) &key~(~{ ~a~}~)~:[~; (extension-loader vk:*default-extension-loader*)~]) &body body)~a~a)~%~%"
+               (make-def-with-name create-command-name vk-spec)
+               resource-arg-string
+               (loop for p in required-create-params collect (fix-slot-name (name p) (type-name (type-info p)) vk-spec))
+               (loop for p in optional-create-params
+                     collect (format nil "(~(~a ~:[nil~;vk:*default-allocator*~]~))"
+                                     (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
+                                     (string= (name p) "pAllocator")))
+               extensionp
+               doc-string
+               body-string)))
 
-(defun write-with-resource-macros (vk-spec)
-  (loop for handle in (sorted-elements (alexandria:hash-table-values (handles vk-spec)))
-        when (and (create-commands handle)
-                  (delete-command handle))
-        do (progn
-             (format t "~%handle ~a:~%"
-                     handle)
-             (loop for c in (create-commands handle)
-                   do (write-with-resource handle c (delete-command handle) vk-spec)))))
+(defun write-with-resource-macros (defwith-resource-file vk-spec &optional dry-run)
+  (flet ((generate-with-resource-macros (stream)
+           (format stream ";;; this file is automatically generated, do not edit~%~%")
+           (format stream "(in-package :vk-utils)~%~%")
+           (loop for handle in (sorted-elements (alexandria:hash-table-values (handles vk-spec)))
+                 when (and (create-commands handle)
+                           (delete-command handle))
+                 do (loop for c in (create-commands handle)
+                            do (write-with-resource stream handle c (delete-command handle) vk-spec)))))
+    (if dry-run
+        (generate-with-resource-macros t)
+        (with-open-file (out defwith-resource-file :direction :output :if-exists :supersede)
+          (generate-with-resource-macros out)))))
 

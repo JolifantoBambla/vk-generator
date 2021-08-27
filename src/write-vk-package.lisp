@@ -270,10 +270,16 @@
     #:split-api-version
     #:format-api-version
     #:read-shader-source")
-    ;; todo: write with-style wrappers & make-<vulkan-struct> constructors
+    (loop for handle in (sorted-elements (alexandria:hash-table-values (handles vk-spec)))
+          when (and (create-commands handle)
+                    (delete-command handle))
+          do (loop for c in (create-commands handle)
+                   do (format out "~%    #:~a"
+                              (make-def-with-name c vk-spec))))
+    ;; todo: write make-<vulkan-struct> constructors
     (format out "))")))
 
-(defun write-vk-package (vk-spec vk-package-dir)
+(defun write-vk-package (vk-spec vk-package-dir &optional dry-run)
   (let* ((additional-files-dir
            (asdf:system-relative-pathname 'vk-generator
                                           (make-pathname :directory '(:relative "src" "additional-files"))))
@@ -289,6 +295,7 @@
          (funcs-file (merge-pathnames "vulkan-commands.lisp" vk-dir))
          (vk-types-file (merge-pathnames "vk-types.lisp" vk-dir))
          (vk-functions-file (merge-pathnames "vk-commands.lisp" vk-dir))
+         (vk-utils-with-resource-file (merge-pathnames "vk-utils-with-resource.lisp" vk-dir))
          (copy-files ;; todo: clean this up
            (list
             (list (merge-pathnames "vk-utils-common.lisp" additional-files-dir)
@@ -323,7 +330,7 @@
                                       vk-spec)
     (write-vk-functions vk-functions-file vk-spec)
 
-    (write-with-resource-macros vk-spec)
+    (write-with-resource-macros vk-utils-with-resource-file vk-spec dry-run)
     
     ;; copy additional files
     (loop for to-copy in copy-files
