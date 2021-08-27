@@ -128,6 +128,8 @@
    :get-skipped-input-params
    :determine-command-type
    :reverse-hash-table
+   :handlep
+   :get-handle
    
    ;; vulkan-spec
    :vulkan-spec

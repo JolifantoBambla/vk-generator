@@ -459,6 +459,20 @@ See DELETE-COMMAND   The name of the command that deletes this handle.
 See DELETE-POOL
 "))
 
+(defun handlep (type-name vk-spec)
+  (or (gethash type-name (handles vk-spec))
+      (find-if (lambda (h)
+                 (string= type-name
+                          (alias h)))
+               (alexandria:hash-table-values (handles vk-spec)))))
+
+(defun get-handle (type-name vk-spec)
+  (or (gethash type-name (handles vk-spec))
+      (find-if (lambda (h)
+                 (string= type-name
+                          (alias h)))
+               (alexandria:hash-table-values (handles vk-spec)))))
+
 (defclass member-data (vk-element name-data has-type-info)
   ((len
     :initarg :len

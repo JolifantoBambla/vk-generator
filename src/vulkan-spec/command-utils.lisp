@@ -115,11 +115,10 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
 
 (defun get-handle-params (command vk-spec)
   (let ((output-params (get-output-params command)))
-    (with-slots (handles) vk-spec
-      (remove-if-not (lambda (p)
-                       (and (not (find p output-params))
-                            (gethash (type-name (type-info p)) handles)))
-                     (params command)))))
+    (remove-if-not (lambda (p)
+                     (and (not (find p output-params))
+                          (handlep (type-name (type-info p)) vk-spec)))
+                   (params command))))
 
 (defun get-non-struct-params (command vk-spec)
   (sorted-elements
@@ -190,11 +189,12 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
            :simple)
           ((= (length non-const-pointer-param-indices) 1)
            (let ((ret (first output-params)))
-             (if (or (gethash (type-name (type-info ret)) handles)
+             (if (or (handlep (type-name (type-info ret)) vk-spec)
                      ;; added the next two conditions, since function return e.g. a uint64_t* were
                      ;; falsely classified as get-struct-funs
                      (gethash (type-name (type-info ret)) *vk-platform*)
-                     (gethash (type-name (type-info ret)) base-types))
+                     (gethash (type-name (type-info ret)) base-types)
+                     )
                  ;; 1) handle type
                  (if (not (find ret vector-params))
                      ;; case 1a-1: create a handle - e.g. vkCreateInstance

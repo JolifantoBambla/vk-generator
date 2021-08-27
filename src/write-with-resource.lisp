@@ -26,8 +26,9 @@
                                  "resources")
                                 ((eq command-type :create-single-handle)
                                  "resource")
-                                (t (error "Command does not create a handle: ~a"
-                                          create-command-name))))
+                                (t (error "Command does not create a handle: ~a command-type: ~a"
+                                          create-command-name
+                                          command-type))))
          (destructor-string (format nil "(~(vk:~a~{ ~a~}~:[~; ,extension-loader~]~))"
                                     (fix-function-name delete-command-name (tags vk-spec))
                                     (loop for p in (concatenate 'list required-delete-params optional-delete-params)
@@ -69,7 +70,7 @@
        ~a))")
                               let-string
                               destructor-string))
-         (doc-string (format nil "~%  \"Binds ~:@(~a~) to the result of a VK:~:@(~a~).~%See VK:~:@(~a~)~%See VK:~:@(~a~)\""
+         (doc-string (format nil "~%  \"Binds ~:@(~a~) to the result of a VK:~:@(~a~) call.~%See VK:~:@(~a~)~%See VK:~:@(~a~)\""
                              resource-arg-string
                              (fix-function-name create-command-name (tags vk-spec))
                              (fix-function-name create-command-name (tags vk-spec))

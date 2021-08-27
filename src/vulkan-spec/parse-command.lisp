@@ -94,7 +94,7 @@
            (key nil)
            (value-index nil)
            (handle-arg (find-if (lambda (p)
-                                  (and (gethash (get-type-name p) (handles vk-spec))
+                                  (and (handlep (get-type-name p) vk-spec)
                                        (non-const-pointer-p (type-info p))))
                                 params)))
       (assert handle-arg
@@ -104,7 +104,7 @@
                            (get-type-name (elt params (- num-params 2)))))
               () "unexpected second to last parameter for creator <~a>" (get-type-name (elt params (- num-params 2))))
       (push (name command)
-            (create-commands (gethash (get-type-name handle-arg) (handles vk-spec)))))))
+            (create-commands (get-handle (get-type-name handle-arg) vk-spec))))))
 
 (defun register-deleter (command vk-spec)
   "TODO"
