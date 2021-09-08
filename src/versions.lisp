@@ -211,7 +211,8 @@
     "v1.2.185"
     "v1.2.186"
     "v1.2.187"
-    "v1.2.188")
+    "v1.2.188"
+    "v1.2.189")
   "A list of valid version tags in the Vulkan-Docs GitHub repository.
 
 See https://github.com/KhronosGroup/Vulkan-Docs/releases

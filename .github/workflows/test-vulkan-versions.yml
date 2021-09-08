@@ -25,6 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         vulkan-sdk:
+          - "1.2.189"
           - "1.2.182"
           - "1.2.176"
           - "1.2.170"
