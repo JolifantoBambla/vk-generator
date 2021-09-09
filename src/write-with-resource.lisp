@@ -54,11 +54,14 @@
                              resource-arg-string
                              (format nil "~(vk:~a~{ ~a~}~:[~; (or ,extension-loader vk:*default-extension-loader*)~]~)"
                                      (fix-function-name create-command-name (tags vk-spec))
-                                     (loop for p in (concatenate 'list required-create-params optional-create-params)
-                                           collect (if (string= (name p) "pAllocator")
-                                                       "(or ,allocator vk:*default-allocator*)"
-                                                       (format nil ",~(~a~)"
-                                                               (fix-slot-name (name p) (type-name (type-info p)) vk-spec))))
+                                     (concatenate 'list
+                                                  (loop for p in required-create-params
+                                                        collect (format nil ",~(~a~)"
+                                                                        (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))
+                                                  (loop for p in optional-create-params
+                                                        collect (format nil "(or ,~(~a~) ~a)"
+                                                                        (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
+                                                                        (determine-param-default-value-string p vk-spec))))
                                      extensionp)))
          (body-string (format nil (if multiplep
                                       "

@@ -130,6 +130,7 @@
    :reverse-hash-table
    :handlep
    :get-handle
+   :determine-param-default-value-string
    
    ;; vulkan-spec
    :vulkan-spec
