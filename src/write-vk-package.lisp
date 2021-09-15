@@ -312,6 +312,7 @@
          (vk-types-file (merge-pathnames "vk-types.lisp" vk-dir))
          (vk-functions-file (merge-pathnames "vk-commands.lisp" vk-dir))
          (vk-utils-with-resource-file (merge-pathnames "vk-utils-with-resource.lisp" vk-dir))
+         (ctor-file (merge-pathnames "vk-constructors.lisp" vk-dir))
          (copy-files ;; todo: clean this up
            (list
             (list (merge-pathnames "vk-utils-common.lisp" additional-files-dir)
@@ -349,6 +350,7 @@
     (write-vk-functions vk-functions-file vk-spec dry-run)
 
     (write-with-resource-macros vk-utils-with-resource-file vk-spec dry-run)
+    (write-constructors ctor-file vk-spec dry-run)
     
     ;; copy additional files
     (unless dry-run
