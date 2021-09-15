@@ -67,7 +67,7 @@ See ~a\""
                                 (let ((arg-names (loop for s in slot-data
                                                        collect (format nil "~(~a~)" (first s)))))
                                   (format nil "
-  (assert (= 1 (count-if #'identity '~a))
+  (assert (= 1 (count-if #'identity (list~{ ~a~})))
           ~a
           \"Exactly one argument must be non-nil.\")"
                                           arg-names
@@ -78,7 +78,7 @@ See ~a\""
   (cond ~{~a~})"
                                         (loop for s in slot-data
                                               collect (format nil "
-    ((~(~a~))~%     (make-instance 'vk:~(~a~) :~(~a~) ~(~a~)))"
+    (~(~a~)~%     (make-instance 'vk:~(~a~) :~(~a~) ~(~a~)))"
                                                               (first s)
                                                               fixed-type-name
                                                               (first s)

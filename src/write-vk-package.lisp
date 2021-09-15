@@ -149,8 +149,8 @@
     #:size-t
     #:extension-loader
     #:make-extension-loader
-    #:xl-instance
-    #:xl-device
+    #:extension-loader-instance
+    #:extension-loader-device
     #:*default-extension-loader*
 "
                    *in-package-name* *package-nicknames*)
@@ -214,8 +214,8 @@
     #:values)
   (:import-from #:%vk
     #:make-extension-loader
-    #:xl-instance
-    #:xl-device
+    #:extension-loader-instance
+    #:extension-loader-device
     #:*default-extension-loader*")
            (loop for name in (sort (alexandria:hash-table-keys (constants vk-spec)) #'string<)
                  do (format out "~%    #:+~(~a~)+"
@@ -228,8 +228,8 @@
            (format out "
   (:export
     #:make-extension-loader
-    #:xl-instance
-    #:xl-device
+    #:extension-loader-instance
+    #:extension-loader-device
     #:*default-allocator*
     #:*default-extension-loader*
     #:make-api-version")
