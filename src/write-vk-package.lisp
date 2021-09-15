@@ -149,6 +149,8 @@
     #:size-t
     #:extension-loader
     #:make-extension-loader
+    #:xl-instance
+    #:xl-device
     #:*default-extension-loader*
 "
                    *in-package-name* *package-nicknames*)
@@ -212,6 +214,8 @@
     #:values)
   (:import-from #:%vk
     #:make-extension-loader
+    #:xl-instance
+    #:xl-device
     #:*default-extension-loader*")
            (loop for name in (sort (alexandria:hash-table-keys (constants vk-spec)) #'string<)
                  do (format out "~%    #:+~(~a~)+"
@@ -224,6 +228,8 @@
            (format out "
   (:export
     #:make-extension-loader
+    #:xl-instance
+    #:xl-device
     #:*default-allocator*
     #:*default-extension-loader*
     #:make-api-version")
@@ -242,7 +248,8 @@
            (labels ((sort-alphabetically (elements)
                       (sort elements (lambda (a b) (string< (name a) (name b))))))
              (loop for type in (sort-alphabetically (alexandria:hash-table-values (structures vk-spec)))
-                   do (format out "~(~%    #:~a~)"
+                   do (format out "~(~%    #:~a~%    #:make-~a~)"
+                              (fix-type-name (name type) (tags vk-spec))
                               (fix-type-name (name type) (tags vk-spec))))
              (format out "~%")
              (loop for m in (remove-duplicates

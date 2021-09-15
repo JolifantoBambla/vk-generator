@@ -34,7 +34,7 @@
 
 (use-foreign-library vulkan)
 
-(defstruct extension-loader
+(defstruct extension-loader (:conc-name xl-)
   "An EXTENSION-LOADER is used to define extension functions.
 All extension functions take an optional EXTENSION-LOADER argument as last parameter that defaults to *DEFAULT-EXTENSION-LOADER*.
 
