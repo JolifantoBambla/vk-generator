@@ -6,7 +6,8 @@
                    (version (car (last *versions*)))
                    (package-dir (first ql:*local-project-directories*) package-dir-supplied-p)
                    (vk-xml-dir (uiop:temporary-directory))
-                   (force-download nil))
+                   (force-download nil)
+                   (dry-run nil))
   (declare (type string version))
   (declare (type pathname package-dir))
   (declare (type pathname vk-xml-dir))
@@ -22,6 +23,8 @@
                       If vk-<:VERSION>.xml exists at VK-XML-DIR and :FORCE-DOWNLOAD is NIL, the download of the vk.xml file is omitted.
                       Default: UIOP:TEMPORARY-DIRECTORY
   :FORCE-DOWNLOAD --- If this is truthy the vk.xml file will be downloaded even if it already exists in the file system.
+                      Default: NIL
+  :DRY-RUN        --- If this is truthy, the generated code will be printed in the REPL rather than written to the file system.
                       Default: NIL
 
 See *VERSIONS*
@@ -40,5 +43,6 @@ See WRITE-VK-PACKAGE
      (parse-vk-xml
       version
       (ensure-vk-xml version :vk-xml-dir vk-xml-dir :force-download force-download))
-     vk-dir)))
+     vk-dir
+     dry-run)))
 
