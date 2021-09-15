@@ -328,7 +328,7 @@
                                       expand-to-file
                                       expand-from-file
                                       vk-spec)
-    (write-vk-functions vk-functions-file vk-spec)
+    (write-vk-functions vk-functions-file vk-spec dry-run)
 
     (write-with-resource-macros vk-utils-with-resource-file vk-spec dry-run)
     
