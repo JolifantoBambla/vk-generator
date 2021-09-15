@@ -41,10 +41,10 @@
                                                          ",resource"))
                                                     ((and (string= delete-command-name "vkFreeCommandBuffers")
                                                           (string= (name p) "commandPool"))
-                                                     "(command-pool ,allocate-info)")
+                                                     "(vk:command-pool ,allocate-info)")
                                                     ((and (string= delete-command-name "vkFreeDescriptorSets")
                                                           (string= (name p) "descriptorPool"))
-                                                     "(descriptor-pool ,allocate-info)")
+                                                     "(vk:descriptor-pool ,allocate-info)")
                                                     ((string= (name p) "pAllocator")
                                                      "(or ,allocator vk:*default-allocator*)")
                                                     (t (format nil ",~(~a~)"
