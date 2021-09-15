@@ -41,6 +41,7 @@
        (:file "parse-extensions-and-features")
        (:file "parse")
        (:file "command-utils")))
+     (:file "write-utils-3b")
      (:file "write-utils")
      (:file "write-types-file")
      (:file "write-vk-types")

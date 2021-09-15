@@ -201,15 +201,7 @@ See ~a~]
         for i from 1
         collect (format nil "((~(~a ~a) ~a~))~@[ ~]"
                         (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
-                        (if (string= "pAllocator" (name arg))
-                            "*default-allocator*"
-                            (cond
-                              ((gethash (type-name (type-info arg)) (handles vk-spec))
-                               "(cffi:null-pointer)")
-                              ((and (string= (type-name (type-info arg)) "char")
-                                    (not (string= (postfix (type-info arg)) "**")))
-                               "\"\"")
-                              (t nil)))
+                        (determine-param-default-value-string arg vk-spec)
                         (format-type-to-declare arg vector-params vk-spec)
                         (< i (length optional-args)))))
 
@@ -487,7 +479,6 @@ See ~a~]
          (non-const-pointer-param-indices (determine-non-const-pointer-param-indices (params command)))
          (output-params (loop for i in non-const-pointer-param-indices
                               collect (nth i (params command))))
-         (has-return-p (not (string= (return-type command) "void")))
          (handle-params (remove-if-not (lambda (p)
                                          (and (not (find p output-params))
                                               (gethash (type-name (type-info p)) (handles vk-spec))))
@@ -524,18 +515,11 @@ See ~a~]
                                                 struct-params))
          (required-params (sorted-elements (concatenate 'list required-handle-params required-non-struct-params required-struct-params)))
          (optional-params (sorted-elements (concatenate 'list optional-handle-params optional-non-struct-params optional-struct-params)))
-         ;; collect redundant input parameters (i.e. if they specify the length of another input (!) parameter)
-         (skipped-input-params (remove-if-not (lambda (p)
-                                                (and (find p vector-count-params)
-                                                     (not (intersection (gethash (position p (params command)) count-to-vector-param-indices)
-                                                                        non-const-pointer-param-indices))))
-                                              (concatenate 'list required-params optional-params))))
+         (command-type (determine-command-type command vk-spec)))
 
     ;; todo: port conditions from vulkanhppgenerator to check if really all commands are written correctly. (e.g. there is one case without a single function - probably a bug)
     (cond
-      ((not output-params)
-       ;; case 0a: no or implicit return value - e.g. vkDestroyInstance
-       ;; case 0b: non-trivial return value - e.g. vkGetInstanceProcAddr
+      ((eq command-type :simple)
        (write-simple-fun out
                          command
                          fixed-function-name
@@ -545,115 +529,87 @@ See ~a~]
                          count-to-vector-param-indices
                          vector-params
                          vk-spec))
-      ((= (length non-const-pointer-param-indices) 1)
-       (let ((ret (first output-params)))
-         (if (or (gethash (type-name (type-info ret)) (handles vk-spec))
-                 ;; added the next two conditions, since function return e.g. a uint64_t* were
-                 ;; falsely classified as get-struct-funs
-                 (gethash (type-name (type-info ret)) *vk-platform*)
-                 (gethash (type-name (type-info ret)) (base-types vk-spec)))
-             ;; 1) handle type
-             (if (not (find ret vector-params))
-                 ;; case 1a-1: create a handle - e.g. vkCreateInstance
-                 ;; case 1a-2: get an existing handle - e.g. vkGetDeviceQueue
-                 (write-create-handle-fun out
-                                          command
-                                          fixed-function-name
-                                          required-params
-                                          optional-params
-                                          output-params
-                                          count-to-vector-param-indices
-                                          vector-params
-                                          vk-spec)
-                 ;; 1b-1) vector of handles, where the output vector uses the same len as an input vector - e.g. vkCreateGraphicsPipelines
-                 ;; 1b-2) vector of handles using len-by-struct-member - e.g. vkAllocateCommandBuffers
-                 (write-create-handles-fun out
-                                           command
-                                           fixed-function-name
-                                           required-params
-                                           optional-params
-                                           output-params
-                                           count-to-vector-param-indices
-                                           vector-params
-                                           vk-spec))
-             ;; 2) structure chain anchor
-             (if (or (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) (params command))))
-                                               vk-spec)
-                     (not (gethash (first non-const-pointer-param-indices) vector-param-indices)))
-                 ;; case 1c-1: get a struct extended by its NEXT slot - e.g. vkGetPhysicalDeviceFeatures2
-                 ;; case 1c-2: get a struct without NEXT slot - e.g. vkGetPhysicalDeviceProperties
-                 (write-get-struct-fun out
-                                       command
-                                       fixed-function-name
-                                       required-params
-                                       optional-params
-                                       output-params
-                                       count-to-vector-param-indices
-                                       vector-params
-                                       vk-spec)
-                 ;; TODO: with the current implementation such functions are actually simple-funs which don't return anything -> breaks consistency!
-                 ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
-                 (write-fill-arbitrary-buffer-fun out
-                                                  command
-                                                  fixed-function-name
-                                                  required-params
-                                                  optional-params
-                                                  output-params
-                                                  count-to-vector-param-indices
-                                                  vector-params
-                                                  vk-spec)))))
-      ((= (length non-const-pointer-param-indices) 2)
-       (if (or (structure-chain-anchor-p (type-name (type-info (nth (second non-const-pointer-param-indices) (params command))))
-                                         vk-spec)
-               (and (= (hash-table-count vector-param-indices) 1)
-                    (string= "void" (return-type command))))
-           ;; case 2a: get list of structs - e.g. vkGetPhysicalDeviceQueueFamilyProperties2
-           (write-get-structs-fun out
-                                  command
-                                  fixed-function-name
-                                  required-params
-                                  optional-params
-                                  output-params
-                                  count-to-vector-param-indices
-                                  vector-params
-                                  vk-spec)
-           (cond
-             ;; todo: find out which function falls (or should fall) into that category
-             ;; case 2b: two returns and a non-trivial success code, no array - e.g. ???
-             ((= (hash-table-count vector-param-indices) 0)
-              (write-multiple-singular-returns-fun out
-                                                   command
-                                                   fixed-function-name
-                                                   required-params
-                                                   optional-params
-                                                   output-params
-                                                   count-to-vector-param-indices
-                                                   vector-params
-                                                   vk-spec))
-             ;; case 2c: enumerate - e.g. vkEnumeratePhysicalDevices
-             ((= (hash-table-count vector-param-indices) 1)
-              (write-enumerate-fun out
-                                   command
-                                   fixed-function-name
-                                   required-params
-                                   optional-params
-                                   output-params
-                                   count-to-vector-param-indices
-                                   vector-params
-                                   vk-spec))
-             ;; case 2d: return multiple values. one array of the same size as an input array and one additional non-array value - e.g. vkGetCalibratedTimestampsEXT
-             ((= (hash-table-count vector-param-indices) 2)
-              (write-get-array-and-singular-fun out
-                                                command
-                                                fixed-function-name
-                                                required-params
-                                                optional-params
-                                                output-params
-                                                count-to-vector-param-indices
-                                                vector-params
-                                                vk-spec)))))
-      ((= (length non-const-pointer-param-indices) 3)
-       ;; case 3: return two arrays using the same counter which is also an output argument - e.g vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR
+      ((eq command-type :create-single-handle)
+       (write-create-handle-fun out
+                                command
+                                fixed-function-name
+                                required-params
+                                optional-params
+                                output-params
+                                count-to-vector-param-indices
+                                vector-params
+                                vk-spec))
+      ((eq command-type :create-multiple-handles)
+       (write-create-handles-fun out
+                                 command
+                                 fixed-function-name
+                                 required-params
+                                 optional-params
+                                 output-params
+                                 count-to-vector-param-indices
+                                 vector-params
+                                 vk-spec))
+      ((eq command-type :get-single-struct)
+       (write-get-struct-fun out
+                             command
+                             fixed-function-name
+                             required-params
+                             optional-params
+                             output-params
+                             count-to-vector-param-indices
+                             vector-params
+                             vk-spec))
+      ((eq command-type :fill-arbitrary-buffer)
+       (write-fill-arbitrary-buffer-fun out
+                                        command
+                                        fixed-function-name
+                                        required-params
+                                        optional-params
+                                        output-params
+                                        count-to-vector-param-indices
+                                        vector-params
+                                        vk-spec))
+      ((eq command-type :get-multiple-structs)
+       (write-get-structs-fun out
+                              command
+                              fixed-function-name
+                              required-params
+                              optional-params
+                              output-params
+                              count-to-vector-param-indices
+                              vector-params
+                              vk-spec))
+      ((eq command-type :get-two-non-array-values)
+       (write-multiple-singular-returns-fun out
+                                            command
+                                            fixed-function-name
+                                            required-params
+                                            optional-params
+                                            output-params
+                                            count-to-vector-param-indices
+                                            vector-params
+                                            vk-spec))
+      ((eq command-type :enumerate-single-array)
+       (write-enumerate-fun out
+                            command
+                            fixed-function-name
+                            required-params
+                            optional-params
+                            output-params
+                            count-to-vector-param-indices
+                            vector-params
+                            vk-spec))
+      ((eq command-type :get-array-and-non-array-value)
+       (write-get-array-and-singular-fun out
+                                         command
+                                         fixed-function-name
+                                         required-params
+                                         optional-params
+                                         output-params
+                                         count-to-vector-param-indices
+                                         vector-params
+                                         vk-spec))
+      ((eq command-type :enumerate-two-arrays)
        (write-enumerate-two-arrays-fun out
                                        command
                                        fixed-function-name
@@ -665,16 +621,20 @@ See ~a~]
                                        vk-spec))
       (t (warn "Never encountered a function like <~a>!" (name command))))))
 
-(defun write-vk-functions (vk-functions-file vk-spec)
-  (with-open-file (out vk-functions-file :direction :output :if-exists :supersede)
-    (format out ";;; this file is automatically generated, do not edit~%")
-    (format out "#||~%~a~%||#~%~%" (vulkan-license-header vk-spec))
-    (format out "(in-package :vk)~%~%")
+(defun write-vk-functions (vk-functions-file vk-spec &optional dry-run)
+  (flet ((write-commands (stream)
+           (format stream ";;; this file is automatically generated, do not edit~%")
+           (format stream "#||~%~a~%||#~%~%" (vulkan-license-header vk-spec))
+           (format stream "(in-package :vk)~%~%")
 
     
-    (loop for command in (sorted-elements (alexandria:hash-table-values (commands vk-spec)))
-          do (write-command out command vk-spec)
-          when (alias command)
-          do (loop for alias in (alexandria:hash-table-values (alias command))
-                   do (write-command out (make-aliased-command command alias) vk-spec)))))
+           (loop for command in (sorted-elements (alexandria:hash-table-values (commands vk-spec)))
+                 do (write-command stream command vk-spec)
+                 when (alias command)
+                 do (loop for alias in (alexandria:hash-table-values (alias command))
+                          do (write-command stream (make-aliased-command command alias) vk-spec)))))
+    (if dry-run
+        (write-commands t)
+        (with-open-file (out vk-functions-file :direction :output :if-exists :supersede)
+          (write-commands out)))))
 

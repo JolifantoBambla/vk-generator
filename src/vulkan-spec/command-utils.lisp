@@ -237,4 +237,3 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
           (t
            (warn "Never encountered a function like <~a>!" name)
            :unknown))))))
-
