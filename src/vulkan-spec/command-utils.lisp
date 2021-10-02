@@ -193,8 +193,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                      ;; added the next two conditions, since function return e.g. a uint64_t* were
                      ;; falsely classified as get-struct-funs
                      (gethash (type-name (type-info ret)) *vk-platform*)
-                     (gethash (type-name (type-info ret)) base-types)
-                     )
+                     (gethash (type-name (type-info ret)) base-types))
                  ;; 1) handle type
                  (if (not (find ret vector-params))
                      ;; case 1a-1: create a handle - e.g. vkCreateInstance
@@ -209,7 +208,144 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                          (not (gethash (first non-const-pointer-param-indices) vector-param-indices)))
                      ;; case 1c-1: get a struct extended by its NEXT slot - e.g. vkGetPhysicalDeviceFeatures2
                      ;; case 1c-2: get a struct without NEXT slot - e.g. vkGetPhysicalDeviceProperties
-                     :get-single-struct
+                     (if (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) params))) vk-spec)
+                         (progn (format t "structure chain anchor: ~a~%" (type-name (type-info (nth (first non-const-pointer-param-indices) params))))
+                                :get-single-struct)
+                         :get-single-struct)
+                     ;; TODO: with the current implementation such functions are actually simple-funs which don't return anything -> breaks consistency!
+                     ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
+                     :fill-arbitrary-buffer))))
+          ((= (length non-const-pointer-param-indices) 2)
+           (if (or (structure-chain-anchor-p (type-name (type-info (nth (second non-const-pointer-param-indices) params)))
+                                             vk-spec)
+                   (and (= (hash-table-count vector-param-indices) 1)
+                        (string= "void" return-type)))
+               ;; case 2a: get list of structs - e.g. vkGetPhysicalDeviceQueueFamilyProperties2
+               :get-multiple-structs
+               (cond
+                 ;; todo: find out which function falls (or should fall) into that category
+                 ;; case 2b: two returns and a non-trivial success code, no array - e.g. ???
+                 ((= (hash-table-count vector-param-indices) 0)
+                  :get-two-non-array-values)
+                 ;; case 2c: enumerate - e.g. vkEnumeratePhysicalDevices
+                 ((= (hash-table-count vector-param-indices) 1)
+                  :enumerate-single-array)
+                 ;; case 2d: return multiple values. one array of the same size as an input array and one additional non-array value - e.g. vkGetCalibratedTimestampsEXT
+                 ((= (hash-table-count vector-param-indices) 2)
+                  :get-array-and-non-array-value))))
+          ((= (length non-const-pointer-param-indices) 3)
+           ;; case 3: return two arrays using the same counter which is also an output argument - e.g vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR
+           :enumerate-two-arrays)
+          (t
+           (warn "Never encountered a function like <~a>!" name)
+           :unknown))))))
+
+(defun determine-command-type-2 (command vk-spec)
+  (with-slots (name
+               params
+               return-type
+               success-codes
+               error-codes)
+      command
+    (with-slots (handles
+                 base-types)
+        vk-spec
+      (let ((return-param-indices (determine-non-const-pointer-param-indices params))
+            (vector-param-indices (determine-vector-param-indices params vk-spec))
+            (const-pointer-param-indices (determine-const-pointer-param-indices params vk-spec)))
+        (if (string= "VkResult" return-type)
+                  (if (= 1 (length success-codes))
+                      (if (not error-codes)
+                          ;single-success-no-errors
+                          (if (not return-param-indices) then [else])
+                              (if (not vector-param-indices)
+                                  (if (not const-pointer-param-indices)
+                                      :case1)
+                                  :unknown)
+                              (if (= 1 (length vector-param-indices))
+                                  (if (value-p (type-info (nth (first vector-param-indices) params))) ;; note: this is vpi[0]->second
+                                      (if (handle-p (type-name (type-info (nth (first vector-param-indices) params)))) ;; note: this is vpi[0]->first
+                                          :case2
+                                          :unknown)
+                                      :unknown)
+                                  :unknown))
+                          ;single-success-with-errors
+                          (cond
+                            ((= 0 (length return-param-indices))
+                             ;result-single-success-with-errors-0-return
+                             (cond
+                               ((= 0 (length vector-param-indices))
+                                (cond
+                                  ((= 0 (length const-pointer-param-indices))
+                                   :case3)
+                                  ((= 1 (length const-pointer-param-indices))
+                                   (if (not (string= "void" (type-name (type-info (nth (first non-const-pointer-param-indices) params))))) ;; note: this is vpi[0]->first
+                                        :case4
+                                        :unknown))
+                                  (t :unknown)))
+                               ((= 1 (length vector-param-indices))
+                                (if (value-p (type-info (nth (first vector-param-indices) params))) ;; note: this is vpi[0]->second
+                                    (if (not (string= "void" (type-name (type-info (nth (first vector-param-indices) params))))) ;; note: this is vpi[0]->first
+                                        :case5
+                                        :unknown)
+                                    :unknown))
+                               (t :unknown)))
+                            ((= 1 (length return-param-indices))
+                             :result-single-success-with-errors-1-return)
+                            ((= 2 (length return-param-indices))
+                             :result-single-success-with-errors-2-return)
+                            (t :unknown)))
+                      (if (not error-codes)
+                          :multi-success-no-errors
+                          :multi-success-with-errors))
+                  (if (string= "void" return-type)
+                        (cond
+                          ((= 0 (length return-param-indices))
+                           :void-0-return)
+                          ((= 1 (length return-param-indices))
+                           :void-1-return)
+                          ((= 2 (length return-param-indices))
+                           :void-2-return)
+                          (t :unknown))
+                      :value)))
+
+      ;;;; old stuff
+
+      
+      (let ((output-params (get-output-params command))
+            (non-const-pointer-param-indices (determine-non-const-pointer-param-indices params))
+            (vector-params (get-vector-params command vk-spec))
+            (vector-param-indices (determine-vector-param-indices params vk-spec)))
+        (cond
+          ((not output-params)
+           ;; case 0a: no or implicit return value - e.g. vkDestroyInstance
+           ;; case 0b: non-trivial return value - e.g. vkGetInstanceProcAddr
+           :simple)
+          ((= (length non-const-pointer-param-indices) 1)
+           (let ((ret (first output-params)))
+             (if (or (handlep (type-name (type-info ret)) vk-spec)
+                     ;; added the next two conditions, since function return e.g. a uint64_t* were
+                     ;; falsely classified as get-struct-funs
+                     (gethash (type-name (type-info ret)) *vk-platform*)
+                     (gethash (type-name (type-info ret)) base-types))
+                 ;; 1) handle type
+                 (if (not (find ret vector-params))
+                     ;; case 1a-1: create a handle - e.g. vkCreateInstance
+                     ;; case 1a-2: get an existing handle - e.g. vkGetDeviceQueue
+                     :create-single-handle
+                     ;; 1b-1) vector of handles, where the output vector uses the same len as an input vector - e.g. vkCreateGraphicsPipelines
+                     ;; 1b-2) vector of handles using len-by-struct-member - e.g. vkAllocateCommandBuffers
+                     :create-multiple-handles)
+                 ;; 2) structure chain anchor
+                 (if (or (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) params)))
+                                                   vk-spec)
+                         (not (gethash (first non-const-pointer-param-indices) vector-param-indices)))
+                     ;; case 1c-1: get a struct extended by its NEXT slot - e.g. vkGetPhysicalDeviceFeatures2
+                     ;; case 1c-2: get a struct without NEXT slot - e.g. vkGetPhysicalDeviceProperties
+                     (if (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) params))) vk-spec)
+                         (progn (format t "structure chain anchor: ~a~%" (type-name (type-info (nth (first non-const-pointer-param-indices) params))))
+                                :get-single-struct)
+                         :get-single-struct)
                      ;; TODO: with the current implementation such functions are actually simple-funs which don't return anything -> breaks consistency!
                      ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
                      :fill-arbitrary-buffer))))
