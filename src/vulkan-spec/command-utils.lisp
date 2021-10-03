@@ -252,7 +252,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
            :unknown))))))
 
 ;; generateCommandResultSingleSuccessNoErrors
-(defun classify-result-single-success-no-errors (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-single-success-no-errors (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (assert (not return-param-indices) () "Expected no return param indices for command ~a" command)
   (if (= 0 (hash-table-count vector-param-indices))
       (progn
@@ -266,7 +266,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
         :case-2)))
 
 ;; generateCommandResultSingleSuccessWithErrors0Return
-(defun classify-result-single-siccess-with-errors-0-return (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-single-siccess-with-errors-0-return (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (assert (< (hash-table-count vector-param-indices) 2) () "Expected less than 2 vector param indices for command ~a" command)
   (cond
     ((= 0 (hash-table-count vector-param-indices))
@@ -284,7 +284,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
      :case-5)))
 
 ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle
-(defun classify-result-single-success-with-errors-1-return-handle (command return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec)
+(defun classify-result-single-success-with-errors-1-return-handle (command params return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec)
   (assert (< (hash-table-count vector-param-indices) 3) () "Expected less than 3 vector param indices for command ~a" command)
   (cond
     ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle0Vector
@@ -314,13 +314,13 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
      :case-8)))
 
 ;; generateCommandResultSingleSuccessWithErrors1ReturnChain
-(defun classify-result-single-success-with-errors-1-return-chain (command return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec)
+(defun classify-result-single-success-with-errors-1-return-chain (command params return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec)
   (assert (= 0 (hash-table-count vector-param-indices))
           () "Expected no vector params for command ~a" command)
   :case-9)
 
 ;; generateCommandResultSingleSuccessWithErrors1ReturnVoid
-(defun classify-result-single-success-with-errors-1-return-void (command return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec)
+(defun classify-result-single-success-with-errors-1-return-void (command params return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec)
   (assert (< (hash-table-count vector-param-indices) 3)
           () "Expected less than 3 vector params for command ~a" command)
   (cond
@@ -351,34 +351,34 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
      :case-12)))
 
 ;; generateCommandResultSingleSuccessWithErrors1ReturnValue
-(defun classify-result-single-success-with-errors-1-return-value (command return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec)
+(defun classify-result-single-success-with-errors-1-return-value (command params return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec)
   (assert (= 0 (hash-table-count vector-param-indices))
           () "Expected no vector params for command ~a" command)
   :case-13)
 
 ;; generateCommandResultSingleSuccessWithErrors1Return
-(defun classify-result-single-success-with-errors-1-return (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-single-success-with-errors-1-return (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (let* ((return-param-index (first return-param-indices))
          (return-param (nth return-param-index params)))
     (cond
       ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle
       ((handlep (type-name (type-info return-param)) vk-spec)
-       (classify-result-single-success-with-errors-1-return-handle command return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec))
+       (classify-result-single-success-with-errors-1-return-handle command params return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec))
 
       ;; generateCommandResultSingleSuccessWithErrors1ReturnChain
       ((structure-chain-anchor-p (type-name (type-info return-param)) vk-spec)
-       (classify-result-single-success-with-errors-1-return-chain command return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec))
+       (classify-result-single-success-with-errors-1-return-chain command params return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec))
 
       ;; generateCommandResultSingleSuccessWithErrors1ReturnVoid
       ((string= "void" (type-name (type-info return-param)))
-       (classify-result-single-success-with-errors-1-return-void command return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec))
+       (classify-result-single-success-with-errors-1-return-void command params return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec))
 
       ;; generateCommandResultSingleSuccessWithErrors1ReturnValue
       (t
-       (classify-result-single-success-with-errors-1-return-value command return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec)))))
+       (classify-result-single-success-with-errors-1-return-value command params return-param-indices vector-param-indices const-pointer-param-indices return-param-index return-param vk-spec)))))
 
 ;; generateCommandResultSingleSuccessWithErrors2Return
-(defun classify-result-single-success-with-errors-2-return (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-single-success-with-errors-2-return (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (let ((first-return-param (type-name (type-info (nth (first return-param-indices) params)))))
     (assert (and (not (string= "void" first-return-param))
                  (not (handlep first-return-param vk-spec))
@@ -414,24 +414,24 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
   :case-14)
 
 ;; generateCommandResultSingleSuccessWithErrors
-(defun classify-result-single-success-with-errors (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-single-success-with-errors (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (assert (< (length return-param-indices) 3) () "Expected less than 3 return param indices for command ~a" command)
   (cond
     ;; generateCommandResultSingleSuccessWithErrors0Return
     ((= 0 (length return-param-indices))
-     (classify-result-single-siccess-with-errors-0-return command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
+     (classify-result-single-siccess-with-errors-0-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
 
     ;; generateCommandResultSingleSuccessWithErrors1Return
     ((= 1 (length return-param-indices))
-     (classify-result-single-success-with-errors-1-return command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
+     (classify-result-single-success-with-errors-1-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
 
     ;; generateCommandResultSingleSuccessWithErrors2Return
     ((= 2 (length return-param-indices))
-     (classify-result-single-success-with-errors-2-return command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))))
+     (classify-result-single-success-with-errors-2-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))))
 
 
 ;; generateCommandResultMultiSuccessNoErrors
-(defun classify-result-multi-success-no-errors (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-multi-success-no-errors (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (assert (not return-param-indices)
           () "Expected no return params for command ~a" command)
   (assert (= 0 (hash-table-count vector-param-indices))
@@ -441,7 +441,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
   :case-15)
 
 ;; generateCommandResultMultiSuccessWithErrors0Return
-(defun classify-result-multi-success-with-errors-0-return (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-multi-success-with-errors-0-return (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (assert (< (hash-table-count vector-param-indices) 3)
           () "Expected less than 3 vector param indices for command ~a" command)
   (cond
@@ -484,7 +484,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
      :case-19)))
 
 ;; generateCommandResultMultiSuccessWithErrors1Return
-(defun classify-result-multi-success-with-errors-1-return (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-multi-success-with-errors-1-return (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (let* ((return-param-index (first return-param-indices))
          (return-param (nth return-param-index params)))
     (cond
@@ -521,7 +521,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
        (error "Expected return param to be either void, a handle or a structure chain anchor for command ~a" command)))))
 
 ;; generateCommandResultMultiSuccessWithErrors2Return
-(defun classify-result-multi-success-with-errors-2-return (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-multi-success-with-errors-2-return (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (let* ((first-return-param-index (first return-param-indices))
          (second-return-param-index (second return-param-indices))
          (first-return-param (type-name (type-info (nth first-return-param-index params))))
@@ -541,7 +541,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
   :case-23)
 
 ;; generateCommandResultMultiSuccessWithErrors3Return
-(defun classify-result-multi-success-with-errors-3-return (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-multi-success-with-errors-3-return (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (let* ((first-return-param-index (first return-param-indices))
          (second-return-param-index (second return-param-indices))
          (third-return-param-index (third return-param-indices))
@@ -575,28 +575,28 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
   :case-24)
 
 ;; generateCommandResultMultiSuccessWithErrors
-(defun classify-result-multi-success-with-errors (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-result-multi-success-with-errors (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (assert (< (length return-param-indices) 4)
           () "Expected less than 4 return params for command ~a" command)
   (cond
     ;; generateCommandResultMultiSuccessWithErrors0Return
     ((= 0 (length return-param-indices))
-     (classify-result-multi-success-with-errors-0-return command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
+     (classify-result-multi-success-with-errors-0-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
 
     ;; generateCommandResultMultiSuccessWithErrors1Return
     ((= 1 (length return-param-indices))
-     (classify-result-multi-success-with-errors-1-return command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
+     (classify-result-multi-success-with-errors-1-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
 
     ;; generateCommandResultMultiSuccessWithErrors2Return
     ((= 2 (length return-param-indices))
-     (classify-result-multi-success-with-errors-2-return command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
+     (classify-result-multi-success-with-errors-2-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
 
     ;; generateCommandResultMultiSuccessWithErrors3Return
     ((= 3 (length return-param-indices))
-     (classify-result-multi-success-with-errors-3-return command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))))
+     (classify-result-multi-success-with-errors-3-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))))
 
 ;; generateCommandVoid0Return
-(defun classify-void-0-return (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-void-0-return (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (cond
     ((= 0 (hash-table-count vector-param-indices))
      (if (not (find-if (lambda (idx)
@@ -623,7 +623,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
      (error "Expected less than 2 vector params or one counter param being either not of a value type or not a uint32_t or a void type for command ~a" command))))
 
 ;; generateCommandVoid1Return
-(defun classify-void-1-return (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-void-1-return (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (let* ((return-param-index (first return-param-indices))
          (return-param-type-name (type-name (type-info (nth return-param-index params)))))
     (cond
@@ -659,7 +659,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
        (error "Expected return param to be either a handle type, void type or structure chain anchor for command ~a" command)))))
 
 ;; generateCommandVoid2Return
-(defun classify-void-2-return (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-void-2-return (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (let ((first-return-param-index (first return-param-indices))
         (second-return-param-index (second return-param-indices))
         (first-return-param-type-name (type-name (type-info (nth first-return-param-index params))))
@@ -690,7 +690,7 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
        (error "Expected for command ~a" command)))))
 
 ;; generateCommandValue
-(defun classify-value (command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+(defun classify-value (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (assert (= 0 (length return-param-indices))
           () "Expected no return params for command ~a" command)
   (assert (= 0 (hash-table-count vector-param-indices))
@@ -725,27 +725,27 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
             (if (= 1 (length success-codes))
                 (if (not error-codes)
                     ;; generateCommandResultSingleSuccessNoErrors
-                    (classify-result-single-success-no-errors command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+                    (classify-result-single-success-no-errors command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
                     ;; generateCommandResultSingleSuccessWithErrors
-                    (classify-result-single-success-with-errors command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
+                    (classify-result-single-success-with-errors command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
                 (if (not error-codes)
                     ;; generateCommandResultMultiSuccessNoErrors
-                    (classify-result-multi-success-no-errors command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
+                    (classify-result-multi-success-no-errors command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
                     ;; generateCommandResultMultiSuccessWithErrors
-                    (classify-result-multi-success-with-errors command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)))
+                    (classify-result-multi-success-with-errors command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)))
             (if (string= "void" return-type)
                 (cond
                   ;; generateCommandVoid0Return
                   ((= 0 (length return-param-indices))
-                   (classify-void-0-return command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
+                   (classify-void-0-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
                   ;; generateCommandVoid1Return
                   ((= 1 (length return-param-indices))
-                   (classify-void-1-return command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
+                   (classify-void-1-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
                   ;; generateCommandVoid2Return
                   ((= 2 (length return-param-indices))
-                   (classify-void-2-return command return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
+                   (classify-void-2-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
                   (t
                    (error "Expected less than 3 return params for void command ~a" command)))
 
                 ;; generateCommandValue
-                (classify-value command return-param-indices vector-param-indices const-pointer-param-indices vk-spec)))))))
+                (classify-value command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)))))))
