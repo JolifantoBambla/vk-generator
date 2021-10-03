@@ -627,12 +627,21 @@ See ~a~]
            (format stream "#||~%~a~%||#~%~%" (vulkan-license-header vk-spec))
            (format stream "(in-package :vk)~%~%")
 
-    
            (loop for command in (sorted-elements (alexandria:hash-table-values (commands vk-spec)))
                  do (write-command stream command vk-spec)
                  when (alias command)
                  do (loop for alias in (alexandria:hash-table-values (alias command))
-                          do (write-command stream (make-aliased-command command alias) vk-spec)))))
+                          do (write-command stream (make-aliased-command command alias) vk-spec)))
+
+           (let ((command-types (make-hash-table)))
+             (loop for command in (sorted-elements (alexandria:hash-table-values (commands vk-spec)))
+                   for command-type = (determine-command-type command vk-spec)
+                   for command-type2 = (determine-command-type-2 command vk-spec)
+                   do (if (not (gethash command-type2 command-types))
+                          (setf (gethash command-type2 command-types) (list (name command) command-type))
+                          (pushnew (list (name command) command-type) (gethash command-type2 command-types))))
+             (loop for c in (alexandria:hash-table-keys command-types)
+                   do (format t "~a: ~a~%" c (gethash c command-types))))))
     (if dry-run
         (write-commands t)
         (with-open-file (out vk-functions-file :direction :output :if-exists :supersede)

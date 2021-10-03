@@ -127,6 +127,7 @@
    :get-optional-params
    :get-skipped-input-params
    :determine-command-type
+   :determine-command-type-2
    :reverse-hash-table
    :handlep
    :get-handle
