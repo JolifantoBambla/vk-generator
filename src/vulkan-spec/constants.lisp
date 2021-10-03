@@ -128,7 +128,8 @@
   '("Display"
     "IDirectFB"
     "wl_display"
-    "xcb_connection_t")
+    "xcb_connection_t"
+    "_screen_window")
   "A sequence of pointer types which are never used as const-qualified call arguments, but are never used as return arguments.")
 
 (defparameter *special-base-types*
