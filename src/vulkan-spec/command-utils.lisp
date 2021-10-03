@@ -211,7 +211,16 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                      (if (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) params))) vk-spec)
                          (progn (format t "structure chain anchor: ~a~%" (type-name (type-info (nth (first non-const-pointer-param-indices) params))))
                                 :get-single-struct)
-                         :get-single-struct)
+                         (progn
+                           (if (gethash (type-name (type-info (nth (first non-const-pointer-param-indices) params))) (structures vk-spec))
+                               (format t "has ~:[no~;a~] next slot: ~a~%"
+                                       (find-if (lambda (m)
+                                                  (string= "pNext" (name m)))
+                                                (members (gethash (type-name (type-info (nth (first non-const-pointer-param-indices) params))) (structures vk-spec))))
+                                       (type-name (type-info (nth (first non-const-pointer-param-indices) params))))
+                               (format t "not a struct type: ~a~%"
+                                       (type-name (type-info (nth (first non-const-pointer-param-indices) params)))))
+                           :get-single-struct))
                      ;; TODO: with the current implementation such functions are actually simple-funs which don't return anything -> breaks consistency!
                      ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
                      :fill-arbitrary-buffer))))
@@ -240,6 +249,8 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
            (warn "Never encountered a function like <~a>!" name)
            :unknown))))))
 
+;; todo: split up in functions
+;; todo: map new cases to old ones
 (defun determine-command-type-2 (command vk-spec)
   (with-slots (name
                params
@@ -250,126 +261,427 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
     (with-slots (handles
                  base-types)
         vk-spec
-      (let ((return-param-indices (determine-non-const-pointer-param-indices params))
+      (let ((resultp (string= "VkResult" return-type))
+            (voidp (string= "void" return-type))
+            (return-param-indices (determine-non-const-pointer-param-indices params))
             (vector-param-indices (determine-vector-param-indices params vk-spec))
             (const-pointer-param-indices (determine-const-pointer-param-indices params vk-spec)))
+        ;; if stuff
         (if (string= "VkResult" return-type)
-                  (if (= 1 (length success-codes))
-                      (if (not error-codes)
-                          ;single-success-no-errors
-                          (if (not return-param-indices) then [else])
-                              (if (not vector-param-indices)
-                                  (if (not const-pointer-param-indices)
-                                      :case1)
-                                  :unknown)
-                              (if (= 1 (length vector-param-indices))
-                                  (if (value-p (type-info (nth (first vector-param-indices) params))) ;; note: this is vpi[0]->second
-                                      (if (handle-p (type-name (type-info (nth (first vector-param-indices) params)))) ;; note: this is vpi[0]->first
-                                          :case2
-                                          :unknown)
-                                      :unknown)
-                                  :unknown))
-                          ;single-success-with-errors
-                          (cond
-                            ((= 0 (length return-param-indices))
-                             ;result-single-success-with-errors-0-return
-                             (cond
-                               ((= 0 (length vector-param-indices))
-                                (cond
-                                  ((= 0 (length const-pointer-param-indices))
-                                   :case3)
-                                  ((= 1 (length const-pointer-param-indices))
-                                   (if (not (string= "void" (type-name (type-info (nth (first non-const-pointer-param-indices) params))))) ;; note: this is vpi[0]->first
-                                        :case4
-                                        :unknown))
-                                  (t :unknown)))
-                               ((= 1 (length vector-param-indices))
-                                (if (value-p (type-info (nth (first vector-param-indices) params))) ;; note: this is vpi[0]->second
-                                    (if (not (string= "void" (type-name (type-info (nth (first vector-param-indices) params))))) ;; note: this is vpi[0]->first
-                                        :case5
-                                        :unknown)
-                                    :unknown))
-                               (t :unknown)))
-                            ((= 1 (length return-param-indices))
-                             :result-single-success-with-errors-1-return)
-                            ((= 2 (length return-param-indices))
-                             :result-single-success-with-errors-2-return)
-                            (t :unknown)))
-                      (if (not error-codes)
-                          :multi-success-no-errors
-                          :multi-success-with-errors))
-                  (if (string= "void" return-type)
+            (if (= 1 (length success-codes))
+                (if (not error-codes)
+                    ;; generateCommandResultSingleSuccessNoErrors
+                    (progn
+                      (assert (not return-param-indices) () "Expected no return param indices for command ~a" command)
+                      (if (= 0 (hash-table-count vector-param-indices))
+                          (progn
+                            (assert (not const-pointer-param-indices) () "Expected no const pointer param indices for command ~a" command)
+                            :case-1) ;; generateCommandStandard, generateCommandResult
+                          (progn
+                            (assert (= 1 (hash-table-count vector-param-indices)) () "Expected exactly one vector param index for command ~a" command)
+                            (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
+                              (assert (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params))) () "Expected counter param to be of a value type ~a" command)
+                              (assert (handle-p (type-name (type-info (nth vector-param-index params)))) () "Expected vector param to be of handle type ~a" command))
+                            :case-2))) ;; generateCommandStandard, generateCommandResult but with vectorParamIndices
+                    
+                    ;; generateCommandResultSingleSuccessWithErrors
+                    (progn
+                      (assert (< (length return-param-indices) 3) () "Expected less than 3 return param indices for command ~a" command)
+                      (cond
+                        ;; generateCommandResultSingleSuccessWithErrors0Return
+                        ((= 0 (length return-param-indices))
+                         (assert (< (hash-table-count vector-param-indices) 2) () "Expected less than 2 vector param indices for command ~a" command)
+                         (cond
+                           ((= 0 (hash-table-count vector-param-indices))
+                            (assert (< (length const-pointer-param-indices) 2) () "Expected less than 2 const pointer param indices for command ~a" command)
+                            (cond
+                              ((= 0 (length const-pointer-param-indices))
+                               :case-3)
+                              ((= 1 (length const-pointer-param-indices))
+                               (assert (not (string= "void" (type-name (type-info (nth (first non-const-pointer-param-indices) params))))) () "Expected type of output param to be void for command ~a" command)
+                               :case-4)))
+                           ((= 1 (hash-table-count vector-param-indices))
+                            (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
+                              (assert (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params))) () "Expected counter param to be of a value type ~a" command)
+                              (assert (not (string= "void" (type-name (type-info (nth vector-param-index params))))) () "Expected vector param to not be void for command ~a" command))
+                            :case-5)))
+
+                        ;; generateCommandResultSingleSuccessWithErrors1Return
+                        ((= 1 (length return-param-indices))
+                         (let* ((return-param-index (first return-param-indices))
+                                (return-param (nth return-param-index params)))
+                           (cond
+                             ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle
+                             ((handlep (type-name (type-info return-param)) vk-spec)
+                              (assert (< (hash-table-count vector-param-indices) 3) () "Expected less than 3 vector param indices for command ~a" command)
+                              (cond
+                                ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle0Vector
+                                ((= 0 (hash-table-count vector-param-indices))
+                                 :case-6)
+
+                                ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle1Vector
+                                ((= 1 (hash-table-count vector-param-indices))
+                                 (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
+                                   (assert (eq return-param-index vector-param-index) () "Expected return param to be the first vector param for command ~a" command)
+                                   (assert (len-by-struct-member-p (len (nth vector-param-index params)) (nth (gethash vector-param-index vector-param-indices) params) vk-spec) () "Expected vector to be counted by a struct member for command ~a" command))
+                                 :case-7)
+
+                                ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle2Vector
+                                ((= 2 (hash-table-count vector-param-indices))
+                                 (let* ((vector-param-indices-keys (alexandria:hash-table-keys vector-param-indices))
+                                        (first-vector-param-index (first vector-param-indices-keys))
+                                        (second-vector-param-index (second vector-param-indices-keys)))
+                                   (assert (= return-param-index second-vector-param-index) () "Expected return param to be the second vector param for command ~a" command)
+                                   (assert (= (gethash first-vector-param-index vector-param-indices)
+                                              (gethash second-vector-param-index vector-param-indices))
+                                           () "Expected both vector params to be counted by same param for command ~a" command)
+                                   (assert (value-p (type-info (nth (gethash first-vector-param-index vector-param-indices) params)) vk-spec)
+                                           () "Expected counter to be a value for command ~a" command)
+                                   (assert (structure-chain-anchor-p (type-name (type-info (nth first-vector-param-index params))) vk-spec)
+                                           () "Expected first vector param to be a structure chain anchor for command ~a" command))
+                                 :case-8)))
+
+                             ;; generateCommandResultSingleSuccessWithErrors1ReturnChain
+                             ((structure-chain-anchor-p (type-name (type-info return-param)) vk-spec)
+                              (assert (= 0 (hash-table-count vector-param-indices))
+                                      () "Expected no vector params for command ~a" command)
+                              :case-9)
+
+                             ;; generateCommandResultSingleSuccessWithErrors1ReturnVoid
+                             ((string= "void" (type-name (type-info return-param)))
+                              (assert (< (hash-table-count vector-param-indices) 3)
+                                      () "Expected less than 3 vector params for command ~a" command)
+                              (cond
+                                ((= 0 (hash-table-count vector-param-indices))
+                                 :case-10)
+                                ((= 1 (hash-table-count vector-param-indices))
+                                 (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
+                                   (assert (= return-param-index vector-param-index)
+                                           () "Expected return param be the vector param for command ~a" command)
+                                   (assert (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params)) vk-spec)
+                                           () "Expected counter for vector param to be a value for command ~a" command))
+                                 :case-11)
+                                ((= 2 (hash-table-count vector-param-indices))
+                                 (let* ((vector-param-indices-keys (alexandria:hash-table-keys vector-param-indices))
+                                        (first-vector-param-index (first vector-param-indices-keys))
+                                        (second-vector-param-index (second vector-param-indices-keys)))
+                                   (assert (= return-param-index second-vector-param-index)
+                                           () "Expected return param to be the second vector param for command ~a" command)
+                                   (assert (not (= (gethash first-vector-param-index vector-param-indices)
+                                                   (gethash second-vector-param-index vector-param-indices)))
+                                           () "Expected vector params not to be counted by same param for command ~a" command)
+                                   (assert (value-p (type-info (nth (gethash first-vector-param-index vector-param-indices) params)) vk-spec)
+                                           () "Expected counter for first vector param to be of a value type for command ~a" command)
+                                   (assert (handlep (type-name (type-info (nth first-vector-param-index params))) vk-spec)
+                                           () "Expected first vector param to be a handle for command ~a" command)
+                                   (assert (value-p (type-info (nth (gethash second-vector-param-index vector-param-indices) params)) vk-spec)
+                                           () "Expected counter for second vector param to be of a value type for command ~a" command))
+                                 :case-12)))
+
+                             ;; generateCommandResultSingleSuccessWithErrors1ReturnValue
+                             (t
+                              (assert (= 0 (hash-table-count vector-param-indices))
+                                      () "Expected no vector params for command ~a" command)
+                              :case-13))))
+
+                        ;; generateCommandResultSingleSuccessWithErrors2Return
+                        ((= 2 (length return-param-indices))
+                         (let ((first-return-param (type-name (type-info (nth (first return-param-indices) params)))))
+                           (assert (and (not (string= "void" first-return-param))
+                                        (not (handlep first-return-param vk-spec))
+                                        (not (structure-chain-anchor-p first-return-param vk-spec)))
+                                   () "Expected first return param neither void, nor a handle nor a structure chain anchor for command ~a" command))
+                         (let ((second-return-param (type-name (type-info (nth (second return-param-indices) params)))))
+                           (assert (and (not (string= "void" second-return-param))
+                                        (not (handlep second-return-param vk-spec))
+                                        (not (structure-chain-anchor-p second-return-param vk-spec)))
+                                   () "Expected second return param neither void, nor a handle nor a structure chain anchor for command ~a" command))
+                         (assert (= 2 (hash-table-count vector-param-indices))
+                                 () "Expected exactly two vector param indices for command ~a" command)
+                         (let* ((vector-param-indices-keys (alexandria:hash-table-keys vector-param-indices))
+                                (first-vector-param-index (first vector-param-indices-keys))
+                                (second-vector-param-index (second vector-param-indices-keys)))
+                           (assert (= return-param-index second-vector-param-index)
+                                   () "Expected return param to be the second vector param for command ~a" command)
+                           (assert (not (member (first return-param-indices) vector-param-indices-keys))
+                                   () "Expected first return param not to be a vector param for command ~a" command)
+                           (assert (and (not (= (first return-param-indices) (gethash first-vector-param-index vector-param-indices)))
+                                        (not (= (first return-param-indices) (gethash second-vector-param-index vector-param-indices))))
+                                   () "Expected second return param not to be the counter for any of the vector params for command ~a" command)
+                           (assert (= (gethash first-vector-param-index vector-param-indices)
+                                      (gethash second-vector-param-index vector-param-indices))
+                                   () "Expected vector params to be counted by same param for command ~a" command)
+                           (assert (value-p (type-info (nth (gethash first-vector-param-index vector-param-indices) params)) vk-spec)
+                                   () "Expected counter for first vector param to be of a value type for command ~a" command)
+                           (let ((first-vector-param (type-name (type-info (nth first-vector-param-index params)))))
+                             (assert (and (not (string= "void" first-vector-param))
+                                          (not (handlep first-vector-param vk-spec))
+                                          (not (structure-chain-anchor-p first-vector-param vk-spec)))
+                                     () "Expected first vector param neither void, nor a handle nor a structure chain anchor for command ~a" command)))
+                         :case-14))))
+                
+                (if (not error-codes)
+                    ;; generateCommandResultMultiSuccessNoErrors
+                    (progn
+                      (assert (not return-param-indices)
+                              () "Expected no return params for command ~a" command)
+                      (assert (= 0 (hash-table-count vector-param-indices))
+                              () "Expected no vector param indices for command ~a" command)
+                      (assert (not const-pointer-param-indices)
+                              () "Expected no const pointer param indices for command ~a" command)
+                      :case-15)
+
+                    ;; generateCommandResultMultiSuccessWithErrors
+                    (progn
+                      (assert (< (length return-param-indices) 4)
+                              () "Expected less than 4 return params for command ~a" command)
+                      (cond
+                        ;; generateCommandResultMultiSuccessWithErrors0Return
+                        ((= 0 (length return-param-indices))
+                         (assert (< (hash-table-count vector-param-indices) 3)
+                                 () "Expected less than 3 vector param indices for command ~a" command)
+                         (cond
+                           ((= 0 (hash-table-count vector-param-indices))
+                            (assert (< (length const-pointer-param-indices) 2)
+                                    () "Expected less than 2 const pointer params for command ~a" command)
+                            (cond
+                              ((= 0 (length const-pointer-param-indices))
+                               :case-16)
+                              ((= 1 (length const-pointer-param-indices))
+                               (assert (not (string= "void" (type-name (type-info (nth (first const-pointer-param-indices) params)))))
+                                       () "Expected first cost pointer param not to be of type void for command ~a" command)
+                               :case-17)))
+                           ((= 1 (hash-table-count vector-param-indices))
+                            (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
+                              (assert (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params)) vk-spec)
+                                      () "Expected counter for vector param to be of a value type for command ~a" command)
+                              (assert (handlep (type-name (type-info (nth vector-param-index params))) vk-spec)
+                                      () "Expected vector param to be of a handle type for command ~a" command))
+                            :case-18)
+                           ((= 2 (hash-table-count vector-param-indices))
+                            (let* ((vector-param-indices-keys (alexandria:hash-table-keys vector-param-indices))
+                                   (first-vector-param-index (first vector-param-indices-keys))
+                                   (second-vector-param-index (second vector-param-indices-keys)))
+                              (assert (= (gethash first-vector-param-index vector-param-indices)
+                                         (gethash second-vector-param-index vector-param-indices))
+                                      () "Expected vector params to be counted by same param for command ~a" command)
+                              (assert (string= "uint32_t" (type-name (type-info (nth (gethash first-vector-param-index vector-param-indices) params))))
+                                      () "Expected vector params to be counted by a uint32_t for command ~a" command)
+                              (let ((first-vector-param (type-name (type-info (nth first-vector-param-index params)))))
+                                (assert (and (not (string= "void" first-vector-param))
+                                             (not (handlep first-vector-param vk-spec))
+                                             (not (structure-chain-anchor-p first-vector-param vk-spec)))
+                                        () "Expected first vector param neither void, nor a handle nor a structure chain anchor for command ~a" command))
+                              (let ((second-vector-param (type-name (type-info (nth second-vector-param-index params)))))
+                                (assert (and (not (string= "void" second-vector-param))
+                                             (not (handlep second-vector-param vk-spec))
+                                             (not (structure-chain-anchor-p second-vector-param vk-spec)))
+                                        () "Expected second vector param neither void, nor a handle nor a structure chain anchor for command ~a" command)))
+                            :case-19)))
+
+                        ;; generateCommandResultMultiSuccessWithErrors1Return
+                        ((= 1 (length return-param-indices))
+                         (let* ((return-param-index (first return-param-indices))
+                                (return-param (nth return-param-index params)))
+                           (cond
+                             ((string= "void" (type-name (type-info return-param)))
+                              (assert (= 1 (hash-table-count vector-param-indices))
+                                      () "Expected exactly one vector param for command ~a" command)
+                              (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
+                                (assert (= return-param-index vector-param-index)
+                                        () "Expected return param to be the vector param for command ~a" command)
+                                (assert (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params)) vk-spec)
+                                        () "Expected counter for vector param to be of a value type for command ~a" command))
+                              :case-20)
+                             ((handlep (type-name (type-info return-param)) vk-spec)
+                              (assert (= 2 (hash-table-count vector-param-indices))
+                                      () "Expected exactly 2 vector params for command ~a" command)
+                              (let* ((vector-param-indices-keys (alexandria:hash-table-keys vector-param-indices))
+                                     (first-vector-param-index (first vector-param-indices-keys))
+                                     (second-vector-param-index (second vector-param-indices-keys)))
+                                (assert (= return-param-index second-vector-param-index)
+                                        () "Expected return param to be the second vector param for command ~a" command)
+                                (assert (= (gethash first-vector-param-index vector-param-indices)
+                                           (gethash second-vector-param-index vector-param-indices))
+                                        () "Expected vector params to be counted by same param for command ~a" command)
+                                (assert (string= "uint32_t" (type-name (type-info (nth (gethash first-vector-param-index vector-param-indices) params))))
+                                        () "Expected vector params to be counted by a uint32_t for command ~a" command)
+                                (assert (structure-chain-anchor-p (type-name (type-info (nth first-vector-param-index params))) vk-spec)
+                                        () "Expected first vector param to be a structure chain anchor for command ~a" command))
+                              :case-21)
+                             ((structure-chain-anchor-p (type-name (type-info return-param)) vk-spec)
+                              (assert (= 0 (hash-table-count vector-param-indices))
+                                      () "Expected no vector params for command ~a" command)
+                              :case-22)
+                             (t
+                              (error "Expected return param to be either void, a handle or a structure chain anchor for command ~a" command)))))
+
+                        ;; generateCommandResultMultiSuccessWithErrors2Return
+                        ((= 2 (length return-param-indices))
+                         (let* ((first-return-param-index (first return-param-indices))
+                                (second-return-param-index (second return-param-indices))
+                                (first-return-param (type-name (type-info (nth first-return-param-index params))))
+                                (second-return-param (type-name (type-info (nth second-return-param-index params)))))
+                           (assert (or (string= "size_t" first-return-param)
+                                       (string= "uint32_t" first-return-param))
+                                   () "Expected first return param to be either size_t or uint32_t for command ~a" command)
+                           (assert (not (structure-chain-anchor-p second-return-param vk-spec))
+                                   () "Expected second return param not to be a structure chain anchor for command ~a" command)
+                           (assert (= 1 (hash-table-count vector-param-indices))
+                                   () "Expected exactly one vector param for command ~a" command)
+                           (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
+                             (assert (= first-return-param-index (gethash vector-param-index vector-param-indices))
+                                     () "Expected first return param to be the counter of the vector param for command ~a" command)
+                             (assert (= second-return-param-index vector-param-index)
+                                     () "Expected second return param to be the vector param for command ~a" command)))
+                         :case-23)
+
+                        ;; generateCommandResultMultiSuccessWithErrors3Return
+                        ((= 3 (length return-param-indices))
+                         (let* ((first-return-param-index (first return-param-indices))
+                                (second-return-param-index (second return-param-indices))
+                                (third-return-param-index (third return-param-indices))
+                                (first-return-param (type-name (type-info (nth first-return-param-index params))))
+                                (second-return-param (type-name (type-info (nth second-return-param-index params))))
+                                (third-return-param (type-name (type-info (nth third-return-param-index params)))))
+                           (assert (string= "uint32_t" first-return-param)
+                                   () "Expected first return param to be a uint32_t for command ~a" command)
+                           (assert (and (not (string= "void" second-return-param))
+                                        (not (handlep second-return-param vk-spec))
+                                        (not (structure-chain-anchor-p second-return-param vk-spec)))
+                                   () "Expected second return param neither void, nor a handle nor a structure chain anchor for command ~a" command)
+                           (assert (and (not (string= "void" third-return-param))
+                                        (not (handlep third-return-param vk-spec))
+                                        (not (structure-chain-anchor-p third-return-param vk-spec)))
+                                   () "Expected third return param neither void, nor a handle nor a structure chain anchor for command ~a" command)
+                           (assert (= 2 (hash-table-count vector-param-indices))
+                                   () "Expected exactly two vector params for command ~a" command)
+                           (let* ((vector-param-indices-keys (alexandria:hash-table-keys vector-param-indices))
+                                  (first-vector-param-index (first vector-param-indices-keys))
+                                  (second-vector-param-index (second vector-param-indices-keys)))
+                             (assert (= (gethash first-vector-param-index vector-param-indices)
+                                        (gethash second-vector-param-index vector-param-indices))
+                                     () "Expected vector params to be counted by same param for command ~a" command)
+                             (assert (= first-return-param-index (gethash first-vector-param-index vector-param-indices))
+                                     () "Expected first return param to be the counter of the vector params for command ~a" command)
+                             (assert (= second-return-param-index first-vector-param-index)
+                                     () "Expected second return param to be the first vector param for command ~a" command)
+                             (assert (= third-return-param-index second-vector-param-index)
+                                     () "Expected third return param to be the second vector param for command ~a" command)))
+                         :case-24)))))
+            
+            (if (string= "void" return-type)
+                (cond
+                  ;; generateCommandVoid0Return
+                  ((= 0 (length return-param-indices))
+                   (cond
+                     ((= 0 (hash-table-count vector-param-indices))
+                      (if (not (find-if (lambda (idx)
+                                          (not (string= "void" (type-name (type-info (nth idx params))))))
+                                        const-pointer-param-indices))
+                          :case-25
+                          :case-26))
+                     ((= 1 (hash-table-count vector-param-indices))
+                      (let ((counter-type (type-info (nth (first (alexandria:hash-table-values vector-param-indices)) params))))
+                        (assert (value-p counter-type vk-spec)
+                                () "Expected counter param to be of a value type for command ~a" command)
+                        (assert (or (string= "uint32_t" (type-name counter-type))
+                                    (string= "VkDeviceSize" (type-name counter-type)))
+                                () "Expected counter type to be either uint32_t or VkDeviceSize for command ~a" command))
+                      :case-27)
+                     ((find-if (lambda (p)
+                                 (let ((counter-param (nth (gethash p vector-param-indices) params)))
+                                   (or (not (value-p (type-info counter-param)))
+                                       (not (string= "uint32_t" (type-name (type-info counter-param))))
+                                       (string= "void" (type-name (type-info counter-param))))))
+                               (alexandria:hash-table-keys vector-param-indices))
+                      :case-28)
+                     (t
+                      (error "Expected less than 2 vector params or one counter param being either not of a value type or not a uint32_t or a void type for command ~a" command))))
+
+                  ;; generateCommandVoid1Return
+                  ((= 1 (length return-param-indices))
+                   (let* ((return-param-index (first return-param-indices))
+                          (return-param-type-name (type-name (type-info (nth return-param-index params)))))
+                     (cond
+                       ((handlep return-param-type-name vk-spec)
+                        (assert (= 0 (hash-table-count vector-param-indices))
+                                () "Expected no vector params for command ~a" command)
+                        :case-29)
+                       ((structure-chain-anchor-p return-param-type-name vk-spec)
+                        (assert (= 0 (hash-table-count vector-param-indices))
+                                () "Expected no vector params for command ~a" command)
+                        :case-30)
+                       ((string= "void" return-param-type-name)
+                        (assert (< (hash-table-count vector-param-indices) 2)
+                                () "Expected less than 2 vector params for command ~a" command)
                         (cond
-                          ((= 0 (length return-param-indices))
-                           :void-0-return)
-                          ((= 1 (length return-param-indices))
-                           :void-1-return)
-                          ((= 2 (length return-param-indices))
-                           :void-2-return)
-                          (t :unknown))
-                      :value)))
+                          ((= 0 (hash-table-count vector-param-indices))
+                           :case-31)
+                          ((= 1 (hash-table-count vector-param-indices))
+                           (let* ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices)))
+                                  (vector-param (nth vector-param-index params))
+                                  (vector-param-type-name (type-name (type-info vector-param)))
+                                  (counter-param (nth (gethash vector-param-index vector-param-indices) params)))
+                             (assert (= return-param-index vector-param-index)
+                                     () "Expected return param to be the vector param for command ~a" command)
+                             (assert (and (not (handlep vector-param-type-name vk-spec))
+                                          (not (structure-chain-anchor vector-param-type-name vk-spec))
+                                          (not (string= "void" vector-param-type-name)))
+                                     () "Expected vector param not to be a handle or void type or not to be a structure chain anchor for command ~a" command)
+                             (assert (len-by-struct-member-p (len vector-param) counter-param vk-spec)
+                                     () "Expected vector param to be counted by a struct member for command ~a" command))
+                           :case-32)))
+                       (t
+                        (error "Expected return param to be either a handle type, void type or structure chain anchor for command ~a" command))))
+                   :void-1-return)
 
-      ;;;; old stuff
+                  ;; generateCommandVoid2Return
+                  ((= 2 (length return-param-indices))
+                   (let ((first-return-param-index (first return-param-indices))
+                         (second-return-param-index (second return-param-indices))
+                         (first-return-param-type-name (type-name (type-info (nth first-return-param-index params))))
+                         (second-return-param-type-name (type-name (type-info (nth second-return-param-index params)))))
+                     (assert (string= "uint32_t" first-return-param-type-name)
+                             () "Expected first return param to be a uint32_t for command ~a" command)
+                     (cond
+                       ((structure-chain-anchor first-return-param-type-name vk-spec)
+                        (assert (= 1 (hash-table-count vector-param-indices))
+                                () "Expected exactly one vector param for command ~a" command)
+                        (let ((vector-param-index (first vector-param-indices)))
+                          (assert (= first-return-param-index (gethash vector-param-index vector-param-indices))
+                                  () "Expected first return param to be the counter of the vector param for command ~a" command)
+                          (assert (= second-return-param-index vector-param-index)
+                                  () "Expected second return param to be the vector param for command ~a" command))
+                        :case-33)
+                       ((and (not (string= "void" second-return-param-type-name))
+                             (not (handlep second-return-param-type-name vk-spec)))
+                        (assert (= 1 (hash-table-count vector-param-indices))
+                                () "Expected exactly one vector param for command ~a" command)
+                        (let ((vector-param-index (first vector-param-indices)))
+                          (assert (= first-return-param-index (gethash vector-param-index vector-param-indices))
+                                  () "Expected first return param to be the counter of the vector param for command ~a" command)
+                          (assert (= second-return-param-index vector-param-index)
+                                  () "Expected second return param to be the vector param for command ~a" command))
+                        :case-34)
+                       (t
+                        (error "Expected for command ~a" command)))))
+                  
+                  (t
+                   (error "Expected less than 3 return params for void command ~a" command)))
 
-      
-      (let ((output-params (get-output-params command))
-            (non-const-pointer-param-indices (determine-non-const-pointer-param-indices params))
-            (vector-params (get-vector-params command vk-spec))
-            (vector-param-indices (determine-vector-param-indices params vk-spec)))
-        (cond
-          ((not output-params)
-           ;; case 0a: no or implicit return value - e.g. vkDestroyInstance
-           ;; case 0b: non-trivial return value - e.g. vkGetInstanceProcAddr
-           :simple)
-          ((= (length non-const-pointer-param-indices) 1)
-           (let ((ret (first output-params)))
-             (if (or (handlep (type-name (type-info ret)) vk-spec)
-                     ;; added the next two conditions, since function return e.g. a uint64_t* were
-                     ;; falsely classified as get-struct-funs
-                     (gethash (type-name (type-info ret)) *vk-platform*)
-                     (gethash (type-name (type-info ret)) base-types))
-                 ;; 1) handle type
-                 (if (not (find ret vector-params))
-                     ;; case 1a-1: create a handle - e.g. vkCreateInstance
-                     ;; case 1a-2: get an existing handle - e.g. vkGetDeviceQueue
-                     :create-single-handle
-                     ;; 1b-1) vector of handles, where the output vector uses the same len as an input vector - e.g. vkCreateGraphicsPipelines
-                     ;; 1b-2) vector of handles using len-by-struct-member - e.g. vkAllocateCommandBuffers
-                     :create-multiple-handles)
-                 ;; 2) structure chain anchor
-                 (if (or (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) params)))
-                                                   vk-spec)
-                         (not (gethash (first non-const-pointer-param-indices) vector-param-indices)))
-                     ;; case 1c-1: get a struct extended by its NEXT slot - e.g. vkGetPhysicalDeviceFeatures2
-                     ;; case 1c-2: get a struct without NEXT slot - e.g. vkGetPhysicalDeviceProperties
-                     (if (structure-chain-anchor-p (type-name (type-info (nth (first non-const-pointer-param-indices) params))) vk-spec)
-                         (progn (format t "structure chain anchor: ~a~%" (type-name (type-info (nth (first non-const-pointer-param-indices) params))))
-                                :get-single-struct)
-                         :get-single-struct)
-                     ;; TODO: with the current implementation such functions are actually simple-funs which don't return anything -> breaks consistency!
-                     ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults
-                     :fill-arbitrary-buffer))))
-          ((= (length non-const-pointer-param-indices) 2)
-           (if (or (structure-chain-anchor-p (type-name (type-info (nth (second non-const-pointer-param-indices) params)))
-                                             vk-spec)
-                   (and (= (hash-table-count vector-param-indices) 1)
-                        (string= "void" return-type)))
-               ;; case 2a: get list of structs - e.g. vkGetPhysicalDeviceQueueFamilyProperties2
-               :get-multiple-structs
-               (cond
-                 ;; todo: find out which function falls (or should fall) into that category
-                 ;; case 2b: two returns and a non-trivial success code, no array - e.g. ???
-                 ((= (hash-table-count vector-param-indices) 0)
-                  :get-two-non-array-values)
-                 ;; case 2c: enumerate - e.g. vkEnumeratePhysicalDevices
-                 ((= (hash-table-count vector-param-indices) 1)
-                  :enumerate-single-array)
-                 ;; case 2d: return multiple values. one array of the same size as an input array and one additional non-array value - e.g. vkGetCalibratedTimestampsEXT
-                 ((= (hash-table-count vector-param-indices) 2)
-                  :get-array-and-non-array-value))))
-          ((= (length non-const-pointer-param-indices) 3)
-           ;; case 3: return two arrays using the same counter which is also an output argument - e.g vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR
-           :enumerate-two-arrays)
-          (t
-           (warn "Never encountered a function like <~a>!" name)
-           :unknown))))))
+                ;; generateCommandValue
+                (progn
+                  (assert (= 0 (length return-param-indices))
+                          () "Expected no return params for command ~a" command)
+                  (assert (= 0 (hash-table-count vector-param-indices))
+                          () "Expected no vector params for command ~a" command)
+                  (assert (< (length const-pointer-param-indices) 2)
+                          () "Expected less than 2 const pointer params for command ~a" command)
+                  (cond
+                    ((= 0 (length const-pointer-param-indices))
+                     :case-35)
+                    ((= 1 (length const-pointer-param-indices))
+                     (assert (not (string= "void" (type-name (type-info (nth (first const-pointer-param-indices) params)))))
+                             () "Expected const pointer param not to be of void type for command ~a" command)
+                     :case-36)))))))))
