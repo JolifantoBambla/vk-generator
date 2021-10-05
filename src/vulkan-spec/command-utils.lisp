@@ -54,20 +54,22 @@ E.g.: In \"vkAllocateDescriptorSets\" the \"len\" \"pAllocateInfo->descriptorSet
       (and struct
            (find (name struct) (extended-structs vk-spec) :test #'string=)))))
 
-(defun determine-vector-param-indices (params vk-spec)
+(defun determine-vector-param-indices (params vk-spec &optional (ignore-void t))
   "Creates a mapping of indices of array arguments to indices of the arguments specifying the number of elements within the array in a given sequence of PARAM instances.
 
 E.g.: In \"vkQueueSubmit\" the parameter \"submitCount\" specifies the number of \"VkSubmitInfo\" instances in \"pSubmits\".
 
-Note: For arbitrary data sizes (i.e. the vector parameter is a void pointer) the vector parameter and its size parameter are ignored.
+Note: For arbitrary data sizes (i.e. the vector parameter is a void pointer) the vector parameter and its size parameter are ignored by default.
 Both are treated as unrelated input parameters of the resulting function.
 E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
+To disable this behaviour pass NIL as IGNORE-VOID parameter.
 "
   (let ((vector-param-indices (make-hash-table :test 'equal)))
     (loop for param in params and param-index from 0
           for len = (len param)
           when (and len
-                    (not (string= "void" (type-name (type-info param)))))
+                    (or (not ignore-void)
+                        (not (string= "void" (type-name (type-info param))))))
           do (let ((len-param-index
                      (position-if
                       (lambda (p)
@@ -81,12 +83,17 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
 (defun determine-count-to-vector-param-indices (params vk-spec)
   (reverse-hash-table (determine-vector-param-indices params vk-spec)))
 
-(defun determine-non-const-pointer-param-indices (params)
-  "Find all indices of PARAM instances describing output arguments in a given sequence of PARAM instances."
+(defun determine-non-const-pointer-param-indices (params &optional (ignore-void t))
+  "Find all indices of PARAM instances describing output arguments in a given sequence of PARAM instances.
+
+Note: By default void* are ignored and treated as input arguments.
+To disable this behaviour pass NIL as the IGNORE-VOID parameter.
+"
   (loop for param in params and param-index from 0
         when (and (non-const-pointer-p (type-info param))
                   (not (find (type-name (type-info param)) *special-pointer-types* :test #'string=))
-                  (not (string= "void" (type-name (type-info param)))))
+                  (or (not ignore-void)
+                      (not (string= "void" (type-name (type-info param))))))
         collect param-index))
 
 (defun determine-const-pointer-param-indices (params)
@@ -252,6 +259,73 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
            (warn "Never encountered a function like <~a>!" name)
            :unknown))))))
 
+(define-condition command-classification-error (error)
+  ((detail :initarg :detail
+           :initform ""
+           :reader detail)
+   (command :initarg :command
+            :initform ""
+            :reader command)
+   (vk-spec :initarg :vk-spec
+            :initform (error "VK-SPEC must be provided")
+            :reader vk-spec))
+  (:report (lambda (condition stream)
+             (with-slots (condition
+                          vk-spec
+                          detail)
+                 condition
+               (with-slots (params)
+                   command
+                 (let ((return-param-indices (loop for param in params and param-index from 0
+                                                   when (and (non-const-pointer-p (type-info param))
+                                                             (not (find (type-name (type-info param)) *special-pointer-types* :test #'string=)))
+                                                   collect param-index)) ;; (determine-non-const-pointer-param-indices params)
+                       (vector-param-indices (make-hash-table :test 'equal)) ;; (determine-vector-param-indices params vk-spec)
+                       (const-pointer-param-indices (determine-const-pointer-param-indices params)))
+                   (loop for param in params and param-index from 0
+                         for len = (len param)
+                         when len
+                         do (let ((len-param-index
+                                    (position-if
+                                     (lambda (p)
+                                       (or (string= len (name p))
+                                           (len-by-struct-member-p len p vk-spec)))
+                                     params)))
+                              (when len-param-index
+                                (setf (gethash param-index vector-param-indices) len-param-index))))
+                   (format stream "Never encountered a command like <~a>~%~t~a~%~tReturn parameters: ~a~%~tVector parameters: ~a~%~tConst pointer parameters~a~&"
+                           command
+                           detail
+                           (loop for idx in (sort return-param-indices #'<)
+                                 collect (nth idx params))
+                           (loop for idx in (sort (alexandria:hash-table-keys vector-param-indices) #'<)
+                                 for vec-param = (nth idx params)
+                                 for counter-param = (nth idx params)
+                                 collect (format nil "~a counted by ~a" vec-param counter-param))
+                           (loop for idx in (sort const-pointer-param-indices #'<)
+                                 collect (nth idx params)))))))))
+
+(defmacro %with-cmd-data ((params
+                           non-const-pointer-param-indices
+                           const-pointer-param-indices
+                           vector-param-indices
+                           check-cmd
+                           command
+                           vk-spec
+                           &key (ignore-void t))
+                          &body body)
+  (let ((validp (gensym))
+        (reason (gensym)))
+    `(with-slots ((,params params))
+         ,command
+       (let ((,non-const-pointer-param-indices (determine-non-const-pointer-param-indices ,params ,ignore-void))
+             (,const-pointer-param-indices (determine-const-pointer-param-indices ,params))
+             (,vector-param-indices (determine-vector-param-indices ,params ,vk-spec ,ignore-void)))
+         (flet ((,check-cmd (,validp ,reason)
+                  (unless ,validp
+                    (error 'command-classification-error ,reason ,command ,vk-spec))))
+           (progn ,@body))))))
+
 ;; generateCommandResultSingleSuccessNoErrors
 (defun classify-result-single-success-no-errors (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
   (assert (not return-param-indices) () "Expected no return param indices for command ~a" command)
@@ -397,8 +471,8 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
          (second-vector-param-index (second vector-param-indices-keys)))
     (assert (= (first return-param-indices) second-vector-param-index)
             () "Expected first return param to be the second vector param for command ~a" command)
-    (assert (not (member (first return-param-indices) vector-param-indices-keys))
-            () "Expected first return param not to be a vector param for command ~a" command)
+    (assert (not (member (second return-param-indices) vector-param-indices-keys))
+            () "Expected second return param not to be a vector param for command ~a" command)
     (assert (and (not (= (first return-param-indices) (gethash first-vector-param-index vector-param-indices)))
                  (not (= (first return-param-indices) (gethash second-vector-param-index vector-param-indices))))
             () "Expected second return param not to be the counter for any of the vector params for command ~a" command)
@@ -648,10 +722,10 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
                  (vector-param (nth vector-param-index params))
                  (vector-param-type-name (type-name (type-info vector-param)))
                  (counter-param (nth (gethash vector-param-index vector-param-indices) params)))
-            (assert (= return-param-index vector-param-index)
-                    () "Expected return param to be the vector param for command ~a" command)
+            (assert (not (= return-param-index vector-param-index))
+                    () "Expected return param not to be the vector param for command ~a" command)
             (assert (and (not (handlep vector-param-type-name vk-spec))
-                         (not (structure-chain-anchor vector-param-type-name vk-spec))
+                         (not (structure-chain-anchor-p vector-param-type-name vk-spec))
                          (not (string= "void" vector-param-type-name)))
                     () "Expected vector param not to be a handle or void type or not to be a structure chain anchor for command ~a" command)
             (assert (len-by-struct-member-p (len vector-param) counter-param vk-spec)
@@ -692,21 +766,18 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
        (error "Expected for command ~a" command)))))
 
 ;; generateCommandValue
-(defun classify-value (command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
-  (assert (= 0 (length return-param-indices))
-          () "Expected no return params for command ~a" command)
-  (assert (= 0 (hash-table-count vector-param-indices))
-          () "Expected no vector params for command ~a" command)
-  (assert (< (length const-pointer-param-indices) 2)
-          () "Expected less than 2 const pointer params for command ~a: ~a" command (loop for idx in const-pointer-param-indices
-                                                                                          collect (nth idx params)))
-  (cond
-    ((= 0 (length const-pointer-param-indices))
-     :case-35)
-    ((= 1 (length const-pointer-param-indices))
-     (assert (not (string= "void" (type-name (type-info (nth (first const-pointer-param-indices) params)))))
-             () "Expected const pointer param not to be of void type for command ~a" command)
-     :case-36)))
+(defun classify-value (command vk-spec)
+  (%with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void t)
+    (check-cmd (= 0 (length return-param-indices)) "Expected no return params")
+    (check-cmd (= 0 (hash-table-count vector-param-indices)) "Expected no vector params")
+    (check-cmd (< (length const-pointer-param-indices) 2) "Expected less than 2 const pointer params")
+    (cond
+      ((= 0 (length const-pointer-param-indices))
+       :case-35)
+      ((= 1 (length const-pointer-param-indices))
+       (check-cmd (not (string= "void" (type-name (type-info (nth (first const-pointer-param-indices) params)))))
+                  "Expected const pointer param not to be of void type")
+       :case-36))))
 
 ;; todo: map new cases to old ones
 (defun determine-command-type-2 (command vk-spec)
@@ -721,51 +792,25 @@ E.g.: \"pData\" and \"dataSize\" in \"vkGetQueryPoolResults\".
         vk-spec
       (let ((resultp (string= "VkResult" return-type))
             (voidp (string= "void" return-type))
-            (return-param-indices (loop for param in params and param-index from 0
-                                        when (and (non-const-pointer-p (type-info param))
-                                                  (not (find (type-name (type-info param)) *special-pointer-types* :test #'string=)))
-                                        collect param-index)) ;; (determine-non-const-pointer-param-indices params)
-            (vector-param-indices (make-hash-table :test 'equal)) ;; (determine-vector-param-indices params vk-spec)
+            (return-param-indices (determine-non-const-pointer-param-indices params nil))
+            (vector-param-indices (determine-vector-param-indices params vk-spec nil)) 
             (const-pointer-param-indices (determine-const-pointer-param-indices params)))
-
-        
-        (loop for param in params and param-index from 0
-              for len = (len param)
-              when len
-              do (let ((len-param-index
-                         (position-if
-                          (lambda (p)
-                            (or (string= len (name p))
-                                (len-by-struct-member-p len p vk-spec)))
-                          params)))
-                   (when len-param-index
-                     (setf (gethash param-index vector-param-indices) len-param-index))))
-        
         (if (string= "VkResult" return-type)
             (if (= 1 (length success-codes))
                 (if (not error-codes)
-                    ;; generateCommandResultSingleSuccessNoErrors
                     (classify-result-single-success-no-errors command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
-                    ;; generateCommandResultSingleSuccessWithErrors
                     (classify-result-single-success-with-errors command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
                 (if (not error-codes)
-                    ;; generateCommandResultMultiSuccessNoErrors
                     (classify-result-multi-success-no-errors command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)
-                    ;; generateCommandResultMultiSuccessWithErrors
                     (classify-result-multi-success-with-errors command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)))
             (if (string= "void" return-type)
                 (cond
-                  ;; generateCommandVoid0Return
                   ((= 0 (length return-param-indices))
                    (classify-void-0-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
-                  ;; generateCommandVoid1Return
                   ((= 1 (length return-param-indices))
                    (classify-void-1-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
-                  ;; generateCommandVoid2Return
                   ((= 2 (length return-param-indices))
                    (classify-void-2-return command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec))
                   (t
                    (error "Expected less than 3 return params for void command ~a" command)))
-
-                ;; generateCommandValue
-                (classify-value command params return-param-indices vector-param-indices const-pointer-param-indices vk-spec)))))))
+                (classify-value command vk-spec)))))))
