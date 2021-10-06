@@ -286,18 +286,18 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
             :reader vk-spec))
   (:report
    (lambda (condition stream)
-     (with-slots (condition
+     (with-slots (command
                   vk-spec
                   reason)
          condition
-       (%with-command-data (params
-                            return-param-indices
-                            const-pointer-param-indices
-                            vector-param-indices
-                            command
-                            vk-spec
-                            :ignore-void nil)
-         (format stream "Never encountered a command like <~a>~%~t~a~%~tReturn parameters: ~a~%~tVector parameters: ~a~%~tConst pointer parameters~a~&"
+       (%with-cmd-data (params
+                        return-param-indices
+                        const-pointer-param-indices
+                        vector-param-indices
+                        command
+                        vk-spec
+                        :ignore-void nil)
+         (format stream "Never encountered a command like <~a>~%~t~a~%~tReturn parameters: ~a~%~tVector parameters: ~a~%~tConst pointer parameters: ~a~&"
                  command
                  reason
                  (loop for idx in (sort return-param-indices #'<)
@@ -337,47 +337,51 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
 
 ;; generateCommandResultSingleSuccessNoErrors
 (defun classify-result-single-success-no-errors (command vk-spec)
-  (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
-    (check-cmd (not return-param-indices)
-               "Expected no return params")
-    (if (= 0 (hash-table-count vector-param-indices))
-        (progn
-          (check-cmd (not const-pointer-param-indices)
-                     "Expected no const pointer params")
-          :case-1)
-        (progn
-          (check-cmd (= 1 (hash-table-count vector-param-indices))
-                     "Expected exactly one vector param")
-          (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
-            (check-cmd (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params)))
-                       "Expected counter param to be of a value type")
-            (check-cmd (handlep (type-name (type-info (nth vector-param-index params))) vk-spec)
-                       "Expected vector param to be of handle type"))
-          :case-2))))
+  (list
+   :no-return-param
+   (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
+     (check-cmd (not return-param-indices)
+                "Expected no return params")
+     (if (= 0 (hash-table-count vector-param-indices))
+         (progn
+           (check-cmd (not const-pointer-param-indices)
+                      "Expected no const pointer params")
+           '(:result :single-success :no-errors :no-output :no-const))
+         (progn
+           (check-cmd (= 1 (hash-table-count vector-param-indices))
+                      "Expected exactly one vector param")
+           (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
+             (check-cmd (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params)))
+                        "Expected counter param to be of a value type")
+             (check-cmd (handlep (type-name (type-info (nth vector-param-index params))) vk-spec)
+                        "Expected vector param to be of handle type"))
+           '(:result :single-success :no-errors :no-output (:vector (:handle :value))))))))
 
 ;; generateCommandResultSingleSuccessWithErrors0Return
-(defun classify-result-single-siccess-with-errors-0-return (command vk-spec)
-  (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
-    (cond
-      ((= 0 (hash-table-count vector-param-indices))
-       (check-cmd (< (length const-pointer-param-indices) 2)
-                  "Expected less than 2 const pointer params")
-       (cond
-         ((= 0 (length const-pointer-param-indices))
-          :case-3)
-         ((= 1 (length const-pointer-param-indices))
-          (check-cmd (not (string= "void" (type-name (type-info (nth (first const-pointer-param-indices) params)))))
-                     "Expected type of output param to be void")
-          :case-4)))
-      ((= 1 (hash-table-count vector-param-indices))
-       (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
-         (check-cmd (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params)))
-                    "Expected counter param to be of a value type")
-         (check-cmd (not (string= "void" (type-name (type-info (nth vector-param-index params)))))
-                    "Expected vector param to not be void"))
-       :case-5)
-      (t
-       (check-cmd nil "Expected less than 2 vector param indices")))))
+(defun classify-result-single-success-with-errors-0-return (command vk-spec)
+  (list
+   :no-output-param
+   (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
+     (cond
+       ((= 0 (hash-table-count vector-param-indices))
+        (cond
+          ((= 0 (length const-pointer-param-indices))
+           '(:result :single-success :with-errors :no-output :no-const))
+          ((= 1 (length const-pointer-param-indices))
+           (check-cmd (not (string= "void" (type-name (type-info (nth (first const-pointer-param-indices) params)))))
+                      "Expected const pointer param not to be of type void")
+           '(:result :single-success :with-errors :no-output :1-non-void-const))
+          (t
+           (check-cmd nil "Expected less than 2 const pointer params"))))
+       ((= 1 (hash-table-count vector-param-indices))
+        (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
+          (check-cmd (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params)))
+                     "Expected counter param to be of a value type")
+          (check-cmd (not (string= "void" (type-name (type-info (nth vector-param-index params)))))
+                     "Expected vector param to not be void"))
+        '(:result :single-success :with-errors :np-output (:vector (:non-void :value))))
+       (t
+        (check-cmd nil "Expected less than 2 vector param indices"))))))
 
 ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle
 (defun classify-result-single-success-with-errors-1-return-handle (command return-param-index return-param vk-spec)
@@ -385,7 +389,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
     (cond
       ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle0Vector
       ((= 0 (hash-table-count vector-param-indices))
-       :case-6)
+       '(:get-or-create-handle (:result :single-success :with-errors (:output :handle))))
       ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle1Vector
       ((= 1 (hash-table-count vector-param-indices))
        (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
@@ -393,7 +397,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                     "Expected return param to be the first vector param")
          (check-cmd (len-by-struct-member-p (len (nth vector-param-index params)) (nth (gethash vector-param-index vector-param-indices) params) vk-spec)
                     "Expected vector to be counted by a struct member"))
-       :case-7)
+       '(:allocate-handles (:result :single-success :with-errors (:output :handle-vector) (:vector (:handle :struct-member)))))
       ;; generateCommandResultSingleSuccessWithErrors1ReturnHandle2Vector
       ((= 2 (hash-table-count vector-param-indices))
        (let* ((vector-param-indices-keys (sort (alexandria:hash-table-keys vector-param-indices) #'<))
@@ -408,7 +412,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                     "Expected counter to be a value")
          (check-cmd (structure-chain-anchor-p (type-name (type-info (nth first-vector-param-index params))) vk-spec)
                     "Expected first vector param to be a structure chain anchor"))
-       :case-8)
+       '(:create-handles (:result :single-success :with-errors (:output :handle-vector) (:vector (:stucture-chain-anchor (:value (:same-as 1))) (:handle (:value :same-as 0) :output)))))
       (t
        (check-cmd nil "Expected less than 3 vector param indices")))))
 
@@ -417,21 +421,23 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
   (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
     (check-cmd (= 0 (hash-table-count vector-param-indices))
                "Expected no vector params")
-    :case-9))
+    '(:query-by-struct (:result :single-success :with-errors (:output :structure-chain-anchor)))))
 
 ;; generateCommandResultSingleSuccessWithErrors1ReturnVoid
 (defun classify-result-single-success-with-errors-1-return-void (command return-param-index return-param vk-spec)
   (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
     (cond
       ((= 0 (hash-table-count vector-param-indices))
-       :case-10)
+       (check-cmd (string= "vkMapMemory" (name command))
+                  "Expected command to be vkMapMemory")
+       '(:no-output-param (:result :single-success :with-errors :no-output)))
       ((= 1 (hash-table-count vector-param-indices))
        (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
          (check-cmd (= return-param-index vector-param-index)
                     "Expected return param be the vector param")
          (check-cmd (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params)))
                     "Expected counter for vector param to be a value"))
-       :case-11)
+       '(:fill-void-pointer (:result :single-success :with-errors (:output :void-vector) (:vector (:void :value :output)))))
       ((= 2 (hash-table-count vector-param-indices))
        (let* ((vector-param-indices-keys (sort (alexandria:hash-table-keys vector-param-indices) #'<))
               (first-vector-param-index (first vector-param-indices-keys))
@@ -447,7 +453,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                    "Expected first vector param to be a handle")
          (check-cmd (value-p (type-info (nth (gethash second-vector-param-index vector-param-indices) params)))
                     "Expected counter for second vector param to be of a value type"))
-       :case-12)
+       '(:fill-void-pointer (:result :single-success :with-errors (:output :void-vector) (:vector (:handle :value) (:void :value :output)))))
       (t
        (check-cmd nil "Expected less than 3 vector params")))))
 
@@ -456,7 +462,13 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
   (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
     (check-cmd (= 0 (hash-table-count vector-param-indices))
                "Expected no vector params")
-    :case-13))
+    (cond
+      ((handlep (type-name (type-info return-param)) vk-spec)
+       '(:get-or-create-handle (:result :single-success :with-errors (:output :handle))))
+      ((structure-type-p (type-name (type-info return-param)) vk-spec)
+       '(:get-struct (:result :single-success :with-errors (:output :struct))))
+      (t
+       '(:get-value (:result :single-success :with-errors (:output :value)))))))
 
 ;; generateCommandResultSingleSuccessWithErrors1Return
 (defun classify-result-single-success-with-errors-1-return (command vk-spec)
@@ -508,14 +520,14 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                         (not (handlep first-vector-param vk-spec))
                         (not (structure-chain-anchor-p first-vector-param vk-spec)))
                    "Expected first vector param neither void, nor a handle nor a structure chain anchor")))
-    :case-14))
+    '(:get-value-array-and-non-array-value (:result :single-success :with-errors (:output :value-vector :value) (:vector (:struct (:value (:same-as 1))) (:value (:value (:same-as 0)) :output))))))
 
 ;; generateCommandResultSingleSuccessWithErrors
 (defun classify-result-single-success-with-errors (command vk-spec)
   (let ((return-param-indices (determine-non-const-pointer-param-indices (params command) nil)))
     (cond
       ((= 0 (length return-param-indices))
-       (classify-result-single-siccess-with-errors-0-return command vk-spec))
+       (classify-result-single-success-with-errors-0-return command vk-spec))
       ((= 1 (length return-param-indices))
        (classify-result-single-success-with-errors-1-return command vk-spec))
       ((= 2 (length return-param-indices))
@@ -526,7 +538,6 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
               :command command
               :vk-spec vk-spec)))))
 
-
 ;; generateCommandResultMultiSuccessNoErrors
 (defun classify-result-multi-success-no-errors (command vk-spec)
   (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
@@ -536,7 +547,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                "Expected no vector param indices")
     (check-cmd (not const-pointer-param-indices)
                "Expected no const pointer param indices")
-    :case-15))
+    '(:no-output-param (:result :multi-success :no-errors :no-output))))
 
 ;; generateCommandResultMultiSuccessWithErrors0Return
 (defun classify-result-multi-success-with-errors-0-return (command vk-spec)
@@ -547,18 +558,18 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                   "Expected less than 2 const pointer params")
        (cond
          ((= 0 (length const-pointer-param-indices))
-          :case-16)
+          '(:no-output-param (:result :multi-success :with-errors :no-output :no-const)))
          ((= 1 (length const-pointer-param-indices))
           (check-cmd (not (string= "void" (type-name (type-info (nth (first const-pointer-param-indices) params)))))
                      "Expected first cost pointer param not to be of type void")
-          :case-17)))
+          '(:no-output-param (:result :multi-success :with-errors :no-output)))))
       ((= 1 (hash-table-count vector-param-indices))
        (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
          (check-cmd (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params)))
                     "Expected counter for vector param to be of a value type")
          (check-cmd (handlep (type-name (type-info (nth vector-param-index params))) vk-spec)
                     "Expected vector param to be of a handle type"))
-       :case-18)
+       '(:no-output-param (:result :multi-success :with-errors :no-output (:vector (:handle :value)))))
       ((= 2 (hash-table-count vector-param-indices))
        (let* ((vector-param-indices-keys (sort (alexandria:hash-table-keys vector-param-indices) #'<))
               (first-vector-param-index (first vector-param-indices-keys))
@@ -578,7 +589,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                            (not (handlep second-vector-param vk-spec))
                            (not (structure-chain-anchor-p second-vector-param vk-spec)))
                       "Expected second vector param neither void, nor a handle nor a structure chain anchor")))
-       :case-19)
+       '(:no-output-param (:result :multi-success :with-errors :no-output-param (:vector (:struct ((:value :uint32) (:same-as 1))) (:struct ((:value :uint32) (:same-as 0)))))))
       (t
        (check-cmd nil "Expected less than 3 vector param indices")))))
 
@@ -596,7 +607,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                       "Expected return param to be the vector param")
            (check-cmd (value-p (type-info (nth (gethash vector-param-index vector-param-indices) params)))
                       "Expected counter for vector param to be of a value type"))
-         :case-20)
+         '(:fill-void-pointer (:result :multi-success :with-errors (:output :void-vector) (:vector (:void :value :output)))))
         ((handlep (type-name (type-info return-param)) vk-spec)
          (check-cmd (= 2 (hash-table-count vector-param-indices))
                     "Expected exactly 2 vector params")
@@ -612,11 +623,17 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                       "Expected vector params to be counted by a uint32_t")
            (check-cmd (structure-chain-anchor-p (type-name (type-info (nth first-vector-param-index params))) vk-spec)
                       "Expected first vector param to be a structure chain anchor"))
-         :case-21)
+         '(:create-handles (:result :multi-success :with-errors (:output :handle-vector) (:vector (:structure-chain-anchor ((:value :uint32) (:same-as 1))) (:handle ((:value :uint32) (:same-as 0)) :output)))))
         ((not (structure-chain-anchor-p (type-name (type-info return-param)) vk-spec))
          (check-cmd (= 0 (hash-table-count vector-param-indices))
                     "Expected no vector params")
-         :case-22)
+         (cond
+           ((string= "uint32_t" (type-name (type-info return-param)))
+            '(:get-value (:result :multi-success :with-errors (:output :value))))
+           ((structure-type-p (type-name (type-info return-param)) vk-spec)
+            '(:get-struct (:result :multi-success :with-errors (:output :struct))))
+           (t
+            (check-cmd nil "Expected return param to either be a uint32_t or a struct"))))
         (t
          (check-cmd nil "Expected return param to be either void, a handle or not to be a structure chain anchor"))))))
 
@@ -630,7 +647,6 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
       (check-cmd (or (string= "size_t" first-return-param)
                      (string= "uint32_t" first-return-param))
                  "Expected first return param to be either size_t or uint32_t")
-
       (check-cmd (not (structure-chain-anchor-p second-return-param vk-spec))
                  "Expected second return param not to be a structure chain anchor")
       (check-cmd (= 1 (hash-table-count vector-param-indices))
@@ -639,8 +655,16 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
         (check-cmd (= first-return-param-index (gethash vector-param-index vector-param-indices))
                    "Expected first return param to be the counter of the vector param")
         (check-cmd (= second-return-param-index vector-param-index)
-                   "Expected second return param to be the vector param")))
-    :case-23))
+                   "Expected second return param to be the vector param"))
+      (cond
+        ((string= "void" second-return-param)
+         '(:fill-void-pointer (:result :multi-success :with-errors (:output :void-vector :value) (:vector (:void :value :output)))))
+        ((handlep second-return-param vk-spec)
+         '(:enumerate-handles (:result :multi-success :with-errors (:output :handle-vector :value) (:vector (:handle :value :output)))))
+        ((structure-type-p second-return-param vk-spec)
+         '(:enumerate-structs (:result :multi-success :with-errors (:output :struct-vector :value) (:vector (:struct :value :output)))))
+        (t
+         '(:enumerate-value (:result :multi-success :with-errors (:output :value-vector :value) (:vector (:value :value :output)))))))))
 
 ;; generateCommandResultMultiSuccessWithErrors3Return
 (defun classify-result-multi-success-with-errors-3-return (command vk-spec)
@@ -675,7 +699,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                    "Expected second return param to be the first vector param")
         (check-cmd (= third-return-param-index second-vector-param-index)
                    "Expected third return param to be the second vector param")))
-    :case-24))
+    '(:enumerate-two-structs (:result :multi-success :with-errors (:output :value :struct-vector :struct-vector) (:vector (:struct ((:value :uint32) (:same-as 1)) :output)) (:struct ((:value :uint32) (:same-as 0)) :output)))))
 
 ;; generateCommandResultMultiSuccessWithErrors
 (defun classify-result-multi-success-with-errors (command vk-spec)
@@ -697,32 +721,35 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
 
 ;; generateCommandVoid0Return
 (defun classify-void-0-return (command vk-spec)
-  (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
-    (cond
-      ((= 0 (hash-table-count vector-param-indices))
-       (if (not (find-if (lambda (idx)
-                           (not (string= "void" (type-name (type-info (nth idx params))))))
-                         const-pointer-param-indices))
-           :case-25
-           :case-26))
-      ((= 1 (hash-table-count vector-param-indices))
-       (let ((counter-type (type-info (nth (first (alexandria:hash-table-values vector-param-indices)) params))))
-         (check-cmd (value-p counter-type) "Expected counter param to be of a value type")
-         (check-cmd (or (string= "uint32_t" (type-name counter-type))
-                        (string= "VkDeviceSize" (type-name counter-type)))
-                    "Expected counter type to be either uint32_t or VkDeviceSize"))
-       :case-27)
-      ((not (find-if (lambda (p)
-                       (let ((counter-param (nth (gethash p vector-param-indices) params))
-                             (vector-param (nth p params)))
-                         (or (not (value-p (type-info counter-param)))
-                             (not (string= "uint32_t" (type-name (type-info counter-param))))
-                             (string= "void" (type-name (type-info vector-param))))))
-                     (alexandria:hash-table-keys vector-param-indices)))
-       :case-28)
-      (t
-       (check-cmd nil
-                  "Expected less than 2 vector params or one counter param being either not of a value type or not a uint32_t or a void type")))))
+  (list
+   :no-output-param
+   (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
+     (cond
+       ((= 0 (hash-table-count vector-param-indices))
+        (if (and const-pointer-param-indices
+                 (not (find-if (lambda (idx)
+                                 (not (string= "void" (type-name (type-info (nth idx params))))))
+                               const-pointer-param-indices)))
+            '(:void :no-output)
+            '(:void :no-output :no-const-void)))
+       ((= 1 (hash-table-count vector-param-indices))
+        (let ((counter-type (type-info (nth (first (alexandria:hash-table-values vector-param-indices)) params))))
+          (check-cmd (value-p counter-type) "Expected counter param to be of a value type")
+          (check-cmd (or (string= "uint32_t" (type-name counter-type))
+                         (string= "VkDeviceSize" (type-name counter-type)))
+                     "Expected counter type to be either uint32_t or VkDeviceSize"))
+        '(:void :no-output (:vector (:any :value))))
+       ((not (find-if (lambda (p)
+                        (let ((counter-param (nth (gethash p vector-param-indices) params))
+                              (vector-param (nth p params)))
+                          (or (not (value-p (type-info counter-param)))
+                              (not (string= "uint32_t" (type-name (type-info counter-param))))
+                              (string= "void" (type-name (type-info vector-param))))))
+                      (alexandria:hash-table-keys vector-param-indices)))
+        '(:void :no-output :may-have-vector-params))
+       (t
+        (check-cmd nil
+                   "Expected less than 2 vector params or one counter param being either not of a value type or not a uint32_t or one vector param of void type"))))))
 
 ;; generateCommandVoid1Return
 (defun classify-void-1-return (command vk-spec)
@@ -731,29 +758,35 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
            (return-param-type-name (type-name (type-info (nth return-param-index params)))))
       (cond
         ((handlep return-param-type-name vk-spec)
-         (check-cmd (= 0 (hash-table-count vector-param-indices)) "Expected no vector params")
-         :case-29)
+         (check-cmd (= 0 (hash-table-count vector-param-indices))
+                    "Expected no vector params")
+         '(:void :1-return-handle :0-vector))
         ((structure-chain-anchor-p return-param-type-name vk-spec)
-         (check-cmd (= 0 (hash-table-count vector-param-indices)) "Expected no vector params")
-         :case-30)
+         (check-cmd (= 0 (hash-table-count vector-param-indices))
+                    "Expected no vector params")
+         ;; todo: if a struct has an stype slot, it must be set
+         ;;       if a returned struct can be extended, it should be added to the optional parameters of the function -> requires a new major update, because the order of optional parameters changes
+         '(:get-struct (:void (:output :structure-chain-anchor))))
         ((not (string= "void" return-param-type-name))
-         (check-cmd (< (hash-table-count vector-param-indices) 2) "Expected less than 2 vector params")
          (cond
            ((= 0 (hash-table-count vector-param-indices))
-            :case-31)
+            '(:void :1-return :0-vector))
            ((= 1 (hash-table-count vector-param-indices))
             (let* ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices)))
                    (vector-param (nth vector-param-index params))
                    (vector-param-type-name (type-name (type-info vector-param)))
                    (counter-param (nth (gethash vector-param-index vector-param-indices) params)))
-              (check-cmd (not (= return-param-index vector-param-index)) "Expected return param not to be the vector param")
+              (check-cmd (not (= return-param-index vector-param-index))
+                         "Expected return param not to be the vector param")
               (check-cmd (and (not (handlep vector-param-type-name vk-spec))
                               (not (structure-chain-anchor-p vector-param-type-name vk-spec))
                               (not (string= "void" vector-param-type-name)))
                          "Expected vector param not to be a handle or void type or not to be a structure chain anchor")
               (check-cmd (len-by-struct-member-p (len vector-param) counter-param vk-spec)
                          "Expected vector param to be counted by a struct member"))
-            :case-32)))
+            '(:get-struct (:void (:output :struct) (:vector (:struct :value)))))
+           (t
+            (check-cmd nil "Expected less than 2 vector params"))))
         (t
          (check-cmd nil "Expected return param to be either a handle type or a structure chain anchor or not to be of type void"))))))
 
@@ -775,7 +808,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                       "Expected first return param to be the counter of the vector param")
            (check-cmd (= second-return-param-index vector-param-index)
                       "Expected second return param to be the vector param"))
-         :case-33)
+         '(:void :2-return-chain-vector :1-vector))
         ((and (not (string= "void" second-return-param-type-name))
               (not (handlep second-return-param-type-name vk-spec)))
          (check-cmd (= 1 (hash-table-count vector-param-indices))
@@ -785,7 +818,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                       "Expected first return param to be the counter of the vector param")
            (check-cmd (= second-return-param-index vector-param-index)
                       "Expected second return param to be the vector param"))
-         :case-34)
+         '(:void :2-return :1-vector))
         (t
          (check-cmd nil "Expected first return param to be a structure chain anchor or second return param not to be void or a handle type"))))))
 
@@ -811,11 +844,11 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
     (check-cmd (= 0 (hash-table-count vector-param-indices)) "Expected no vector params")
     (cond
       ((= 0 (length const-pointer-param-indices))
-       :case-35)
+       '(:value :0-const))
       ((= 1 (length const-pointer-param-indices))
        (check-cmd (not (string= "void" (type-name (type-info (nth (first const-pointer-param-indices) params)))))
                   "Expected const pointer param not to be of void type")
-       :case-36)
+       '(:value :1-const :no-const-void))
       (t
        (check-cmd nil "Expected less than 2 const pointer params")))))
 
