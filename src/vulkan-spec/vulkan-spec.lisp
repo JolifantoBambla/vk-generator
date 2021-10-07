@@ -571,6 +571,19 @@ See MEMBERS    an ordered list of MEMBER-DATA instances describing members of th
                    (member type-name (aliases m) :test #'string=))
                  (alexandria:hash-table-values (structures vk-spec)))))
 
+(defun has-type-and-next-p (type-name vk-spec)
+  (let ((struct (or (gethash type-name (structures vk-spec))
+                    (find-if (lambda (s)
+                               (member type-name (aliases s) :test #'string=))
+                             (alexandria:hash-table-values (structures vk-spec))))))
+    (and struct
+         (and (member-if (lambda (m)
+                           (string= "sType" (name m)))
+                         (members struct))
+              (member-if (lambda (m)
+                           (string= "pNext" (name m)))
+                         (members struct))))))
+
 (deftype type-category ()
   "TODO: documentation"
   '(member

@@ -338,7 +338,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
 ;; generateCommandResultSingleSuccessNoErrors
 (defun classify-result-single-success-no-errors (command vk-spec)
   (list
-   :no-return-param
+   :no-output-param
    (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
      (check-cmd (not return-param-indices)
                 "Expected no return params")
@@ -421,7 +421,12 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
   (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
     (check-cmd (= 0 (hash-table-count vector-param-indices))
                "Expected no vector params")
-    '(:query-by-struct (:result :single-success :with-errors (:output :structure-chain-anchor)))))
+    (list
+     (if (has-type-and-next-p (type-name (type-info return-param)) vk-spec)
+         :get-struct-chain
+         :get-struct)
+     '(:result :single-success :with-errors
+       (:output :structure-chain-anchor)))))
 
 ;; generateCommandResultSingleSuccessWithErrors1ReturnVoid
 (defun classify-result-single-success-with-errors-1-return-void (command return-param-index return-param vk-spec)
@@ -462,13 +467,19 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
   (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
     (check-cmd (= 0 (hash-table-count vector-param-indices))
                "Expected no vector params")
-    (cond
-      ((handlep (type-name (type-info return-param)) vk-spec)
-       '(:get-or-create-handle (:result :single-success :with-errors (:output :handle))))
-      ((structure-type-p (type-name (type-info return-param)) vk-spec)
-       '(:get-struct (:result :single-success :with-errors (:output :struct))))
-      (t
-       '(:get-value (:result :single-success :with-errors (:output :value)))))))
+    (let ((return-param-type-name (type-name (type-info return-param))))
+      (cond
+        ((handlep return-param-type-name vk-spec)
+         '(:get-or-create-handle (:result :single-success :with-errors (:output :handle))))
+        ((structure-type-p return-param-type-name vk-spec)
+         (list
+          (if (has-type-and-next-p return-param-type-name vk-spec)
+              :get-struct-chain
+              :get-struct)
+          '(:result :single-success :with-errors
+            (:output :struct))))
+        (t
+         '(:get-value (:result :single-success :with-errors (:output :value))))))))
 
 ;; generateCommandResultSingleSuccessWithErrors1Return
 (defun classify-result-single-success-with-errors-1-return (command vk-spec)
@@ -520,7 +531,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                         (not (handlep first-vector-param vk-spec))
                         (not (structure-chain-anchor-p first-vector-param vk-spec)))
                    "Expected first vector param neither void, nor a handle nor a structure chain anchor")))
-    '(:get-value-array-and-non-array-value (:result :single-success :with-errors (:output :value-vector :value) (:vector (:struct (:value (:same-as 1))) (:value (:value (:same-as 0)) :output))))))
+    '(:get-value-array-and-value (:result :single-success :with-errors (:output :value-vector :value) (:vector (:struct (:value (:same-as 1))) (:value (:value (:same-as 0)) :output))))))
 
 ;; generateCommandResultSingleSuccessWithErrors
 (defun classify-result-single-success-with-errors (command vk-spec)
@@ -597,7 +608,8 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
 (defun classify-result-multi-success-with-errors-1-return (command vk-spec)
   (with-cmd-data (params return-param-indices const-pointer-param-indices vector-param-indices check-cmd command vk-spec :ignore-void nil)
     (let* ((return-param-index (first return-param-indices))
-           (return-param (nth return-param-index params)))
+           (return-param (nth return-param-index params))
+           (return-param-type-name (type-name (type-info return-param))))
       (cond
         ((string= "void" (type-name (type-info return-param)))
          (check-cmd (= 1 (hash-table-count vector-param-indices))
@@ -628,10 +640,17 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
          (check-cmd (= 0 (hash-table-count vector-param-indices))
                     "Expected no vector params")
          (cond
-           ((string= "uint32_t" (type-name (type-info return-param)))
-            '(:get-value (:result :multi-success :with-errors (:output :value))))
-           ((structure-type-p (type-name (type-info return-param)) vk-spec)
-            '(:get-struct (:result :multi-success :with-errors (:output :struct))))
+           ((string= "uint32_t" return-param-type-name)
+            '(:get-value
+              (:result :multi-success :with-errors
+               (:output :value))))
+           ((structure-type-p return-param-type-name vk-spec)
+            (list
+             (if (has-type-and-next-p return-param-type-name vk-spec)
+                 :get-struct-chain
+                 :get-struct)
+             '(:result :multi-success :with-errors
+               (:output :struct))))
            (t
             (check-cmd nil "Expected return param to either be a uint32_t or a struct"))))
         (t
@@ -658,13 +677,32 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                    "Expected second return param to be the vector param"))
       (cond
         ((string= "void" second-return-param)
-         '(:fill-void-pointer (:result :multi-success :with-errors (:output :void-vector :value) (:vector (:void :value :output)))))
+         '(:fill-void-pointer
+           (:result :multi-success :with-errors
+            (:output :void-vector :value)
+            (:vector
+             (:void :value :output)))))
         ((handlep second-return-param vk-spec)
-         '(:enumerate-handles (:result :multi-success :with-errors (:output :handle-vector :value) (:vector (:handle :value :output)))))
+         '(:enumerate-handles
+           (:result :multi-success :with-errors
+            (:output :handle-vector :value)
+            (:vector
+             (:handle :value :output)))))
         ((structure-type-p second-return-param vk-spec)
-         '(:enumerate-structs (:result :multi-success :with-errors (:output :struct-vector :value) (:vector (:struct :value :output)))))
+         (list
+          (if (has-type-and-next-p second-return-param vk-spec)
+              :enumerate-struct-chains
+              :enumerate-structs)
+          '(:result :multi-success :with-errors
+            (:output :struct-vector :value)
+            (:vector
+             (:struct :value :output)))))
         (t
-         '(:enumerate-value (:result :multi-success :with-errors (:output :value-vector :value) (:vector (:value :value :output)))))))))
+         '(:enumerate-values
+           (:result :multi-success :with-errors
+            (:output :value-vector :value)
+            (:vector
+             (:value :value :output)))))))))
 
 ;; generateCommandResultMultiSuccessWithErrors3Return
 (defun classify-result-multi-success-with-errors-3-return (command vk-spec)
@@ -698,8 +736,21 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
         (check-cmd (= second-return-param-index first-vector-param-index)
                    "Expected second return param to be the first vector param")
         (check-cmd (= third-return-param-index second-vector-param-index)
-                   "Expected third return param to be the second vector param")))
-    '(:enumerate-two-structs (:result :multi-success :with-errors (:output :value :struct-vector :struct-vector) (:vector (:struct ((:value :uint32) (:same-as 1)) :output)) (:struct ((:value :uint32) (:same-as 0)) :output)))))
+                   "Expected third return param to be the second vector param"))
+      (list
+       (cond
+         ((and (has-type-and-next-p second-return-param vk-spec)
+               (has-type-and-next-p third-return-param vk-spec))
+          :enumerate-two-struct-chains)
+         ((has-type-and-next-p second-return-param vk-spec)
+          :enumerate-struct-chain-and-struct)
+         (t
+          :enumerate-struct-and-struct-chain))
+       '(:result :multi-success :with-errors
+         (:output :value :struct-vector :struct-vector)
+         (:vector
+          (:struct ((:value :uint32) (:same-as 1)) :output)
+          (:struct ((:value :uint32) (:same-as 0)) :output)))))))
 
 ;; generateCommandResultMultiSuccessWithErrors
 (defun classify-result-multi-success-with-errors (command vk-spec)
@@ -760,17 +811,29 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
         ((handlep return-param-type-name vk-spec)
          (check-cmd (= 0 (hash-table-count vector-param-indices))
                     "Expected no vector params")
-         '(:void :1-return-handle :0-vector))
+         '(:get-or-create-handle (:void (:output :handle))))
         ((structure-chain-anchor-p return-param-type-name vk-spec)
          (check-cmd (= 0 (hash-table-count vector-param-indices))
                     "Expected no vector params")
-         ;; todo: if a struct has an stype slot, it must be set
-         ;;       if a returned struct can be extended, it should be added to the optional parameters of the function -> requires a new major update, because the order of optional parameters changes
-         '(:get-struct (:void (:output :structure-chain-anchor))))
+         (list
+          (if (has-type-and-next-p return-param-type-name vk-spec)
+              :get-struct-chain
+              :get-struct)
+          '(:void (:output :structure-chain-anchor))))
         ((not (string= "void" return-param-type-name))
          (cond
            ((= 0 (hash-table-count vector-param-indices))
-            '(:void :1-return :0-vector))
+            (cond
+              ((structure-type-p return-param-type-name vk-spec)
+               (list
+                (if (has-type-and-next-p return-param-type-name vk-spec)
+                    :get-struct-chain
+                    :get-struct)
+                '(:void (:output :struct))))
+              ((handlep return-param-type-name vk-spec)
+               '(:get-or-create-handle (:void (:output :handle))))
+              (t
+               '(:get-value (:void (:output :value))))))
            ((= 1 (hash-table-count vector-param-indices))
             (let* ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices)))
                    (vector-param (nth vector-param-index params))
@@ -784,7 +847,14 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                          "Expected vector param not to be a handle or void type or not to be a structure chain anchor")
               (check-cmd (len-by-struct-member-p (len vector-param) counter-param vk-spec)
                          "Expected vector param to be counted by a struct member"))
-            '(:get-struct (:void (:output :struct) (:vector (:struct :value)))))
+            (list
+             (if (has-type-and-next-p return-param-type-name vk-spec)
+                 :get-struct-chain
+                 :get-struct)
+             '(:void
+               (:output :struct)
+               (:vector
+                (:struct :value)))))
            (t
             (check-cmd nil "Expected less than 2 vector params"))))
         (t
@@ -808,7 +878,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                       "Expected first return param to be the counter of the vector param")
            (check-cmd (= second-return-param-index vector-param-index)
                       "Expected second return param to be the vector param"))
-         '(:void :2-return-chain-vector :1-vector))
+         '(:unknown-need-example (:void :2-return-chain-vector :1-vector)))
         ((and (not (string= "void" second-return-param-type-name))
               (not (handlep second-return-param-type-name vk-spec)))
          (check-cmd (= 1 (hash-table-count vector-param-indices))
@@ -818,7 +888,16 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
                       "Expected first return param to be the counter of the vector param")
            (check-cmd (= second-return-param-index vector-param-index)
                       "Expected second return param to be the vector param"))
-         '(:void :2-return :1-vector))
+         (check-cmd (structure-type-p second-return-param-type-name vk-spec)
+                    "Expected return param to be of a struct type")
+         (list
+          (if (has-type-and-next-p second-return-param-type-name vk-spec)
+              :get-struct-chains
+              :get-structs)
+          '(:void
+            (:output :struct-vector :value)
+            (:vector
+             (:struct :value :output)))))
         (t
          (check-cmd nil "Expected first return param to be a structure chain anchor or second return param not to be void or a handle type"))))))
 
@@ -844,13 +923,32 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
     (check-cmd (= 0 (hash-table-count vector-param-indices)) "Expected no vector params")
     (cond
       ((= 0 (length const-pointer-param-indices))
-       '(:value :0-const))
+       '(:no-output-param (:value :no-const)))
       ((= 1 (length const-pointer-param-indices))
        (check-cmd (not (string= "void" (type-name (type-info (nth (first const-pointer-param-indices) params)))))
                   "Expected const pointer param not to be of void type")
-       '(:value :1-const :no-const-void))
+       '(:no-output-param (:value (:const :non-void) :no-const-void)))
       (t
        (check-cmd nil "Expected less than 2 const pointer params")))))
+
+(defparameter *command-types*
+  '((:no-output-param "A function without any output parameters.")
+    (:get-or-create-handle "A function returning a single handle or some other pointer.")
+    (:allocate-handles "A function allocating multiple handles (possibly equivalent for wrapper: :CREATE-HANDLES)")
+    (:create-handles "A function creating multiple handles (possibly equivalent for wrapper: :ALLOCATE-HANDLES)")
+    (:get-struct "A function returning a single struct without an sType or a pNext member.")
+    (:get-struct-chain "A function returning a single struct which might be extended by a pNext member.")
+    (:get-structs "A function returning multiple structs and no VkResult")
+    (:get.struct-chains "A function returning multiple structs which might be extended by a pNext member and no VkResult.")
+    (:get-value "A function returning a single primitive type or a flag")
+    (:enumerate-structs "A function returning multiple structs and a VkResult which might be VK_INCOMPLETE")
+    (:enumerate-struct-chains "A function returning multiple structs which might be extended by a pNext member and a VkResult which might be VK_INCOMPLETE")
+    (:enumerate-handles "A function returning multiple handles and a VkResult which might be VK_INCOMPLETE")
+    (:enumerate-values "A function returning multiple values and a VkResult which might be VK_INCOMPLETE")
+    (:enumerate-two-struct-chains "A function returning two lists of structs which each might be extended by a pNext member an a VkResult which might be VK_INCOMPLETE")
+    (:get-value-array-and-non-array-value "A function returning a list of values and a value which is no meta parameter of the list parameter.")
+    (:fill-void-pointer "A function taking a void pointer - must be handled by user (equivalent for wrapper: :NO-OUTPUT-PARAM"))
+  "A list of command types.")
 
 ;; todo: map new cases to old ones
 (defun determine-command-type-2 (command vk-spec)
