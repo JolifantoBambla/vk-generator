@@ -131,6 +131,7 @@
    :reverse-hash-table
    :handlep
    :get-handle
+   :get-structure-type
    
    ;; vulkan-spec
    :vulkan-spec

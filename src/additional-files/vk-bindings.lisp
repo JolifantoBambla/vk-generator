@@ -25,7 +25,7 @@ If OPTIONAL-P is truthy NULL is appended to each type declaration."
         (setf arg-types (reverse arg-types))
         (push (list 'extension-loader '*default-extension-loader*)
               arg-names)
-        (push (list 'declare (list (list 'or '%vk:extension-loader 'null) 'extension-loader))
+        (push (list 'declare (list '%vk:extension-loader 'extension-loader))
               arg-types)
         (setf arg-names (reverse arg-names))
         (setf arg-types (reverse arg-types)))
@@ -35,6 +35,9 @@ If OPTIONAL-P is truthy NULL is appended to each type declaration."
     "Elements of VARIABLES should look like this:
 (arg-name arg-type contents ...options)
 options are :handle, :in/:out, :optional
+
+arg-name is the name of the symbol used when calling the %vk function
+contents is the source of the data which should be translated to the args memory location (i.e. the argument of the vk-function or something like the length of an argument of the vk-function)
 "
     (let ((translated-args nil)
           (vk-input-args nil)
@@ -54,10 +57,12 @@ options are :handle, :in/:out, :optional
                       var-sym)
                   vk-input-args)
                  ;; all input variables which are not single handles or single raw values have to be translated
-                 (when (and (not (member :out var))
-                            (not (and (not (member :list var))
-                                      (or (member :handle var)
-                                          (member :raw var)))))
+                 (when (or (and (member :in var)
+                                (member :out var))
+                           (and (not (member :out var))
+                                (not (and (not (member :list var))
+                                          (or (member :handle var)
+                                              (member :raw var))))))
                      (push
                       (list var-sym
                             (second var) ;; type
@@ -163,11 +168,10 @@ E.g. LEN-PROVIDER is a slot value of an input parameter: vkAllocateCommandBuffer
                                       collect (cffi:mem-aref ,@handle-def ,i))
                                 ,result)))))))))))
 
-;; case 1c-1: get a struct extended by its NEXT slot - e.g. vkGetPhysicalDeviceFeatures2
 ;; case 1c-2: get a struct without NEXT slot - e.g. vkGetPhysicalDeviceProperties
 (defmacro defvk-get-struct-fun ((name vulkan-fun docstring required-args optional-args &optional (extension-p nil)) &body variables)
   "Defines a function named NAME which wraps VULKAN-FUN.
-VULKAN-FUN is function that gets a struct and returns a RESULT.
+VULKAN-FUN is function that gets a struct and returns no RESULT.
 E.g. vkGetPhysicalDeviceProperties"
   (multiple-value-bind (required-arg-names required-arg-declares) (process-args required-args nil)
     (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t extension-p)
@@ -182,6 +186,24 @@ E.g. vkGetPhysicalDeviceProperties"
                  (cffi:with-foreign-object (,@struct-def)
                    (,vulkan-fun ,@vk-input-args)
                    (cffi:mem-aref ,@struct-def))))))))))
+
+;; case 1c-1: get a struct extended by its NEXT slot - e.g. vkGetPhysicalDeviceFeatures2
+(defmacro defvk-get-struct-chain-fun ((name vulkan-fun docstring required-args optional-args &optional (extension-p nil)) &body variables)
+  "Defines a function named NAME which wraps VULKAN-FUN.
+VULKAN-FUN is function that gets a struct which can be extended via its NEXT slot and returns no RESULT.
+E.g. vkGetPhysicalDeviceProperties"
+  (multiple-value-bind (required-arg-names required-arg-declares) (process-args required-args nil)
+    (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t extension-p)
+      (multiple-value-bind (translated-args let-args vk-input-args output-args) (process-variables variables extension-p)
+        (let ((struct-def (second (first output-args))))
+          `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
+             ,docstring
+             ,@required-arg-declares
+             ,@optional-arg-declares
+             (let (,@let-args)
+               (vk-alloc:with-foreign-allocated-objects (,@translated-args)
+                 (,vulkan-fun ,@vk-input-args)
+                 (cffi:mem-aref ,@struct-def)))))))))
 
 ;; TODO: maybe take a type and a size instead?
 ;; case 1d: arbitrary data as output param - e.g. vkGetQueryPoolResults

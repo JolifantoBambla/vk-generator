@@ -167,9 +167,9 @@ See ~a~]
      "integer")
     ((string= "char" type-name)
      "string")
-    ((gethash type-name (structures vk-spec))
+    ((get-structure-type type-name vk-spec)
      (format nil "(or vk:~(~a~) cffi:foreign-pointer)"
-             (fix-type-name type-name (tags vk-spec))))
+             (fix-type-name (name (get-structure-type type-name vk-spec)) (tags vk-spec))))
     ((gethash type-name (bitmasks vk-spec))
      "(or unsigned-byte list)")
     ((or (and (gethash type-name (enums vk-spec))
@@ -269,27 +269,39 @@ See ~a~]
               :out
               :in)
           qualifiers)
+    ;; structs which can be used to query via their next-slot are also :in args even though they are present in the output-params
+    (when (and (member arg output-params)
+               (member arg optional-params))
+      (push :in qualifiers))
     qualifiers))
 
-(defun format-vk-args (vk-args count-to-vector-param-indices output-params optional-params vector-params vk-spec)
+(defun format-vk-args (vk-args count-to-vector-param-indices output-params optional-params vector-params vk-spec &optional in-out-params)
   ""
   (loop for arg in vk-args
         for i from 0
+        for arg-name = (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
         collect (format nil "(~(~a ~a ~a~{ ~s~}~))~@[~%~]"
-                        (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
+                        arg-name
                         (format-arg-type arg vk-spec)
-                        (if (and (gethash i count-to-vector-param-indices)
-                                 (not (gethash (type-name (type-info arg))
-                                               (structures vk-spec)))
-                                 (not (find arg output-params)))
-                            (let* ((array-args (loop for j in (gethash i count-to-vector-param-indices)
-                                                     for array-arg = (nth j vk-args)
-                                                     unless (find array-arg output-params)
-                                                     collect array-arg))
-                                   (array-arg (first array-args)))
-                              (format nil "(length ~(~a~))"
-                                      (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
-                            (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec))
+                        (cond
+                          ((member arg in-out-params)
+                           (format nil "~((if ~a ~a (vk:make-~a))~)"
+                                   arg-name
+                                   arg-name
+                                   (fix-type-name (name (get-structure-type (type-name (type-info arg)) vk-spec))
+                                                  (tags vk-spec))))
+                          ((and (gethash i count-to-vector-param-indices)
+                                (not (gethash (type-name (type-info arg))
+                                              (structures vk-spec)))
+                                (not (find arg output-params)))
+                           (let* ((array-args (loop for j in (gethash i count-to-vector-param-indices)
+                                                    for array-arg = (nth j vk-args)
+                                                    unless (find array-arg output-params)
+                                                    collect array-arg))
+                                  (array-arg (first array-args)))
+                             (format nil "(length ~(~a~))"
+                                     (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))))
+                          (t (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)))
                         (make-arg-qualifier-list arg output-params optional-params vector-params vk-spec)
                         (< (+ i 1) (length vk-args)))))
 
@@ -374,6 +386,19 @@ See ~a~]
   (format out ")~%")
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
+(defun write-get-struct-chain-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  (let ((optional-params (sorted-elements (concatenate 'list optional-params (list (first output-params))))))
+    (format t "~a" optional-params)
+    (format out "(defvk-get-struct-chain-fun (~(~a~)~%" fixed-function-name)
+    (format out "                             ~(%vk:~a~)~%" fixed-function-name)
+    (format out "                             ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
+    (format out "                             (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+    (format out "                             (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
+    (when (needs-explicit-loading-p command)
+      (format out "~%                             t"))
+    (format out ")~%")
+    (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec (list (first output-params))))))
+
 (defun write-fill-arbitrary-buffer-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-fill-arbitrary-buffer-fun (~(~a~)~%" fixed-function-name)
   (format out "                                  ~(%vk:~a~)~%" fixed-function-name)
@@ -386,6 +411,7 @@ See ~a~]
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-get-structs-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  
   (format out "(defvk-get-structs-fun (~(~a~)~%" fixed-function-name)
   (format out "                        ~(%vk:~a~)~%" fixed-function-name)
   (format out "                        ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
@@ -395,7 +421,7 @@ See ~a~]
                                                    (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
   (format out "                        ~(~a~)" (let ((array-arg (find-if #'len output-params)))
                                                  (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
-  (format out "~%                      ~:[nil~;t~]"
+  (format out "~%                        ~:[nil~;t~]"
           (string= "void" (return-type command)))
   (when (needs-explicit-loading-p command)
     (format out "~%                        t"))
@@ -515,11 +541,11 @@ See ~a~]
                                                 struct-params))
          (required-params (sorted-elements (concatenate 'list required-handle-params required-non-struct-params required-struct-params)))
          (optional-params (sorted-elements (concatenate 'list optional-handle-params optional-non-struct-params optional-struct-params)))
-         (command-type (determine-command-type command vk-spec)))
+         (command-type (first (determine-command-type-2 command vk-spec))))
 
     ;; todo: port conditions from vulkanhppgenerator to check if really all commands are written correctly. (e.g. there is one case without a single function - probably a bug)
     (cond
-      ((eq command-type :simple)
+      ((eq command-type :no-output-param) ;; used to be :simple
        (write-simple-fun out
                          command
                          fixed-function-name
@@ -529,7 +555,7 @@ See ~a~]
                          count-to-vector-param-indices
                          vector-params
                          vk-spec))
-      ((eq command-type :create-single-handle)
+      ((eq command-type :get-or-create-handle) ;; used to be :create-single-handle
        (write-create-handle-fun out
                                 command
                                 fixed-function-name
@@ -539,7 +565,7 @@ See ~a~]
                                 count-to-vector-param-indices
                                 vector-params
                                 vk-spec))
-      ((eq command-type :create-multiple-handles)
+      ((member command-type '(:create-handles :allocate-handles)) ;; used to be :create-multiple-handles
        (write-create-handles-fun out
                                  command
                                  fixed-function-name
@@ -549,7 +575,18 @@ See ~a~]
                                  count-to-vector-param-indices
                                  vector-params
                                  vk-spec))
-      ((eq command-type :get-single-struct)
+      ((eq command-type :get-value) ;; used to be part of :get-single-struct or :create-single-handle
+       (warn "I still need to check if this works for all get-value funcs")
+       (write-create-handle-fun out
+                                command
+                                fixed-function-name
+                                required-params
+                                optional-params
+                                output-params
+                                count-to-vector-param-indices
+                                vector-params
+                                vk-spec))
+      ((eq command-type :get-struct) ;; used to be :get-single-struct
        (write-get-struct-fun out
                              command
                              fixed-function-name
@@ -559,7 +596,17 @@ See ~a~]
                              count-to-vector-param-indices
                              vector-params
                              vk-spec))
-      ((eq command-type :fill-arbitrary-buffer)
+      ((eq command-type :get-struct-chain) ;; new: a part of what used to be :get-single-struct
+       (write-get-struct-chain-fun out
+                             command
+                             fixed-function-name
+                             required-params
+                             optional-params
+                             output-params
+                             count-to-vector-param-indices
+                             vector-params
+                             vk-spec))
+      ((eq command-type :fill-void-pointer) ;; used to be :fill-arbitrary-buffer, but there were no occurrences. instead some of the functions in the category were in :simple and some of them were in :create-single-handle
        (write-fill-arbitrary-buffer-fun out
                                         command
                                         fixed-function-name
@@ -569,7 +616,7 @@ See ~a~]
                                         count-to-vector-param-indices
                                         vector-params
                                         vk-spec))
-      ((eq command-type :get-multiple-structs)
+      ((eq command-type :get-structs) ;; used to be get-multiple-structs
        (write-get-structs-fun out
                               command
                               fixed-function-name
@@ -579,17 +626,11 @@ See ~a~]
                               count-to-vector-param-indices
                               vector-params
                               vk-spec))
-      ((eq command-type :get-two-non-array-values)
-       (write-multiple-singular-returns-fun out
-                                            command
-                                            fixed-function-name
-                                            required-params
-                                            optional-params
-                                            output-params
-                                            count-to-vector-param-indices
-                                            vector-params
-                                            vk-spec))
-      ((eq command-type :enumerate-single-array)
+      ((eq command-type :get-struct-chains) ;; new, used to be a part of :get-multiple-structs
+       (warn "type of ~a not yet handled: ~a" command command-type))
+      ((member command-type '(:enumerate-values
+                              :enumerate-handles
+                              :enumerate-structs)) ;; used to be :enumerate-single-array
        (write-enumerate-fun out
                             command
                             fixed-function-name
@@ -599,7 +640,9 @@ See ~a~]
                             count-to-vector-param-indices
                             vector-params
                             vk-spec))
-      ((eq command-type :get-array-and-non-array-value)
+      ((eq command-type :enumerate-struct-chains) ;; new, used to be a part of :enumerate-single-array
+       (warn "type of ~a not yet handled: ~a" command command-type))
+      ((eq command-type :get-value-array-and-value) ;; used to be :get-array-and-non-array-value
        (write-get-array-and-singular-fun out
                                          command
                                          fixed-function-name
@@ -609,7 +652,7 @@ See ~a~]
                                          count-to-vector-param-indices
                                          vector-params
                                          vk-spec))
-      ((eq command-type :enumerate-two-arrays)
+      ((eq command-type :enumerate-two-struct-chains) ;; used to be :enumerate-two-arrays
        (write-enumerate-two-arrays-fun out
                                        command
                                        fixed-function-name
@@ -641,10 +684,12 @@ See ~a~]
                                            (first command-type22)
                                            (alexandria:make-keyword (format nil "~{~a~^-~}" command-type22)))
                    do (if (not (gethash command-type2 command-types))
-                          (setf (gethash command-type2 command-types) (list (name command) command-type))
+                          (setf (gethash command-type2 command-types) (list (list (name command) command-type)))
                           (pushnew (list (name command) command-type) (gethash command-type2 command-types))))
              (loop for c in (alexandria:hash-table-keys command-types)
-                   do (format t "~a: ~a~%" c (gethash c command-types))))))
+                   do (format t "~a: ~a~%" c (gethash c command-types)))
+             (loop for c in (alexandria:hash-table-keys command-types)
+                   do (format t "~a: ~a~%" c (remove-duplicates (map 'list #'second (gethash c command-types))))))))
     (if dry-run
         (write-commands t)
         (with-open-file (out vk-functions-file :direction :output :if-exists :supersede)
