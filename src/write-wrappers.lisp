@@ -275,7 +275,7 @@ See ~a~]
       (push :in qualifiers))
     qualifiers))
 
-(defun format-vk-args (vk-args count-to-vector-param-indices output-params optional-params vector-params vk-spec &optional in-out-params)
+(defun format-vk-args (vk-args count-to-vector-param-indices output-params optional-params vector-params vk-spec &optional singular-in-out-params)
   ""
   (loop for arg in vk-args
         for i from 0
@@ -284,7 +284,7 @@ See ~a~]
                         arg-name
                         (format-arg-type arg vk-spec)
                         (cond
-                          ((member arg in-out-params)
+                          ((member arg singular-in-out-params)
                            (format nil "~((if ~a ~a (vk:make-~a))~)"
                                    arg-name
                                    arg-name
@@ -411,7 +411,6 @@ See ~a~]
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-get-structs-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  
   (format out "(defvk-get-structs-fun (~(~a~)~%" fixed-function-name)
   (format out "                        ~(%vk:~a~)~%" fixed-function-name)
   (format out "                        ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
@@ -428,16 +427,24 @@ See ~a~]
   (format out ")~%")
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
-(defun write-multiple-singular-returns-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (format out "(defvk-multiple-singular-returns-fun (~(~a~)~%" fixed-function-name)
-  (format out "                                      ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                                      ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-  (format out "                                      (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-  (format out "                                      (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
-  (when (needs-explicit-loading-p command)
-    (format out "~%                                      t"))
-  (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
+(defun write-get-struct-chains-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  (let* ((array-arg (find-if #'len output-params))
+         (optional-params (sorted-elements (concatenate 'list optional-params (list array-arg)))))
+    (format out "(defvk-get-struct-chains-fun (~(~a~)~%" fixed-function-name)
+    (format out "                              ~(%vk:~a~)~%" fixed-function-name)
+    (format out "                              ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
+    (format out "                              (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+    (format out "                              (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
+    (format out "                              ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
+                                                           (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+    (format out "                              ~(~a~)" (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))
+    (format out "                              vk:make-~(~a~)" (fix-type-name (type-name (type-info array-arg)) (tags vk-spec)))
+    (format out "~%                              ~:[nil~;t~]"
+            (string= "void" (return-type command)))
+    (when (needs-explicit-loading-p command)
+      (format out "~%                        t"))
+    (format out ")~%")
+    (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec))))
 
 (defun write-enumerate-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-enumerate-fun (~(~a~)~%" fixed-function-name)
@@ -627,7 +634,15 @@ See ~a~]
                               vector-params
                               vk-spec))
       ((eq command-type :get-struct-chains) ;; new, used to be a part of :get-multiple-structs
-       (warn "type of ~a not yet handled: ~a" command command-type))
+       (write-get-struct-chains-fun out
+                                    command
+                                    fixed-function-name
+                                    required-params
+                                    optional-params
+                                    output-params
+                                    count-to-vector-param-indices
+                                    vector-params
+                                    vk-spec))
       ((member command-type '(:enumerate-values
                               :enumerate-handles
                               :enumerate-structs)) ;; used to be :enumerate-single-array

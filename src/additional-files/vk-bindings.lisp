@@ -226,11 +226,12 @@ E.g. vkGetQueryPoolResults"
 
 ;;; --------------------------------------------- 2 output parameters ------------------------------------------------------------------
 
-;; case 2a: e.g. vkGetPhysicalDeviceQueueFamilyProperties2
+;; case 2a: e.g. vkGetPhysicalDeviceSparseImageFormatProperties
+;; returned struct have no next slot
 (defmacro defvk-get-structs-fun ((name vulkan-fun docstring required-args optional-args count-arg-name array-arg-name &optional (no-result-p nil) (extension-p nil)) &body variables)
   "Defines a function named NAME which wraps VULKAN-FUN.
 VULKAN-FUN is function that gets multiple structs and might return a RESULT.
-E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
+E.g. vkGetPhysicalDeviceSparseImageFormatProperties"
   (multiple-value-bind (required-arg-names required-arg-declares) (process-args required-args nil)
     (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t extension-p)
       (multiple-value-bind (translated-args let-args vk-input-args output-args) (process-variables variables extension-p)
@@ -263,25 +264,57 @@ E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
                                  (cl:values (loop for ,i from 0 below ,translated-count
                                                   collect (cffi:mem-aref ,@ (second array-arg) ,i)))))))))))))))))
 
-;; case 2b: ???
-(defmacro defvk-multiple-singular-returns-fun ((name vulkan-fun docstring required-args optional-args &optional (extension-p nil)) &body variables)
+;; case 2a: e.g. vkGetPhysicalDeviceQueueFamilyProperties2
+;; structs with next slot
+(defmacro defvk-get-struct-chains-fun ((name vulkan-fun docstring required-args optional-args count-arg-name array-arg-name vk-constructor &optional (no-result-p nil) (extension-p nil)) &body variables)
   "Defines a function named NAME which wraps VULKAN-FUN.
-VULKAN-FUN is function that gets two separate non-array values and returns a RESULT.
-E.g. ???"
+VULKAN-FUN is function that gets multiple structs and might return a RESULT.
+E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
   (multiple-value-bind (required-arg-names required-arg-declares) (process-args required-args nil)
     (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t extension-p)
       (multiple-value-bind (translated-args let-args vk-input-args output-args) (process-variables variables extension-p)
-        (let ((result (gensym "RESULT")))
+        (let ((count-arg (find-if (lambda (a)
+                                    (eq (first a) count-arg-name))
+                                  output-args))
+              (array-arg (find-if (lambda (a)
+                                    (eq (first a) array-arg-name))
+                                  output-args))
+              (translated-count (gensym "COUNT"))
+              (result (gensym "RESULT"))
+              (i (gensym "INDEX")))
           `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
              ,docstring
              ,@required-arg-declares
              ,@optional-arg-declares
              (let (,@let-args)
-               (vk-alloc:with-foreign-allocated-objects (,@translated-args)
-                 (cffi:with-foreign-objects (,@ (mapcar #'second output-args))
-                   (let ((,result (,vulkan-fun ,@vk-input-args)))
-                     (cl:values ,@ (mapcar #'first (mapcar #'second output-args))
-                                   ,result)))))))))))
+               (if ,array-arg-name
+                   (vk-alloc:with-foreign-allocated-objects (,@translated-args
+                                                             (,@ (second count-arg) (length ,array-arg-name)))
+                     ,(if no-result-p
+                          `(progn
+                             (,vulkan-fun ,@vk-input-args)
+                             (loop for ,i from 0 below (length ,array-arg-name)
+                                   collect (cffi:mem-aref ,@ (second array-arg) ,i)))
+                          `(let ((,result (,vulkan-fun ,@vk-input-args)))
+                             (cl:values (loop for ,i from 0 below (length ,array-arg-name)
+                                              collect (cffi:mem-aref ,@ (second array-arg) ,i))))))
+                   (vk-alloc:with-foreign-allocated-objects (,@ (remove-if (lambda (a)
+                                                                             (eq (first a) array-arg-name))
+                                                                           translated-args))
+                     (cffi:with-foreign-object (,@ (second count-arg))
+                       (let ((,(first (second array-arg)) (cffi:null-pointer)))
+                         (,vulkan-fun ,@vk-input-args)
+                         (let ((,translated-count (cffi:mem-aref ,@ (second count-arg))))
+                           (vk-alloc:with-foreign-allocated-object (,@ (second array-arg)
+                                                                       (make-array ,translated-count :initial-element (,vk-constructor)))
+                             ,(if no-result-p
+                                  `(progn
+                                     (,vulkan-fun ,@vk-input-args)
+                                     (loop for ,i from 0 below ,translated-count
+                                           collect (cffi:mem-aref ,@ (second array-arg) ,i)))
+                                  `(let ((,result (,vulkan-fun ,@vk-input-args)))
+                                     (cl:values (loop for ,i from 0 below ,translated-count
+                                                      collect (cffi:mem-aref ,@ (second array-arg) ,i))))))))))))))))))
 
 ;; case 2c: enumerate - e.g. vkEnumeratePhysicalDevices
 (defmacro defvk-enumerate-fun ((name vulkan-fun docstring required-args optional-args count-arg-name array-arg-name &optional (extension-p nil)) &body variables)
