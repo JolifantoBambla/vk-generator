@@ -111,15 +111,20 @@ See CFFI:NULL-POINTER-P"
            ((eq type :string)
             ;; cffi:with-foreign-object seems to do something different with strings than cffi:with-foreign-string does
             ;; (kinda obvious given there are two distinct macros?)
-            `(if (listp ,content)
-                 ;; not exactly sure why this works for lists of strings but not single strings - encoding?
-                 (cffi:with-foreign-object (,var ,type (length ,content))
-                   (loop for ,iterator from 0 below (length ,content)
-                         for ,element in ,content
-                         do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
-                   ,@body)
-                 (cffi:with-foreign-string (,var ,content)
-                   ,@body)))
+            `(if (or (listp ,content)
+                     (vectorp ,content))
+                    ;; not exactly sure why this works for lists of strings but not single strings - encoding?
+                    (cffi:with-foreign-object (,var ,type (length ,content))
+                      (if (vectorp ,content)
+                          (loop for ,iterator from 0 below (length ,content)
+                                for ,element across ,content
+                                do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
+                          (loop for ,iterator from 0 below (length ,content)
+                                for ,element in ,content
+                                do (setf (cffi:mem-aref ,var ,type ,iterator) ,element)))
+                      ,@body)
+                    (cffi:with-foreign-string (,var ,content)
+                      ,@body)))
            ;; unions need special care: https://github.com/JolifantoBambla/vk/issues/5
            ((and (listp type)
                  (listp (second type))
@@ -140,9 +145,13 @@ See CFFI:NULL-POINTER-P"
                                           (length ,contents))
                  (unwind-protect
                       (progn
-                        (loop for ,iterator from 0 below (length ,contents)
-                              for ,element in ,contents
-                              do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
+                        (if (vectorp ,contents)
+                            (loop for ,iterator from 0 below (length ,contents)
+                                  for ,element across ,contents
+                                  do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
+                            (loop for ,iterator from 0 below (length ,contents)
+                                  for ,element in ,contents
+                                  do (setf (cffi:mem-aref ,var ,type ,iterator) ,element)))
                         ,@body)
                    (free-allocated-children ,var)))))))))
 
