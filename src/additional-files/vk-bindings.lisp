@@ -289,7 +289,7 @@ E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
              (let (,@let-args)
                (if ,array-arg-name
                    (vk-alloc:with-foreign-allocated-objects (,@translated-args
-                                                             (,@ (second count-arg) (length ,array-arg-name)))
+                                                             (,@ (second count-arg) (length ,array-arg-name) nil))
                      ,(if no-result-p
                           `(progn
                              (,vulkan-fun ,@vk-input-args)
@@ -357,6 +357,64 @@ E.g. vkEnumeratePhysicalDevices"
                                                     (loop for ,i from 0 below ,translated-count
                                                           collect (cffi:mem-aref ,@ (second array-arg) ,i))))
                                                 ,result)))))))))))))))
+(defmacro defvk-enumerate-struct-chains-fun ((name vulkan-fun docstring required-args optional-args count-arg-name array-arg-name vk-constructor &optional (extension-p nil)) &body variables)
+  "Defines a function named NAME which wraps VULKAN-FUN.
+VULKAN-FUN is function that enumerates values and returns a RESULT.
+E.g. vkEnumeratePhysicalDevices"
+  (multiple-value-bind (required-arg-names required-arg-declares) (process-args required-args nil)
+    (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t extension-p)
+      (multiple-value-bind (translated-args let-args vk-input-args output-args) (process-variables variables extension-p)
+        (let ((count-arg (find-if (lambda (a)
+                                    (eq (first a) count-arg-name))
+                                  output-args))
+              (array-arg (find-if (lambda (a)
+                                    (eq (first a) array-arg-name))
+                                  output-args))
+              (translated-count (gensym "COUNT"))
+              (result (gensym "RESULT"))
+              (i (gensym "INDEX")))
+          `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
+             ,docstring
+             ,@required-arg-declares
+             ,@optional-arg-declares
+             (let (,@let-args)
+               (if ,array-arg-name
+                   (vk-alloc:with-foreign-allocated-objects (,@translated-args
+                                                             (,@(second count-arg) (length ,array-arg-name) nil))
+                     (let ((,result :incomplete))
+                       (loop do (setf ,result (,vulkan-fun ,@vk-input-args))
+                             while (eq ,result :incomplete)
+                             finally (return (when (eq ,result :success)
+                                               (let ((,translated-count (cffi:mem-aref ,@(second count-arg))))
+                                                 (cl:values
+                                                  (when (> ,translated-count 0)
+                                                    (cffi:with-foreign-object (,@(second array-arg) ,translated-count)
+                                                      (setf ,result (,vulkan-fun ,@vk-input-args))
+                                                      (loop for ,i from 0 below ,translated-count
+                                                            collect (cffi:mem-aref ,@(second array-arg) ,i))))
+                                                  ,result)))))))
+                   (vk-alloc:with-foreign-allocated-objects (,@(remove-if (lambda (a)
+                                                                            ;; the third element is actually the source
+                                                                            ;; of the data to fill the arg with, but here
+                                                                            ;; this should always be the same as the
+                                                                            ;; array-arg-name
+                                                                            (eq (third a) array-arg-name))
+                                                                          translated-args))
+                     (cffi:with-foreign-object (,@(second count-arg))
+                       (let ((,(first (second array-arg)) (cffi:null-pointer))
+                             (,result :incomplete))
+                         (loop do (setf ,result (,vulkan-fun ,@vk-input-args))
+                               while (eq ,result :incomplete)
+                               finally (return (when (eq ,result :success)
+                                                 (let ((,translated-count (cffi:mem-aref ,@(second count-arg))))
+                                                   (cl:values
+                                                    (when (> ,translated-count 0)
+                                                      (vk-alloc:with-foreign-allocated-object (,@(second array-arg)
+                                                                                                 (make-array ,translated-count :initial-element (,vk-constructor)))
+                                                        (setf ,result (,vulkan-fun ,@vk-input-args))
+                                                        (loop for ,i from 0 below ,translated-count
+                                                              collect (cffi:mem-aref ,@(second array-arg) ,i))))
+                                                    ,result))))))))))))))))
 
 ;; case 2d: return multiple values. one array of the same size as an input array and one additional non-array value - e.g. vkGetCalibratedTimestampsEXT
 (defmacro defvk-get-array-and-singular-fun ((name vulkan-fun docstring required-args optional-args len-provider array-arg-name &optional (extension-p nil)) &body variables)

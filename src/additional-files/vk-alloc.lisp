@@ -91,7 +91,7 @@ See *ALLOCATE-FOREIGN-OBJECT-FUNC*"
         p-resource)
       (cffi:null-pointer)))
 
-(defmacro with-foreign-allocated-object ((var type content) &body body)
+(defmacro with-foreign-allocated-object ((var type content &optional (nullablep t)) &body body)
   "Bind VAR and translate CONTENT to a foreign pointer of TYPE during BODY.
 The pointer in VAR is invalid beyond the dynamic extent of BODY.
 
@@ -103,10 +103,14 @@ See CFFI:NULL-POINTER-P"
   (let ((contents (gensym "CONTENT-LIST"))
         (iterator (gensym "LOOP-INDEX"))
         (element (gensym "ELEMENT")))
-    `(if (or (cffi:pointerp ,content)
-             (not ,content))
-         (let ((,var (or ,content
-                         (cffi:null-pointer))))
+    `(if ,(if nullablep
+              `(or (cffi:pointerp ,content)
+                   (not ,content))
+              `(cffi:pointerp ,content))
+         (let ((,var ,(if nullablep
+                          `(or ,content
+                               (cffi:null-pointer))
+                          `,content)))
            ,@body)
         ,(cond
            ((eq type :string)

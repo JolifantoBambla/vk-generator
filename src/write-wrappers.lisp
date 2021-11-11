@@ -436,7 +436,7 @@ See ~a~]
     (format out "                              (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
     (format out "                              ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
                                                            (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
-    (format out "                              ~(~a~)" (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))
+    (format out "                              ~(~a~)~%" (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))
     (format out "                              vk:make-~(~a~)" (fix-type-name (type-name (type-info array-arg)) (tags vk-spec)))
     (format out "~%                              ~:[nil~;t~]"
             (string= "void" (return-type command)))
@@ -459,6 +459,23 @@ See ~a~]
     (format out "~%                      t"))
   (format out ")~%")
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
+
+(defun write-enumerate-struct-chains-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  (let* ((array-arg (find-if #'len output-params))
+         (optional-params (sorted-elements (concatenate 'list optional-params (list array-arg)))))
+    (format out "(defvk-enumerate-struct-chains-fun (~(~a~)~%" fixed-function-name)
+   (format out "                                    ~(%vk:~a~)~%" fixed-function-name)
+   (format out "                                    ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
+   (format out "                                    (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+   (format out "                                    (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
+   (format out "                                    ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
+                                                               (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+   (format out "                                    ~(~a~)~%" (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))
+    (format out "                                   vk:make-~(~a~)" (fix-type-name (type-name (type-info array-arg)) (tags vk-spec)))
+   (when (needs-explicit-loading-p command)
+     (format out "~%                                    t"))
+   (format out ")~%")
+   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec))))
 
 (defun write-get-array-and-singular-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-get-array-and-singular-fun (~(~a~)~%" fixed-function-name)
@@ -548,9 +565,6 @@ See ~a~]
          (required-params (sorted-elements (concatenate 'list required-handle-params required-non-struct-params required-struct-params)))
          (optional-params (sorted-elements (concatenate 'list optional-handle-params optional-non-struct-params optional-struct-params)))
          (command-type (first (determine-command-type-2 command vk-spec))))
-
-    (when (string= (name command) "vkGetValidationCacheDataEXT")
-      (warn "~a ~a ~a" vector-params required-params optional-params))
     
     ;; todo: port conditions from vulkanhppgenerator to check if really all commands are written correctly. (e.g. there is one case without a single function - probably a bug)
     (cond
@@ -658,7 +672,15 @@ See ~a~]
                             vector-params
                             vk-spec))
       ((eq command-type :enumerate-struct-chains) ;; new, used to be a part of :enumerate-single-array
-       (warn "type of ~a not yet handled: ~a" command command-type))
+       (write-enumerate-struct-chains-fun out
+                                          command
+                                          fixed-function-name
+                                          required-params
+                                          optional-params
+                                          output-params
+                                          count-to-vector-param-indices
+                                          vector-params
+                                          vk-spec))
       ((eq command-type :get-value-array-and-value) ;; used to be :get-array-and-non-array-value
        (write-get-array-and-singular-fun out
                                          command
@@ -693,7 +715,7 @@ See ~a~]
                  do (loop for alias in (alexandria:hash-table-values (alias command))
                           do (write-command stream (make-aliased-command command alias) vk-spec)))
 
-           (let ((command-types (make-hash-table)))
+           #|(let ((command-types (make-hash-table)))
              (loop for command in (sorted-elements (alexandria:hash-table-values (commands vk-spec)))
                    for command-type = (determine-command-type command vk-spec)
                    for command-type22 = (determine-command-type-2 command vk-spec)
@@ -706,7 +728,7 @@ See ~a~]
              (loop for c in (alexandria:hash-table-keys command-types)
                    do (format t "~a: ~a~%" c (gethash c command-types)))
              (loop for c in (alexandria:hash-table-keys command-types)
-                   do (format t "~a: ~a~%" c (remove-duplicates (map 'list #'second (gethash c command-types))))))))
+                   do (format t "~a: ~a~%" c (remove-duplicates (map 'list #'second (gethash c command-types))))))|#))
     (if dry-run
         (write-commands t)
         (with-open-file (out vk-functions-file :direction :output :if-exists :supersede)
