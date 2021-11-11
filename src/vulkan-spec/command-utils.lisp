@@ -83,12 +83,13 @@ To disable this behaviour pass NIL as IGNORE-VOID parameter.
 (defun determine-count-to-vector-param-indices (params vk-spec)
   (reverse-hash-table (determine-vector-param-indices params vk-spec)))
 
-(defun determine-non-const-pointer-param-indices (params &optional (ignore-void t))
+(defun determine-non-const-pointer-param-indices (params &optional (ignore-void t) (ignore-void-meta nil))
   "Find all indices of PARAM instances describing output arguments in a given sequence of PARAM instances.
 
 Note: By default void* are ignored and treated as input arguments.
 To disable this behaviour pass NIL as the IGNORE-VOID parameter.
 "
+  ;; todo: remove data-size (void-meta) from lists of output params!
   (loop for param in params and param-index from 0
         when (and (non-const-pointer-p (type-info param))
                   (not (find (type-name (type-info param)) *special-pointer-types* :test #'string=))

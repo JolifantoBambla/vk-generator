@@ -63,7 +63,7 @@ See *FREE-FOREIGN-OBJECT-FUNC*"
   "Frees all children that were allocated during allocation of FOREIGN-OBJ which is assumed to be a stack-allocated resource, whereas its children were heap-allocated.
 
 See FREE-ALLOCATED-FOREIGN-CHAIN"
-  (dolist (child (gethash foreign-obj *allocated-foreign-objects*)) (free-allocated-foreign-chain child))
+  (dolist(child (gethash foreign-obj *allocated-foreign-objects*)) (free-allocated-foreign-chain child))
   (remhash foreign-obj *allocated-foreign-objects*))
 
 (defun foreign-allocate-and-fill (type content parent-ptr)
@@ -77,13 +77,15 @@ See *ALLOCATED-FOREIGN-OBJECTS*
 See *ALLOCATE-FOREIGN-OBJECT-FUNC*"
   (if content
       (let ((p-resource nil))
-        (if (arrayp content)
-            (let ((array-type (alexandria:flatten (list :array type (array-dimensions content)))))
-              (setf p-resource (funcall *allocate-foreign-object-func* array-type :count (array-total-size content)))
-              (cffi:lisp-array-to-foreign content p-resource array-type))
-            (if (listp content)
-                (setf p-resource (funcall *allocate-foreign-object-func* type :initial-contents content))
-                (setf p-resource (funcall *allocate-foreign-object-func* type :initial-element content))))
+        (etypecase content
+          (array
+           (let ((array-type (alexandria:flatten (list :array type (array-dimensions content)))))
+             (setf p-resource (funcall *allocate-foreign-object-func* array-type :count (array-total-size content)))
+             (cffi:lisp-array-to-foreign content p-resource array-type)))
+          (list
+           (setf p-resource (funcall *allocate-foreign-object-func* type :initial-contents content)))
+          (t
+           (setf p-resource (funcall *allocate-foreign-object-func* type :initial-element content))))
         (unless (cffi:null-pointer-p parent-ptr)
           (push p-resource (gethash parent-ptr *allocated-foreign-objects*)))
         p-resource)
@@ -103,10 +105,9 @@ See CFFI:NULL-POINTER-P"
         (element (gensym "ELEMENT")))
     `(if (or (cffi:pointerp ,content)
              (not ,content))
-        (let ((,var (if (not ,content)
-                        (cffi:null-pointer)
-                        ,content)))
-          ,@body)
+         (let ((,var (or ,content
+                         (cffi:null-pointer))))
+           ,@body)
         ,(cond
            ((eq type :string)
             ;; cffi:with-foreign-object seems to do something different with strings than cffi:with-foreign-string does
@@ -115,13 +116,13 @@ See CFFI:NULL-POINTER-P"
                      (vectorp ,content))
                     ;; not exactly sure why this works for lists of strings but not single strings - encoding?
                     (cffi:with-foreign-object (,var ,type (length ,content))
-                      (if (vectorp ,content)
-                          (loop for ,iterator from 0 below (length ,content)
-                                for ,element across ,content
-                                do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
-                          (loop for ,iterator from 0 below (length ,content)
-                                for ,element in ,content
-                                do (setf (cffi:mem-aref ,var ,type ,iterator) ,element)))
+                      (etypecase ,content
+                        (vector (loop for ,iterator from 0 below (length ,content)
+                                      for ,element across ,content
+                                      do (setf (cffi:mem-aref ,var ,type ,iterator) ,element)))
+                        (list (loop for ,iterator from 0 below (length ,content)
+                                    for ,element in ,content
+                                    do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))))
                       ,@body)
                     (cffi:with-foreign-string (,var ,content)
                       ,@body)))
@@ -145,13 +146,13 @@ See CFFI:NULL-POINTER-P"
                                           (length ,contents))
                  (unwind-protect
                       (progn
-                        (if (vectorp ,contents)
-                            (loop for ,iterator from 0 below (length ,contents)
-                                  for ,element across ,contents
-                                  do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
-                            (loop for ,iterator from 0 below (length ,contents)
-                                  for ,element in ,contents
-                                  do (setf (cffi:mem-aref ,var ,type ,iterator) ,element)))
+                        (etypecase ,contents
+                            (vector (loop for ,iterator from 0 below (length ,contents)
+                                          for ,element across ,contents
+                                          do (setf (cffi:mem-aref ,var ,type ,iterator) ,element)))
+                            (list (loop for ,iterator from 0 below (length ,contents)
+                                        for ,element in ,contents
+                                        do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))))
                         ,@body)
                    (free-allocated-children ,var)))))))))
 

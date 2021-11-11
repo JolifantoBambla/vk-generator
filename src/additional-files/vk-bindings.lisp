@@ -299,7 +299,11 @@ E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
                              (cl:values (loop for ,i from 0 below (length ,array-arg-name)
                                               collect (cffi:mem-aref ,@ (second array-arg) ,i))))))
                    (vk-alloc:with-foreign-allocated-objects (,@ (remove-if (lambda (a)
-                                                                             (eq (first a) array-arg-name))
+                                                                             ;; the third element is actually the source
+                                                                             ;; of the data to fill the arg with, but here
+                                                                             ;; this should always be the same as the
+                                                                             ;; array-arg-name
+                                                                             (eq (third a) array-arg-name))
                                                                            translated-args))
                      (cffi:with-foreign-object (,@ (second count-arg))
                        (let ((,(first (second array-arg)) (cffi:null-pointer)))

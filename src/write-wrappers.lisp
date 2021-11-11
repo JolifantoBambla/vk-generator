@@ -225,7 +225,7 @@ See ~a~]
     ((string= "char" type-name)
      ":string")
     ((string= "size_t" type-name)
-     "'%vk:size-t")
+     ":size")
     ((gethash type-name *vk-platform*)
      (format nil "~(~s~)" (gethash type-name *vk-platform*)))
     ((getf *misc-os-types* type-name)
@@ -285,8 +285,7 @@ See ~a~]
                         (format-arg-type arg vk-spec)
                         (cond
                           ((member arg singular-in-out-params)
-                           (format nil "~((if ~a ~a (vk:make-~a))~)"
-                                   arg-name
+                           (format nil "~((or ~a (vk:make-~a))~)"
                                    arg-name
                                    (fix-type-name (name (get-structure-type (type-name (type-info arg)) vk-spec))
                                                   (tags vk-spec))))
@@ -550,6 +549,9 @@ See ~a~]
          (optional-params (sorted-elements (concatenate 'list optional-handle-params optional-non-struct-params optional-struct-params)))
          (command-type (first (determine-command-type-2 command vk-spec))))
 
+    (when (string= (name command) "vkGetValidationCacheDataEXT")
+      (warn "~a ~a ~a" vector-params required-params optional-params))
+    
     ;; todo: port conditions from vulkanhppgenerator to check if really all commands are written correctly. (e.g. there is one case without a single function - probably a bug)
     (cond
       ((eq command-type :no-output-param) ;; used to be :simple

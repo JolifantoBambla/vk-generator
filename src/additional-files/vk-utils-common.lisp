@@ -16,7 +16,7 @@ Args:
 Returns DEST (i.e. a CFFI:FOREIGN-POINTER)."
   (dest :pointer)
   (src :pointer)
-  (count %vk:size-t))
+  (count :size))
 
 (defun split-api-version (version)
   "Splits a packed version number as returned by VK:MAKE-API-VERSION into a list of integers in the form of (major minor patch).
