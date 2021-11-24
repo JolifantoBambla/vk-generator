@@ -118,18 +118,14 @@ See CFFI:NULL-POINTER-P"
             ;; (kinda obvious given there are two distinct macros?)
             `(if (or (listp ,content)
                      (vectorp ,content))
-                    ;; not exactly sure why this works for lists of strings but not single strings - encoding?
-                    (cffi:with-foreign-object (,var ,type (length ,content))
-                      (etypecase ,content
-                        (vector (loop for ,iterator from 0 below (length ,content)
-                                      for ,element across ,content
-                                      do (setf (cffi:mem-aref ,var ,type ,iterator) ,element)))
-                        (list (loop for ,iterator from 0 below (length ,content)
-                                    for ,element in ,content
-                                    do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))))
-                      ,@body)
-                    (cffi:with-foreign-string (,var ,content)
-                      ,@body)))
+                 ;; not exactly sure why this works for lists of strings but not single strings - encoding?
+                 (cffi:with-foreign-object (,var ,type (length ,content))
+                   (loop for ,iterator from 0 below (length ,content)
+                                    for ,element in (coerce ,content 'list)
+                                    do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
+                   ,@body)
+                 (cffi:with-foreign-string (,var ,content)
+                   ,@body)))
            ;; unions need special care: https://github.com/JolifantoBambla/vk/issues/5
            ((and (listp type)
                  (listp (second type))
@@ -140,23 +136,22 @@ See CFFI:NULL-POINTER-P"
                       (progn ,@body)
                    (free-allocated-foreign-chain ,var)))))
            (t
-            `(let ((,contents (if (or (vectorp ,content)
-                                      (and (listp ,content)
-                                           (not (keywordp (first ,content)))))
-                                  ,content
-                                  (list ,content))))
+            `(let ((,contents (cond
+                                ((and (listp ,content)
+                                      (not (keywordp (first ,content))))
+                                 ,content)
+                                ((vectorp ,content)
+                                 (coerce ,content 'list))
+                                (t
+                                 (list ,content)))))
                (cffi:with-foreign-object (,var
                                           ,type
                                           (length ,contents))
                  (unwind-protect
                       (progn
-                        (etypecase ,contents
-                            (vector (loop for ,iterator from 0 below (length ,contents)
-                                          for ,element across ,contents
-                                          do (setf (cffi:mem-aref ,var ,type ,iterator) ,element)))
-                            (list (loop for ,iterator from 0 below (length ,contents)
-                                        for ,element in ,contents
-                                        do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))))
+                        (loop for ,iterator from 0 below (length ,contents)
+                              for ,element in ,contents
+                              do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
                         ,@body)
                    (free-allocated-children ,var)))))))))
 

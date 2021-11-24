@@ -10,7 +10,8 @@
     "Splits ARGS into a list of argument names and a list of types which can be used for type declarations.
 If OPTIONAL-P is truthy NULL is appended to each type declaration."
     (multiple-value-bind (arg-names
-                          arg-types)
+                          arg-types
+                          unused-args)
         (loop for arg in args
               collect (first arg) into arg-names
               collect (list 'declare
@@ -18,7 +19,8 @@ If OPTIONAL-P is truthy NULL is appended to each type declaration."
                                 (list (list 'or (second arg) 'null) (first (first arg)))
                                 (list (second arg) (first arg))))
               into arg-types
-              finally (return (cl:values arg-names arg-types)))
+              when (third arg) collect (list 'declare (list 'ignore (first (first arg)))) into unused-args
+              finally (return (cl:values arg-names arg-types unused-args)))
       (when (and optional-p
                  extension-p)
         (setf arg-names (reverse arg-names))
@@ -29,7 +31,7 @@ If OPTIONAL-P is truthy NULL is appended to each type declaration."
               arg-types)
         (setf arg-names (reverse arg-names))
         (setf arg-types (reverse arg-types)))
-      (cl:values arg-names arg-types)))
+      (cl:values arg-names arg-types unused-args)))
   
   (defun process-variables (variables &optional (extension-p nil))
     "Elements of VARIABLES should look like this:
@@ -58,7 +60,8 @@ contents is the source of the data which should be translated to the args memory
                   vk-input-args)
                  ;; all input variables which are not single handles or single raw values have to be translated
                  (when (or (and (member :in var)
-                                (member :out var))
+                                (member :out var)
+                                (not (member :ignore-in var)))
                            (and (not (member :out var))
                                 (not (and (not (member :list var))
                                           (or (member :handle var)
@@ -310,7 +313,7 @@ E.g. vkGetPhysicalDeviceQueueFamilyProperties2"
                          (,vulkan-fun ,@vk-input-args)
                          (let ((,translated-count (cffi:mem-aref ,@ (second count-arg))))
                            (vk-alloc:with-foreign-allocated-object (,@ (second array-arg)
-                                                                       (make-array ,translated-count :initial-element (,vk-constructor)))
+                                                                       (make-list ,translated-count :initial-element (,vk-constructor)))
                              ,(if no-result-p
                                   `(progn
                                      (,vulkan-fun ,@vk-input-args)
@@ -410,7 +413,7 @@ E.g. vkEnumeratePhysicalDevices"
                                                    (cl:values
                                                     (when (> ,translated-count 0)
                                                       (vk-alloc:with-foreign-allocated-object (,@(second array-arg)
-                                                                                                 (make-array ,translated-count :initial-element (,vk-constructor)))
+                                                                                                 (make-list ,translated-count :initial-element (,vk-constructor)))
                                                         (setf ,result (,vulkan-fun ,@vk-input-args))
                                                         (loop for ,i from 0 below ,translated-count
                                                               collect (cffi:mem-aref ,@(second array-arg) ,i))))
@@ -454,7 +457,7 @@ E.g. vkGetCalibratedTimestampsEXT"
 VULKAN-FUN is function that enumerates two kinds of values and returns a RESULT.
 E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
   (multiple-value-bind (required-arg-names required-arg-declares) (process-args required-args nil)
-    (multiple-value-bind (optional-arg-names optional-arg-declares) (process-args optional-args t) extension-p
+    (multiple-value-bind (optional-arg-names optional-arg-declares ignore-arg-declares) (process-args optional-args t) extension-p
       (multiple-value-bind (translated-args let-args vk-input-args output-args) (process-variables variables extension-p)
         (let ((count-arg (find-if (lambda (a)
                                     (eq (first a) count-arg-name))
@@ -471,6 +474,7 @@ E.g. vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR"
              ,docstring
              ,@required-arg-declares
              ,@optional-arg-declares
+             ,@ignore-arg-declares
              (let (,@let-args)
                (vk-alloc:with-foreign-allocated-objects (,@translated-args)
                  (cffi:with-foreign-object (,@ (second count-arg))

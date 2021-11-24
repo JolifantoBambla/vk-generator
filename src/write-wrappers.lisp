@@ -54,7 +54,11 @@
                                                     ((string= "pAllocator" (name param))
                                                      "*DEFAULT-ALLOCATOR*")
                                                     (t "NIL")))))
-          (formatted-output-args (loop for param in output-params
+          (formatted-output-args (loop for param in (remove-if (lambda (p)
+                                                                 (member (name p)
+                                                                         (map 'list #'len vector-params)
+                                                                         :test #'string=))
+                                                               output-params)
                                        collect (let ((array-arg-p (member param vector-params)))
                                                  (format nil "~a~a"
                                                          (if (gethash (type-name (type-info param)) *vk-platform*)
@@ -195,14 +199,15 @@ See ~a~]
                         (format-type-to-declare arg vector-params vk-spec)
                         (< i (length required-args)))))
 
-(defun format-optional-args (optional-args vector-params vk-spec)
+(defun format-optional-args (optional-args vector-params vk-spec &optional unused-args)
   "Maps a list of PARAM-DATA instances into a list of default argument lists for the lambda list of a function in package VK."
   (loop for arg in optional-args
         for i from 1
-        collect (format nil "((~(~a ~a) ~a~))~@[ ~]"
+        collect (format nil "((~(~a ~a) ~a~@[ t~]~))~@[ ~]"
                         (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
                         (determine-param-default-value-string arg vk-spec)
                         (format-type-to-declare arg vector-params vk-spec)
+                        (member arg unused-args)
                         (< i (length optional-args)))))
 
 (defun format-type-name (type-name vk-spec)
@@ -242,7 +247,7 @@ See ~a~]
   ""
   (format-type-name (type-name (type-info arg)) vk-spec))
 
-(defun make-arg-qualifier-list (arg output-params optional-params vector-params vk-spec)
+(defun make-arg-qualifier-list (arg output-params optional-params vector-params vk-spec &optional unused-params)
   (let ((qualifiers nil))
     (when (find arg optional-params)
       (push :optional qualifiers))
@@ -273,9 +278,11 @@ See ~a~]
     (when (and (member arg output-params)
                (member arg optional-params))
       (push :in qualifiers))
+    (when (member arg unused-params)
+      (push :ignore-in qualifiers))
     qualifiers))
 
-(defun format-vk-args (vk-args count-to-vector-param-indices output-params optional-params vector-params vk-spec &optional singular-in-out-params)
+(defun format-vk-args (vk-args count-to-vector-param-indices output-params optional-params vector-params vk-spec &optional singular-in-out-params unused-params)
   ""
   (loop for arg in vk-args
         for i from 0
@@ -301,7 +308,7 @@ See ~a~]
                              (format nil "(length ~(~a~))"
                                      (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))))
                           (t (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)))
-                        (make-arg-qualifier-list arg output-params optional-params vector-params vk-spec)
+                        (make-arg-qualifier-list arg output-params optional-params vector-params vk-spec unused-params)
                         (< (+ i 1) (length vk-args)))))
 
 (defun write-simple-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
@@ -497,23 +504,24 @@ See ~a~]
   (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
 
 (defun write-enumerate-two-arrays-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (format out "(defvk-enumerate-two-arrays-fun (~(~a~)~%" fixed-function-name)
-  (format out "                                 ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                                 ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-  (format out "                                 (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-  (format out "                                 (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
-  (format out "                                 ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
-                                                            (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
-  (format out "                                 ~((~a)~)" (let* ((array-args (remove-if-not #'len output-params))
-                                                                 (first-arg (first array-args))
-                                                                 (second-arg (second array-args)))
-                                                            (format nil "~(~a ~a~)"
-                                                                    (fix-slot-name (name first-arg) (type-name (type-info first-arg)) vk-spec)
-                                                                    (fix-slot-name (name second-arg) (type-name (type-info second-arg)) vk-spec))))
-  (when (needs-explicit-loading-p command)
-    (format out "~%                                 t"))
-  (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
+  (let* ((array-args (remove-if-not #'len output-params))
+         (optional-params (sorted-elements (concatenate 'list optional-params array-args))))
+    (format out "(defvk-enumerate-two-arrays-fun (~(~a~)~%" fixed-function-name)
+    (format out "                                 ~(%vk:~a~)~%" fixed-function-name)
+    (format out "                                 ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
+    (format out "                                 (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+    (format out "                                 (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec array-args))
+    (format out "                                 ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
+                                                              (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+    (format out "                                 ~((~a)~)" (let* ((first-arg (first array-args))
+                                                                   (second-arg (second array-args)))
+                                                              (format nil "~(~a ~a~)"
+                                                                      (fix-slot-name (name first-arg) (type-name (type-info first-arg)) vk-spec)
+                                                                      (fix-slot-name (name second-arg) (type-name (type-info second-arg)) vk-spec))))
+    (when (needs-explicit-loading-p command)
+      (format out "~%                                 t"))
+    (format out ")~%")
+    (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec nil array-args))))
 
 ;; todo: check if vkGetShaderInfoAMD is written correctly (what is the info parameter exactly? - check spec)
 (defun write-command (out command vk-spec)
