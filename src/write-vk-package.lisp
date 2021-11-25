@@ -146,7 +146,6 @@
   (:documentation \"Contains the low-level CFFI-bindings for the Vulkan API.\")
   (:use #:cl #:cffi)
   (:export
-    #:size-t
     #:extension-loader
     #:make-extension-loader
     #:extension-loader-instance
@@ -366,4 +365,4 @@
     
     ;; todo: print out changes
     (force-output)
-    nil))
+    vk-spec))

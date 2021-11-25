@@ -14,16 +14,18 @@
         (name (xps (xpath:evaluate "@name" node)))
         (extends (xps (xpath:evaluate "@extends" node))))
     (if alias
-        (let ((enum (gethash extends (enums vk-spec))))
-          (assert enum
-                  () "feature extends unknown enum <~a>" extends)
-          (multiple-value-bind (prefix postfix) (get-enum-pre-and-postfix extends (is-bitmask-p enum) (tags vk-spec))
-            (let ((vk-hpp-name (create-enum-vk-hpp-name name prefix postfix (is-bitmask-p enum) tag)))
-              (when (alias enum)
-                (multiple-value-bind (alias-prefix alias-postfix) (get-enum-pre-and-postfix (alias enum) (is-bitmask-p enum) (tags vk-spec))
-                  (when (alexandria:ends-with-subseq postfix name)
-                    (setf vk-hpp-name (create-enum-vk-hpp-name name alias-prefix alias-postfix (is-bitmask-p enum) tag)))))
-              (add-enum-alias enum name alias vk-hpp-name))))
+        ;; readRequireEnumAlias
+        (when extends
+          (let ((enum (gethash extends (enums vk-spec))))
+            (assert enum
+                    () "feature extends unknown enum <~a>" extends)
+            (multiple-value-bind (prefix postfix) (get-enum-pre-and-postfix extends (is-bitmask-p enum) (tags vk-spec))
+              (let ((vk-hpp-name (create-enum-vk-hpp-name name prefix postfix (is-bitmask-p enum) tag)))
+                (when (alias enum)
+                  (multiple-value-bind (alias-prefix alias-postfix) (get-enum-pre-and-postfix (alias enum) (is-bitmask-p enum) (tags vk-spec))
+                    (when (alexandria:ends-with-subseq postfix name)
+                      (setf vk-hpp-name (create-enum-vk-hpp-name name alias-prefix alias-postfix (is-bitmask-p enum) tag)))))
+                (add-enum-alias enum name alias vk-hpp-name)))))
         (let ((value-string (xps (xpath:evaluate "@value" node))))
           (if extends
               (let* ((enum (gethash extends (enums vk-spec)))

@@ -722,7 +722,7 @@ See ~a~]
                  when (alias command)
                  do (loop for alias in (alexandria:hash-table-values (alias command))
                           do (write-command stream (make-aliased-command command alias) vk-spec)))
-
+           
            #|(let ((command-types (make-hash-table)))
              (loop for command in (sorted-elements (alexandria:hash-table-values (commands vk-spec)))
                    for command-type = (determine-command-type command vk-spec)
