@@ -311,21 +311,6 @@ See ~a~]
                         (make-arg-qualifier-list arg output-params optional-params vector-params vk-spec unused-params)
                         (< (+ i 1) (length vk-args)))))
 
-(defun write-simple-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (format out "(defvk-simple-fun (~(~a~)~%" fixed-function-name)
-  (format out "                   ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                   ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-  (format out "                   (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-  (format out "                   (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
-  (format out "~%                  ~(~a~)"
-          (if (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
-              (format-type-name (return-type command) vk-spec)
-              nil))
-  (when (needs-explicit-loading-p command)
-    (format out "~%                  t"))
-  (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
-
 (defun write-create-handle-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-create-handle-fun (~(~a~)~%" fixed-function-name)
   (format out "                          ~(%vk:~a~)~%" fixed-function-name)
@@ -523,6 +508,46 @@ See ~a~]
     (format out ")~%")
     (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec nil array-args))))
 
+(defun write-defvkfun (out
+                       fixed-function-name
+                       required-params
+                       optional-params
+                       kw-args
+                       docstring
+                       vk-args)
+  "Writes a DEFVKFUN form. All arguments to this function are already formatted."
+  (format out "
+(defvkfun (~(~a~)
+           ~(%vk:~a~)
+           (~(~{~a~}~))
+           (~(~{~a~}~))~{
+           ~a~})
+  ~s
+~{  ~(~a~)~})~%"
+          fixed-function-name
+          fixed-function-name
+          required-params
+          optional-params
+          kw-args
+          docstring
+          vk-args))
+
+(defun write-simple-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
+  (format out "")
+  (format out "(defvk-simple-fun (~(~a~)~%" fixed-function-name)
+  (format out "                   ~(%vk:~a~)~%" fixed-function-name)
+  (format out "                   ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
+  (format out "                   (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
+  (format out "                   (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
+  (format out "~%                  ~(~a~)"
+          (if (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
+              (format-type-name (return-type command) vk-spec)
+              nil))
+  (when (needs-explicit-loading-p command)
+    (format out "~%                  t"))
+  (format out ")~%")
+  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
+
 ;; todo: check if vkGetShaderInfoAMD is written correctly (what is the info parameter exactly? - check spec)
 (defun write-command (out command vk-spec)
   (let* ((fixed-function-name (fix-function-name (name command) (tags vk-spec)))
@@ -572,20 +597,34 @@ See ~a~]
                                                 struct-params))
          (required-params (sorted-elements (concatenate 'list required-handle-params required-non-struct-params required-struct-params)))
          (optional-params (sorted-elements (concatenate 'list optional-handle-params optional-non-struct-params optional-struct-params)))
-         (command-type (first (determine-command-type-2 command vk-spec))))
-    
-    ;; todo: port conditions from vulkanhppgenerator to check if really all commands are written correctly. (e.g. there is one case without a single function - probably a bug)
+         (command-type (first (determine-command-type-2 command vk-spec)))
+         (kw-args (when (needs-explicit-loading-p command)
+                    '(":extension-p t"))))
+    #|(let ((required-params required-params)
+          (optional-params optional-params)
+          (kw-args nil))
+      (write-defvkfun out
+                      (fix-function-name (name command) (tags vk-spec))
+                      (format-required-args required-params vector-params vk-spec)
+                      (format-optional-args optional-params vector-params vk-spec)
+                      kw-args
+                      (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
+                      (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))|#
     (cond
       ((eq command-type :no-output-param) ;; used to be :simple
-       (write-simple-fun out
-                         command
-                         fixed-function-name
-                         required-params
-                         optional-params
-                         output-params
-                         count-to-vector-param-indices
-                         vector-params
-                         vk-spec))
+       (pushnew
+        (format nil ":trivial-return-type ~(~a~)"
+                (if (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
+                    (format-type-name (return-type command) vk-spec)
+                    ":void"))
+        kw-args)
+       (write-defvkfun out
+                      (fix-function-name (name command) (tags vk-spec))
+                      (format-required-args required-params vector-params vk-spec)
+                      (format-optional-args optional-params vector-params vk-spec)
+                      kw-args
+                      (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
+                      (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
       ((eq command-type :get-or-create-handle) ;; used to be :create-single-handle
        (write-create-handle-fun out
                                 command
@@ -607,7 +646,7 @@ See ~a~]
                                  vector-params
                                  vk-spec))
       ((eq command-type :get-value) ;; used to be part of :get-single-struct or :create-single-handle
-       (warn "I still need to check if this works for all get-value funcs")
+       ;;(warn "I still need to check if this works for all get-value funcs")
        (write-create-handle-fun out
                                 command
                                 fixed-function-name

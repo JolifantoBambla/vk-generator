@@ -89,6 +89,259 @@ contents is the source of the data which should be translated to the args memory
 
 ;; TODO: there is a lot of duplicated code here - clean this up
 
+;; simple-fun: done!
+;; - return-type -> trivial-return-type
+;; - (not return-type) -> (eq trivial-return-type :void)
+;; handle-fun:
+;; - no-result-p -> no-vk-result-p
+;; get-struct-fun:
+;; - needs to set -> :no-vk-result-p t
+;; get-struct-hcain-fun:
+;; - same as get-struct-fun
+;; fill-arbitrary-buffer-fun:
+;; - same as simple-fun with :trivial-return-type :void
+;; create-handles-fun:
+;; - len-provider is now a keyword argument
+;; get-structs-fun:
+;; - no-result-p -> no-vk-result-p
+;; - array-arg-name -> first-array-arg-name
+;; get-struct-chains-fun:
+;; - same as get-structs-fun
+;; - must set :returns-struct-chain-p t
+;; - vk-constructor is now a keyword argument
+;; enumerate-fun:
+;; - array-arg-name -> first-array-arg-name
+;; - must set :enumerate t
+;; enumerate-struct-chains-fun:
+;; - same as enumerate-fun
+;; - must set :returns-struct-chain-p t
+;; - doesn't need a vk-constructor!
+;; enumerate-two-arrays-fun:
+;; - must set first-array-arg-name
+;; - must set count-arg-name
+;; - must set :enumerate t
+;; - must set second-array-arg-name
+
+
+(defmacro defvkfun ((name
+                     vulkan-fun
+                     required-args
+                     optional-args
+                     &key
+                       (no-vk-result-p nil)
+                       (trivial-return-type nil)
+                       (extension-p nil)
+                       (len-provider 1)
+                       (enumerate-p nil)
+                       (first-array-arg-name nil)
+                       (second-array-arg-name nil)
+                       (count-arg-name nil)
+                       (vk-constructor nil)
+                       (returns-struct-chain-p nil))
+                    &body body)
+  (let* ((docstring (car body))
+         (variables (cdr body))
+         (single-array-result-p (and (and first-array-arg-name
+                                          count-arg-name)
+                                     (not second-array-arg-name)))
+         (two-array-results-p (and first-array-arg-name
+                                   second-array-arg-name
+                                   count-arg-name))
+         (single-array-single-value-p (and (not single-array-result-p)
+                                           first-array-arg-name
+                                           (not (eq len-provider 1)))))
+    (assert (not (and enumerate-p
+                      (not (or single-array-result-p
+                               two-array-results-p))))
+            () "Enumerate functions must have at least one array result.")
+    (assert (not (and two-array-results-p
+                      (not enumerate-p)))
+            () "Function returning two lists must be an enumerate function.")
+    (multiple-value-bind (required-arg-names
+                          required-arg-declares)
+        (process-args required-args nil)
+      (multiple-value-bind (optional-arg-names
+                            optional-arg-declares
+                            ignore-arg-declares)
+          (process-args optional-args t extension-p)
+        (multiple-value-bind (translated-args
+                              let-args
+                              vk-input-args
+                              output-args)
+            (process-variables variables extension-p)
+          (let ((handle-or-struct-def (second (first output-args)))
+                (first-array-arg (when first-array-arg-name
+                                   (find-if (lambda (a)
+                                              (eq (first a) first-array-arg-name))
+                                            output-args)))
+                (second-array-arg (when second-array-arg-name
+                                    (find-if (lambda (a)
+                                               (eq (first a) second-array-arg-name))
+                                             output-args)))
+                (count-arg (when count-arg-name
+                             (find-if (lambda (a)
+                                        (eq (first a) count-arg-name))
+                                      output-args)))
+                (other-return-arg (when single-array-single-value-p
+                                    (find-if-not (lambda (a)
+                                                   (eq (first a) first-array-arg-name))
+                                                 output-args)))
+                (result (gensym "RESULT"))
+                (i (gensym "INDEX"))
+                (translated-count (gensym "TRANSLATED-COUNT"))
+                (first-result-array (gensym "FIRST-RESULT-ARRAY"))
+                (second-result-array (gensym "SECOND-RESULT-ARRAY")))
+            `(defun ,name (,@required-arg-names &optional ,@optional-arg-names)
+               ,docstring
+               ;;(declare (optimize (speed 3)))
+               ,@required-arg-declares
+               ,@optional-arg-declares
+               ,@ignore-arg-declares
+               (let (,@let-args)
+                 (vk-alloc:with-foreign-allocated-objects (,@(remove-if (lambda (arg)
+                                                                          ;; if a list of struct chains is returned
+                                                                          ;; we don't want to translate it just yet
+                                                                          (when first-array-arg-name
+                                                                            (eq (third arg)
+                                                                                first-array-arg-name)))
+                                                                        translated-args))
+                   ,(cond
+                      ;; trivial & fill-arbitrary-buffer
+                      (trivial-return-type
+                       (if (eq trivial-return-type :void)
+                           `(,vulkan-fun ,@vk-input-args)
+                           `(let ((,result (,vulkan-fun ,@vk-input-args)))
+                              (unless (cffi:null-pointer-p ,result)
+                                ,result))))
+                      ;; single-array-single-result
+                      #|(single-array-single-value-p
+                       `(cffi:with-foreign-objects ((,@ (second first-array-arg) ,len-provider)
+                                                    (,@ (second other-return-arg)))
+                          (let ((,result (,vulkan-fun ,@vk-input-args)))
+                            (cl:values (loop for ,i from 0 below ,len-provider
+                                             collect (cffi:mem-aref ,@(second first-array-arg) ,i))
+                                       (cffi:mem-aref ,@(second other-return-arg))
+                                       ,result))))
+                      ;; get-struct(-chain)s & enumerate(-struct-chains)
+                      (single-array-result-p
+                       (macrolet ((return-enumerated-list ()
+                                    `(let ((,result :incomplete))
+                                       (loop do (setf ,result (,vulkan-fun ,@vk-input-args))
+                                             while (eq ,result :incomplete)
+                                             finally (return (when (eq ,result :success)
+                                                               (let ((,translated-count (cffi:mem-aref ,@(second count-arg))))
+                                                                 (cl:values
+                                                                  (when (> ,translated-count 0)
+                                                                    (cffi:with-foreign-object (,@(second first-array-arg) ,translated-count)
+                                                                      (setf ,result (,vulkan-fun ,@vk-input-args))
+                                                                      (loop for ,i from 0 below ,translated-count
+                                                                            collect (cffi:mem-aref ,@(second first-array-arg) ,i))))
+                                                                  ,result)))))))
+                                  (return-list (use-translated-count-p)
+                                    (if no-vk-result-p
+                                        `(progn
+                                           (,vulkan-fun ,@vk-input-args)
+                                           (loop for ,i from 0 below ,(if use-translated-count-p
+                                                                          translated-count
+                                                                          (list 'length
+                                                                                first-array-arg-name))
+                                                 collect (cffi:mem-aref ,@(second first-array-arg) ,i)))
+                                        `(let ((,result (,vulkan-fun ,@vk-input-args)))
+                                           (cl:values
+                                            (loop for ,i from 0 below ,(if use-translated-count-p
+                                                                           translated-count
+                                                                           (list 'length
+                                                                                 first-array-arg-name))
+                                                  collect (cffi:mem-aref ,@(second first-array-arg) ,i))
+                                            ,result)))))
+                         (if enumerate-p
+                             (if returns-struct-chain-p
+                                 ;; enumerate-struct-chains
+                                 `(if ,first-array-arg-name
+                                      (vk-alloc:with-foreign-allocated-objects (,@(remove-if-not (lambda (arg)
+                                                                                                   (when first-array-arg-name
+                                                                                                     (eq (third arg)
+                                                                                                         first-array-arg-name)))
+                                                                                                 translated-args)
+                                                                                (,@(second count-arg)
+                                                                                 (length ,first-array-arg-name)
+                                                                                 nil))
+                                        ,(return-enumerated-list))
+                                      (cffi:with-foreign-object (,@(second count-arg))
+                                        (let ((,(first (second first-array-arg)) (cffi:null-pointer)))
+                                          ,(return-enumerated-list))))
+                                 ;; enumerate
+                                 `(cffi:with-foreign-object (,@(second count-arg))
+                                    (let ((,(first (second first-array-arg)) (cffi:null-pointer)))
+                                      ,(return-enumerated-list))))
+                             (if returns-struct-chain-p
+                                 ;; get-struct-chains
+                                 (progn
+                                   (assert first-vk-constructor
+                                           () "FIRST-VK-CONSTRUCTOR must be provided for get-struct-chains functions")
+                                   `(if ,first-array-arg-name
+                                        (vk-alloc:with-foreign-allocated-objects (,@(remove-if-not (lambda (arg)
+                                                                                                     (when first-array-arg-name
+                                                                                                       (eq (third arg)
+                                                                                                           first-array-arg-name)))
+                                                                                                   translated-args)
+                                                                                  (,@(second count-arg)
+                                                                                   (length ,first-array-arg-name)
+                                                                                   nil))
+                                          ,(return-list nil))
+                                        (cffi:with-foreign-object (,@(second count-arg))
+                                          (let ((,(first (second first-array-arg)) (cffi:null-pointer)))
+                                            (,vulkan-fun ,@vk-input-args)
+                                            (let ((,translated-count (cffi:mem-aref ,@(second count-arg))))
+                                              (vk-alloc:with-foreign-allocated-object (,@(second first-array-arg)
+                                                                                       (make-list ,translated-count
+                                                                                                  :initial-element (,vk-constructor)))
+                                                ,(return-list t)))))))
+                                 ;; get-structs
+                                 `(cffi:with-foreign-object (,@(second count-arg))
+                                    (let ((,(first (second first-array-arg)) (cffi:null-pointer)))
+                                      (,vulkan-fun ,@vk-input-args)
+                                      (cffi:with-foreign-object (,@(second ,first-array-arg) ,translated-count)
+                                        ,(return-list t))))))))
+                      ;; enumerate two struct chains
+                      (two-array-results-p
+                       (cffi:with-foreign-object (,@(second count-arg))
+                         (let ((,(first (second first-array-arg)) (cffi:null-pointer))
+                               (,(first (second second-array-arg)) (cffi:null-pointer))
+                               (,result :incomplete))
+                           (loop do (setf ,result (,vulkan-fun ,@vk-input-args))
+                                 while (eq ,result :incomplete)
+                                 finally (return (when (eq ,result :success)
+                                                   (let ((,translated-count (cffi:mem-aref ,@(second count-arg))))
+                                               (if (> ,translated-count 0)
+                                                   (cffi:with-foreign-objects ((,@(second first-array-arg) ,translated-count)
+                                                                               (,@(second second-array-arg) ,translated-count))
+                                                     (setf ,result (,vulkan-fun ,@vk-input-args))
+                                                     (loop for ,i from 0 below ,translated-count
+                                                           collect (cffi:mem-aref ,@(second first-array-arg) ,i) into ,first-result-array
+                                                           collect (cffi:mem-aref ,@(second second-array-arg) ,i) into ,second-result-array
+                                                           finally (return (cl:values ,first-array ,second-array ,result))))
+                                                   (cl:values nil nil ,result)))))))))
+                      ;; create-handle & create-handles & get-struct & get-struct-chain
+                      (t
+                       `(cffi:with-foreign-object (,@handle-or-struct-def ,len-provider)
+                          ,(if no-vk-result-p
+                               (progn
+                                 (assert (eq len-provider 1)
+                                         () "LEN-PROVIDER must be 1 for get-structs function which don't return a VkResult.")
+                                 `(progn
+                                    (,vulkan-fun ,@vk-input-args)
+                                    (cffi:mem-aref ,@handle-or-struct-def)))
+                               `(let ((,result (,vulkan-fun ,@vk-input-args)))
+                                  (cl:values
+                                   ,(cond
+                                      ((not (eq len-provider 1))
+                                       `(loop for ,i from 0 below ,len-provider
+                                              collect (cffi:mem-aref ,@handle-or-struct-def ,i)))
+                                      (t
+                                       `(cffi:mem-aref ,@handle-or-struct-def)))
+                                   ,result)))))|#))))))))))
+
 ;;; ---------------------------------------------- 0 output parameters -----------------------------------------------------------------
 
 ;; case 0a: no or implicit return value - e.g. vkDestroyInstance
