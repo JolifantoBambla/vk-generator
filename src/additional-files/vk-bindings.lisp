@@ -110,9 +110,9 @@ contents is the source of the data which should be translated to the args memory
 ;; - same as get-structs-fun
 ;; - must set :returns-struct-chain-p t
 ;; - vk-constructor is now a keyword argument
-;; enumerate-fun:
+;; enumerate-fun: done
 ;; - array-arg-name -> first-array-arg-name
-;; - must set :enumerate t
+;; - must set :enumerate-p t
 ;; enumerate-struct-chains-fun:
 ;; - same as enumerate-fun
 ;; - must set :returns-struct-chain-p t
