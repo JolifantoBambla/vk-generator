@@ -311,132 +311,6 @@ See ~a~]
                         (make-arg-qualifier-list arg output-params optional-params vector-params vk-spec unused-params)
                         (< (+ i 1) (length vk-args)))))
 
-(defun write-create-handle-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (format out "(defvk-create-handle-fun (~(~a~)~%" fixed-function-name)
-  (format out "                          ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                          ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-  (format out "                          (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-  (format out "                          (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
-  (format out "~%                          ~:[nil~;t~]"
-          (string= "void" (return-type command)))
-  (when (needs-explicit-loading-p command)
-    (format out "~%                          t"))
-  (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
-
-(defun write-create-handles-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (format out "(defvk-create-handles-fun (~(~a~)~%" fixed-function-name)
-  (format out "                           ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                           ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-  (format out "                           (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-  (format out "                           (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
-  (format out "                           ~(~a~)" (if (= (length vector-params) 2)
-                                                      ;; the length of the output array is the same size as an input array
-                                                      (format nil "(length ~(~a~))"
-                                                              (let ((array-arg (find-if-not (lambda (arg)
-                                                                                              (find arg output-params))
-                                                                                            vector-params)))
-                                                                (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
-                                                      ;; the length of the output array depends on the slot of an input parameter
-                                                      ;; now we need to find out which slot this is and - more importantly - if it is one
-                                                      ;; of the omitted slots because it redundantly describes the length of yet another
-                                                      ;; slot of the parameter
-                                                      (let* ((split-len-data (split-len-by-struct-member (len (first output-params))))
-                                                             (count-arg (find-if (lambda (p)
-                                                                                   (string= (first split-len-data) (name p)))
-                                                                                 (params command)))
-                                                             (count-struct (gethash (type-name (type-info count-arg)) (structures vk-spec)))
-                                                             (struct-count-member-names (get-count-member-names count-struct))
-                                                             (count-slot-name (second split-len-data)))
-                                                        (if (member count-slot-name struct-count-member-names :test #'string=)
-                                                            (let ((count-slot (find-if (lambda (m)
-                                                                                         (string= count-slot-name (car (len m))))
-                                                                                       (members count-struct))))
-                                                              (format nil "(length (vk:~(~a ~a~)))"
-                                                                (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
-                                                                (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
-                                                            (let ((count-slot (find-if (lambda (m)
-                                                                                         (string= count-slot-name (name m)))
-                                                                                       (members count-struct))))
-                                                              (format nil "(vk:~(~a ~a~))"
-                                                                (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
-                                                                (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))))))
-  (when (needs-explicit-loading-p command)
-    (format out "~%                           t"))
-  (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
-
-(defun write-get-struct-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (format out "(defvk-get-struct-fun (~(~a~)~%" fixed-function-name)
-  (format out "                       ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                       ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-  (format out "                       (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-  (format out "                       (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
-  (when (needs-explicit-loading-p command)
-    (format out "~%                       t"))
-  (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
-
-(defun write-get-struct-chain-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (let ((optional-params (sorted-elements (concatenate 'list optional-params (list (first output-params))))))
-    (format t "~a" optional-params)
-    (format out "(defvk-get-struct-chain-fun (~(~a~)~%" fixed-function-name)
-    (format out "                             ~(%vk:~a~)~%" fixed-function-name)
-    (format out "                             ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-    (format out "                             (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-    (format out "                             (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
-    (when (needs-explicit-loading-p command)
-      (format out "~%                             t"))
-    (format out ")~%")
-    (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec (list (first output-params))))))
-
-(defun write-fill-arbitrary-buffer-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (format out "(defvk-fill-arbitrary-buffer-fun (~(~a~)~%" fixed-function-name)
-  (format out "                                  ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                                  ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-  (format out "                                  (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-  (format out "                                  (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
-  (when (needs-explicit-loading-p command)
-    (format out "~%                                  t"))
-  (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
-
-(defun write-get-structs-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (format out "(defvk-get-structs-fun (~(~a~)~%" fixed-function-name)
-  (format out "                        ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                        ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-  (format out "                        (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-  (format out "                        (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
-  (format out "                        ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
-                                                   (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
-  (format out "                        ~(~a~)" (let ((array-arg (find-if #'len output-params)))
-                                                 (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
-  (format out "~%                        ~:[nil~;t~]"
-          (string= "void" (return-type command)))
-  (when (needs-explicit-loading-p command)
-    (format out "~%                        t"))
-  (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
-
-(defun write-get-struct-chains-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (let* ((array-arg (find-if #'len output-params))
-         (optional-params (sorted-elements (concatenate 'list optional-params (list array-arg)))))
-    (format out "(defvk-get-struct-chains-fun (~(~a~)~%" fixed-function-name)
-    (format out "                              ~(%vk:~a~)~%" fixed-function-name)
-    (format out "                              ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-    (format out "                              (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-    (format out "                              (~(~{~a~}~))~%" (format-optional-args optional-params vector-params vk-spec))
-    (format out "                              ~(~a~)~%" (let ((count-arg (find-if-not #'len output-params)))
-                                                           (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
-    (format out "                              ~(~a~)~%" (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))
-    (format out "                              vk:make-~(~a~)" (fix-type-name (type-name (type-info array-arg)) (tags vk-spec)))
-    (format out "~%                              ~:[nil~;t~]"
-            (string= "void" (return-type command)))
-    (when (needs-explicit-loading-p command)
-      (format out "~%                        t"))
-    (format out ")~%")
-    (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec))))
-
 (defun write-enumerate-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
   (format out "(defvk-enumerate-fun (~(~a~)~%" fixed-function-name)
   (format out "                      ~(%vk:~a~)~%" fixed-function-name)
@@ -532,22 +406,6 @@ See ~a~]
           docstring
           vk-args))
 
-(defun write-simple-fun (out command fixed-function-name required-params optional-params output-params count-to-vector-param-indices vector-params vk-spec)
-  (format out "")
-  (format out "(defvk-simple-fun (~(~a~)~%" fixed-function-name)
-  (format out "                   ~(%vk:~a~)~%" fixed-function-name)
-  (format out "                   ~s~%" (make-command-docstring command required-params optional-params output-params vector-params vk-spec))
-  (format out "                   (~(~{~a~}~))~%" (format-required-args required-params vector-params vk-spec))
-  (format out "                   (~(~{~a~}~))" (format-optional-args optional-params vector-params vk-spec))
-  (format out "~%                  ~(~a~)"
-          (if (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
-              (format-type-name (return-type command) vk-spec)
-              nil))
-  (when (needs-explicit-loading-p command)
-    (format out "~%                  t"))
-  (format out ")~%")
-  (format out "~{  ~(~a~)~})~%~%" (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
-
 ;; todo: check if vkGetShaderInfoAMD is written correctly (what is the info parameter exactly? - check spec)
 (defun write-command (out command vk-spec)
   (let* ((fixed-function-name (fix-function-name (name command) (tags vk-spec)))
@@ -609,14 +467,16 @@ See ~a~]
                       (format-optional-args optional-params vector-params vk-spec)
                       kw-args
                       (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
-                      (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))|#
+    (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))|#
+    ;; todo: check create-debug-utils-messenger example!
     (cond
-      ((eq command-type :no-output-param) ;; used to be :simple
+      ((or (eq command-type :no-output-param)    ;; used to be :simple
+           (eq command-type :fill-void-pointer)) ;; used to be :fill-arbitrary-buffer, but there were no occurrences. instead some of the functions in the category were in :simple and some of them were in :create-single-handle
        (pushnew
         (format nil ":trivial-return-type ~(~a~)"
                 (if (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
                     (format-type-name (return-type command) vk-spec)
-                    ":void"))
+                    ":trivial"))
         kw-args)
        (write-defvkfun out
                       (fix-function-name (name command) (tags vk-spec))
@@ -626,86 +486,148 @@ See ~a~]
                       (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
                       (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
       ((eq command-type :get-or-create-handle) ;; used to be :create-single-handle
-       (write-create-handle-fun out
-                                command
-                                fixed-function-name
-                                required-params
-                                optional-params
-                                output-params
-                                count-to-vector-param-indices
-                                vector-params
-                                vk-spec))
-      ((member command-type '(:create-handles :allocate-handles)) ;; used to be :create-multiple-handles
-       (write-create-handles-fun out
-                                 command
-                                 fixed-function-name
-                                 required-params
-                                 optional-params
-                                 output-params
-                                 count-to-vector-param-indices
-                                 vector-params
-                                 vk-spec))
+       (when (string= "void" (return-type command))
+         (pushnew ":no-vk-result-p t"
+                  kw-args))
+       (write-defvkfun out
+                       (fix-function-name (name command) (tags vk-spec))
+                       (format-required-args required-params vector-params vk-spec)
+                       (format-optional-args optional-params vector-params vk-spec)
+                       kw-args
+                       (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
+                       (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
+      ((member command-type '(:create-handles
+                              :allocate-handles)) ;; used to be :create-multiple-handles
+       (when (string= "void" (return-type command))
+         (pushnew ":no-vk-result-p t"
+                  kw-args))
+       (pushnew
+        (format nil ":len-provider ~(~a~)"
+                (if (= (length vector-params) 2)
+                    ;; the length of the output array is the same size as an input array
+                    (format nil "(length ~(~a~))"
+                            (let ((array-arg (find-if-not (lambda (arg)
+                                                            (find arg output-params))
+                                                          vector-params)))
+                              (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
+                    ;; the length of the output array depends on the slot of an input parameter
+                    ;; now we need to find out which slot this is and - more importantly - if it is one
+                    ;; of the omitted slots because it redundantly describes the length of yet another
+                    ;; slot of the parameter
+                    (let* ((split-len-data (split-len-by-struct-member (len (first output-params))))
+                           (count-arg (find-if (lambda (p)
+                                                 (string= (first split-len-data) (name p)))
+                                               (params command)))
+                           (count-struct (gethash (type-name (type-info count-arg)) (structures vk-spec)))
+                           (struct-count-member-names (get-count-member-names count-struct))
+                           (count-slot-name (second split-len-data)))
+                      (if (member count-slot-name struct-count-member-names :test #'string=)
+                          (let ((count-slot (find-if (lambda (m)
+                                                       (string= count-slot-name (car (len m))))
+                                                     (members count-struct))))
+                            (format nil "(length (vk:~(~a ~a~)))"
+                                    (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
+                                    (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+                          (let ((count-slot (find-if (lambda (m)
+                                                       (string= count-slot-name (name m)))
+                                                     (members count-struct))))
+                            (format nil "(vk:~(~a ~a~))"
+                                    (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
+                                    (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))))))
+        kw-args)
+       (write-defvkfun out
+                       (fix-function-name (name command) (tags vk-spec))
+                       (format-required-args required-params vector-params vk-spec)
+                       (format-optional-args optional-params vector-params vk-spec)
+                       kw-args
+                       (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
+                       (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
       ((eq command-type :get-value) ;; used to be part of :get-single-struct or :create-single-handle
        ;;(warn "I still need to check if this works for all get-value funcs")
-       (write-create-handle-fun out
-                                command
-                                fixed-function-name
-                                required-params
-                                optional-params
-                                output-params
-                                count-to-vector-param-indices
-                                vector-params
-                                vk-spec))
+       (when (string= "void" (return-type command))
+         (pushnew ":no-vk-result-p t"
+                  kw-args))
+       (write-defvkfun out
+                       (fix-function-name (name command) (tags vk-spec))
+                       (format-required-args required-params vector-params vk-spec)
+                       (format-optional-args optional-params vector-params vk-spec)
+                       kw-args
+                       (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
+                       (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
       ((eq command-type :get-struct) ;; used to be :get-single-struct
-       (write-get-struct-fun out
-                             command
-                             fixed-function-name
-                             required-params
-                             optional-params
-                             output-params
-                             count-to-vector-param-indices
-                             vector-params
-                             vk-spec))
+       (pushnew ":no-vk-result-p t"
+                 kw-args)
+       (write-defvkfun out
+                       (fix-function-name (name command) (tags vk-spec))
+                       (format-required-args required-params vector-params vk-spec)
+                       (format-optional-args optional-params vector-params vk-spec)
+                       kw-args
+                       (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
+                       (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
       ((eq command-type :get-struct-chain) ;; new: a part of what used to be :get-single-struct
-       (write-get-struct-chain-fun out
-                             command
-                             fixed-function-name
-                             required-params
-                             optional-params
-                             output-params
-                             count-to-vector-param-indices
-                             vector-params
-                             vk-spec))
-      ((eq command-type :fill-void-pointer) ;; used to be :fill-arbitrary-buffer, but there were no occurrences. instead some of the functions in the category were in :simple and some of them were in :create-single-handle
-       (write-fill-arbitrary-buffer-fun out
-                                        command
-                                        fixed-function-name
-                                        required-params
-                                        optional-params
-                                        output-params
-                                        count-to-vector-param-indices
-                                        vector-params
-                                        vk-spec))
+       (pushnew ":no-vk-result-p t"
+                kw-args)
+       (pushnew ":returns-struct-chain-p t"
+                kw-args)
+       (let ((optional-params (sorted-elements (concatenate 'list optional-params (list (first output-params)))))
+             (singular-out-params (list (first output-params))))
+         (write-defvkfun out
+                         (fix-function-name (name command) (tags vk-spec))
+                         (format-required-args required-params vector-params vk-spec)
+                         (format-optional-args optional-params vector-params vk-spec)
+                         kw-args
+                         (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
+                         (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec
+                                         singular-out-params))))
       ((eq command-type :get-structs) ;; used to be get-multiple-structs
-       (write-get-structs-fun out
-                              command
-                              fixed-function-name
-                              required-params
-                              optional-params
-                              output-params
-                              count-to-vector-param-indices
-                              vector-params
-                              vk-spec))
+       (when (string= "void" (return-type command))
+         (pushnew ":no-vk-result-p t"
+                  kw-args))
+       (pushnew
+        (format nil ":first-array-arg-name ~(~a~)"
+                (let ((array-arg (find-if #'len output-params)))
+                  (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
+        kw-args)
+       (pushnew
+        (format nil ":count-arg-name ~(~a~)"
+                (let ((count-arg (find-if-not #'len output-params)))
+                  (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+        kw-args)
+       (write-defvkfun out
+                       (fix-function-name (name command) (tags vk-spec))
+                       (format-required-args required-params vector-params vk-spec)
+                       (format-optional-args optional-params vector-params vk-spec)
+                       kw-args
+                       (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
+                       (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec)))
       ((eq command-type :get-struct-chains) ;; new, used to be a part of :get-multiple-structs
-       (write-get-struct-chains-fun out
-                                    command
-                                    fixed-function-name
-                                    required-params
-                                    optional-params
-                                    output-params
-                                    count-to-vector-param-indices
-                                    vector-params
-                                    vk-spec))
+       (when (string= "void" (return-type command))
+         (pushnew ":no-vk-result-p t"
+                  kw-args))
+       (pushnew ":returns-struct-chain-p t"
+                kw-args)
+       (let* ((array-arg (find-if #'len output-params))
+              (optional-params (sorted-elements (concatenate 'list optional-params (list array-arg)))))
+         (pushnew
+          (format nil ":first-array-arg-name ~(~a~)"
+                  (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))
+          kw-args)
+         (pushnew
+          (format nil ":count-arg-name ~(~a~)"
+                  (let ((count-arg (find-if-not #'len output-params)))
+                    (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+          kw-args)
+         (pushnew
+          (format nil ":vk-constructor vk:make-~(~a~)"
+                  (fix-type-name (type-name (type-info array-arg)) (tags vk-spec)))
+          kw-args)
+         (write-defvkfun out
+                         (fix-function-name (name command) (tags vk-spec))
+                         (format-required-args required-params vector-params vk-spec)
+                         (format-optional-args optional-params vector-params vk-spec)
+                         kw-args
+                         (make-command-docstring command required-params optional-params output-params vector-params vk-spec)
+                         (format-vk-args (params command) count-to-vector-param-indices output-params optional-params vector-params vk-spec))))
       ((member command-type '(:enumerate-values
                               :enumerate-handles
                               :enumerate-structs)) ;; used to be :enumerate-single-array
