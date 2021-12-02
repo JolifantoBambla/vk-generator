@@ -69,32 +69,36 @@ See CREATE-INSTANCE
 See CREATE-DEVICE")
 
 (defmacro defvkfun ((cname lname) result-type &body body)
-  `(defcfun (,cname ,lname :library vulkan) ,result-type ,@body))
+  `(progn
+     (declaim (inline ,lname))
+     (defcfun (,cname ,lname :library vulkan) ,result-type ,@body)))
 
 (defmacro defvkextfun ((cname lname) result-type &body args)
   (let ((extension-loader (gensym "EXTENSION-LOADER"))
         (func-pointer (gensym "FUNC-POINTER")))
-    `(defun ,lname (,@ (mapcar 'car args) &optional (,extension-loader *default-extension-loader*))
-       (assert (and ,extension-loader
-                    (or (extension-loader-device ,extension-loader)
-                        (extension-loader-instance ,extension-loader)))
-               (,extension-loader)
-               "No extension loader / Provided extension loader has neither an instance nor a device!")
-       ;; always try fetching device-level function pointers first to avoid dispatch overhead
-       (let ((,func-pointer (or (gethash ',lname (extension-loader-device-func-pointers ,extension-loader))
-                                (and (extension-loader-device ,extension-loader)
-                                     ;; todo: this might return a null pointer!
-                                     (setf (gethash ',lname (extension-loader-device-func-pointers ,extension-loader))
-                                           (get-device-proc-addr (extension-loader-device ,extension-loader) ,cname)))
-                                (gethash ',lname (extension-loader-instance-func-pointers ,extension-loader))
-                                (and (extension-loader-instance ,extension-loader)
-                                     ;; todo: this might return a null pointer!
-                                     (setf (gethash ',lname (extension-loader-instance-func-pointers ,extension-loader))
-                                           (get-instance-proc-addr (extension-loader-instance ,extension-loader) ,cname))))))
-         (foreign-funcall-pointer
-          ,func-pointer
-          nil
-          ,@(loop for arg in args
-                  collect (second arg) collect (first arg))
-          ,result-type)))))
+    `(progn
+       (declaim (inline ,lname))
+       (defun ,lname (,@ (mapcar 'car args) &optional (,extension-loader *default-extension-loader*))
+         (assert (and ,extension-loader
+                      (or (extension-loader-device ,extension-loader)
+                          (extension-loader-instance ,extension-loader)))
+                 (,extension-loader)
+                 "No extension loader / Provided extension loader has neither an instance nor a device!")
+         ;; always try fetching device-level function pointers first to avoid dispatch overhead
+         (let ((,func-pointer (or (gethash ',lname (extension-loader-device-func-pointers ,extension-loader))
+                                  (and (extension-loader-device ,extension-loader)
+                                       ;; todo: this might return a null pointer!
+                                       (setf (gethash ',lname (extension-loader-device-func-pointers ,extension-loader))
+                                             (get-device-proc-addr (extension-loader-device ,extension-loader) ,cname)))
+                                  (gethash ',lname (extension-loader-instance-func-pointers ,extension-loader))
+                                  (and (extension-loader-instance ,extension-loader)
+                                       ;; todo: this might return a null pointer!
+                                       (setf (gethash ',lname (extension-loader-instance-func-pointers ,extension-loader))
+                                             (get-instance-proc-addr (extension-loader-instance ,extension-loader) ,cname))))))
+           (foreign-funcall-pointer
+            ,func-pointer
+            nil
+            ,@(loop for arg in args
+                    collect (second arg) collect (first arg))
+            ,result-type))))))
 

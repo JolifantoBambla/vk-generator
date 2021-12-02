@@ -142,36 +142,38 @@
       . :debug-report-create-info-ext))))
 
 (defparameter *misc-os-types*
-  '("GgpStreamDescriptor" (:pointer :void) ;; 
-    "GgpFrameToken" (:pointer :void)
-    "HINSTANCE" (:pointer :void)
-    "HWND" (:pointer :void)
-    "HANDLE" (:pointer :void)
-    "HMONITOR" (:pointer :void)
-    "DWORD" :uint32
-    "LPCWSTR" (:pointer :void)
-    "RROutput" :ulong
-    "xcb_window_t" :uint32
-    "xcb_visualid_t" :uint32
-    "zx_handle_t" (:pointer :void)
-    "Window" :ulong
-    "VisualID" :ulong
-    "StdVideoH264ProfileIdc" :uint32   ;; an enum, added in v1.2.175
-    "StdVideoH264MemMgmtControlOp" :uint32
-    "StdVideoH264ModificationOfPicNumsIdc" :uint32
-    "StdVideoH264PictureType" :uint32
-    "StdVideoH264DisableDeblockingFilterIdc" :uint32
-    "StdVideoH264CabacInitIdc" :uint32
-    "StdVideoH264SliceType" :uint32
-    "StdVideoH264WeightedBipredIdc" :uint32
-    "StdVideoH264AspectRatioIdc" :uint32
-    "StdVideoH264PocType" :uint32
-    "StdVideoH264ChromaFormatIdc" :uint32
-    "StdVideoH264Level" :uint32
-    "StdVideoH265ProfileIdc" :uint32   ;; an enum, added in v1.2.175
-    "StdVideoH265PictureType" :uint32
-    "StdVideoH265SliceType" :uint32
-    "StdVideoH265Level" :uint32))
+  (alexandria:plist-hash-table
+   '("GgpStreamDescriptor" (:pointer :void) ;; 
+     "GgpFrameToken" (:pointer :void)
+     "HINSTANCE" (:pointer :void)
+     "HWND" (:pointer :void)
+     "HANDLE" (:pointer :void)
+     "HMONITOR" (:pointer :void)
+     "DWORD" :uint32
+     "LPCWSTR" (:pointer :void)
+     "RROutput" :ulong
+     "xcb_window_t" :uint32
+     "xcb_visualid_t" :uint32
+     "zx_handle_t" (:pointer :void)
+     "Window" :ulong
+     "VisualID" :ulong
+     "StdVideoH264ProfileIdc" :uint32 ;; an enum, added in v1.2.175
+     "StdVideoH264MemMgmtControlOp" :uint32
+     "StdVideoH264ModificationOfPicNumsIdc" :uint32
+     "StdVideoH264PictureType" :uint32
+     "StdVideoH264DisableDeblockingFilterIdc" :uint32
+     "StdVideoH264CabacInitIdc" :uint32
+     "StdVideoH264SliceType" :uint32
+     "StdVideoH264WeightedBipredIdc" :uint32
+     "StdVideoH264AspectRatioIdc" :uint32
+     "StdVideoH264PocType" :uint32
+     "StdVideoH264ChromaFormatIdc" :uint32
+     "StdVideoH264Level" :uint32
+     "StdVideoH265ProfileIdc" :uint32 ;; an enum, added in v1.2.175
+     "StdVideoH265PictureType" :uint32
+     "StdVideoH265SliceType" :uint32
+     "StdVideoH265Level" :uint32)
+   :test 'equal))
 
 ;; from generator.py
 (defconstant +ext-base+ 1000000000)

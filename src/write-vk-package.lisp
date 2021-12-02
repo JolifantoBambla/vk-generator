@@ -160,7 +160,7 @@
            (loop for name in *opaque-struct-types*
                  do (format out "~%    #:~(~a~)"
                             (fix-type-name name (tags vk-spec))))
-           (loop for (name type) on *misc-os-types* by #'cddr
+           (loop for name being each hash-key of *misc-os-types*
                  do (format out "~%    #:~(~a~)"
                             (fix-type-name name (tags vk-spec))))
            (format out "~%")

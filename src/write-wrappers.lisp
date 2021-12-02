@@ -146,6 +146,12 @@ See ~a~]
 (defun get-type-to-declare (type-name vk-spec &optional param vector-params)
   (cond
     ;; the types that can't be translated and must not come in a list
+    ((and (gethash type-name *misc-os-types*)
+          (not (consp (gethash type-name *misc-os-types*))))
+     (cond
+       ((member (gethash type-name *misc-os-types*) '(:uint32 :ulong))
+        "unsigned-byte")
+       (t (error ":Unknown MISC-OS-TYPE: ~a" type-name))))
     ((or (string= "void" type-name)
          (find type-name *special-base-types* :test #'string=)
          (and (gethash type-name (types vk-spec))
@@ -233,10 +239,10 @@ See ~a~]
      ":size")
     ((gethash type-name *vk-platform*)
      (format nil "~(~s~)" (gethash type-name *vk-platform*)))
-    ((getf *misc-os-types* type-name)
+    ((gethash type-name *misc-os-types*)
      (format nil "~:[~;'~]~(~s~)"
-             (consp (getf *misc-os-types* type-name))
-             (gethash *misc-os-types* type-name)))
+             (consp (gethash type-name *misc-os-types*))
+             (gethash type-name *misc-os-types*)))
     ((and (gethash type-name (types vk-spec))
           (eq :requires (category (gethash type-name (types vk-spec)))))
      "'(:pointer :void)")
@@ -415,7 +421,13 @@ See ~a~]
                     :fill-void-pointer))
       (pushnew
         (format nil ":trivial-return-type ~(~a~)"
-                (if (not (find (return-type command) '("void" "VkBool32" "VkResult") :test #'string=))
+                (if (not (or (member (return-type command)
+                                     '("VkBool32"
+                                       "VkResult"
+                                       "VkDeviceAddress"
+                                       "VkDeviceSize")
+                                     :test #'string=)
+                             (gethash (return-type command) *vk-platform*)))
                     (format-type-name (return-type command) vk-spec)
                     ":trivial"))
         kw-args))

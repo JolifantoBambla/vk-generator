@@ -104,7 +104,8 @@
         ;; fixme: these used to be :void, but :void is only valid as a return type
         do (format out "~((defctype ~a :pointer)~)~%~%"
                    (fix-type-name name (tags vk-spec))))
-  (loop for (name type) on *misc-os-types* by #'cddr
+  (loop for name being each hash-key of *misc-os-types*
+        using (hash-value type)
         do (format out "~((defctype ~a ~s)~)~%~%"
                    (fix-type-name name (tags vk-spec)) type))
   (loop for name in *opaque-struct-types*
