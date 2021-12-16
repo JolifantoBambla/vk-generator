@@ -83,6 +83,7 @@ See TAGS
                                  (>= (length fixed-name) (length v))
                                  (string= v (subseq fixed-name (- (length fixed-name) (length v)))))
                             (search v fixed-name :from-end t))))
+         ;; todo: if flagbits 2: <>_FLAG_BITS_2_ -> <>_2_
          (n (format nil "VK_~a"
                     (substitute #\_ #\-
                                 (if p
@@ -92,6 +93,9 @@ See TAGS
                   minimize (or (mismatch n (name enum-value)) 0))))
     (when (> l (length prefix))
       (setf prefix (subseq n 0 l)))
+    (when (alexandria:ends-with-subseq "FLAG_BITS_2" n)
+      (setf prefix (format nil "~a2"
+                           (subseq n 0 (search "FLAG_BITS_2" n)))))
     prefix))
 
 (defun make-keyword (name)

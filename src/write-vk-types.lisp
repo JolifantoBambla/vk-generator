@@ -62,10 +62,11 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
       ((string= "double" type-name)
        "double-float")
       ((alexandria:starts-with-subseq "uint" type-name)
-       (let ((bits (subseq (if (alexandria:ends-with-subseq "_t" type-name)
-                               (subseq type-name 0 (- (length type-name) 2))
-                               type-name)
-                           4)))
+       (let ((bits (or (bit-count member-data)
+                       (subseq (if (alexandria:ends-with-subseq "_t" type-name)
+                                   (subseq type-name 0 (- (length type-name) 2))
+                                   type-name)
+                               4))))
          (format nil "positive (~a-bit) integer" bits)))
       ((string= "size_t" type-name)
        "positive integer")
@@ -200,6 +201,25 @@ Instances of this class are used as parameters of the following functions:~{~%Se
         (value-str (format nil "~:[~;,~]~a" macro-p slot-provider))
         (ptr-str (format nil "~:[~;,~]ptr" macro-p)))
     (cond
+      ((typep member-data 'compound-member)
+       (flet ((slot-to-int (m)
+                (let ((fixed-accessor-name (fix-slot-name (name m) (type-name (type-info m)) vk-spec t)))
+                  (if (not (alexandria:starts-with-subseq "uint" (type-name (type-info m))))
+                      (format nil "~((cffi:foreign-bitfield-value '%vk:~a (vk:~a ~a))~)"
+                              (fix-type-name (type-name (type-info m)) (tags vk-spec))
+                              fixed-accessor-name
+                              value-str)
+                      (format nil "~((vk:~a ~a)~)"
+                              fixed-accessor-name
+                              value-str)))))
+         (format nil "~((logior ~{~a~^ ~})~)"
+                 (loop for m in (members member-data)
+                       for bit-count = (parse-integer (bit-count m))
+                       for bit-offset = (- (if (string= (type-name (type-info m)) "uint32_t") 32 64) bit-count) then (- bit-offset bit-count)
+                       if (= bit-offset 0) collect (slot-to-int m)
+                       else collect (format nil "~((ash ~a ~a)~)"
+                                            (slot-to-int m)
+                                            bit-count)))))
       ;; type of "pNext" must be determined at runtime
       ((string= "pNext" (name member-data))
        ;; first translate to VkBaseOutStructure to get the structure type and then translate to actual class
@@ -313,10 +333,28 @@ Instances of this class are used as parameters of the following functions:~{~%Se
       ;; basic slots (strings & primitive types)
       (t (format nil "(~(vk:~a~) ~a)" fixed-slot-name value-str)))))
 
-(defun get-slot-setter (member-data struct count-member-names macro-p vk-spec)
+(defun get-slot-setter (member-data struct count-member-names cstruct-members macro-p vk-spec)
   (let ((fixed-slot-name (fix-slot-name (name member-data) (type-name (type-info member-data)) vk-spec))
-        (fixed-accessor-name (fix-slot-name (name member-data) (type-name (type-info member-data)) vk-spec t)))
+        (fixed-accessor-name (fix-slot-name (name member-data) (type-name (type-info member-data)) vk-spec t))
+        (c-member (find-if (lambda (m)
+                             (and (typep m 'compound-member)
+                                  (member member-data (members m))))
+                           cstruct-members)))
     (cond
+      (c-member
+       (let* ((member-part (find member-data (members c-member)))
+              (source (format nil "~((ldb (byte ~a ~a) %vk:~a)~)"
+                              (bit-count member-part)
+                              (loop for m in (members c-member)
+                                    for bit-count = (parse-integer (bit-count m))
+                                    for bit-offset = (- (if (string= (type-name (type-info m)) "uint32_t") 32 64) bit-count) then (- bit-offset bit-count)
+                                    when (eq m member-part) return bit-offset)
+                              (name c-member))))
+         (if (alexandria:starts-with-subseq "uint" (type-name (type-info member-data)))
+             source
+             (format nil "~((cffi:foreign-bitfield-symbols '%vk:~a ~a)~)"
+                     (fix-type-name (type-name (type-info member-data)) (tags vk-spec))
+                     source))))
       ;; union slots: determine at runtime which slot is bound and then translate this slot
       ((and (gethash (type-name (type-info member-data)) (structures vk-spec))
             (is-union-p  (gethash (type-name (type-info member-data)) (structures vk-spec))))
@@ -426,21 +464,22 @@ Instances of this class are used as parameters of the following functions:~{~%Se
         (count-member-names (get-count-member-names struct))
         (macro-name (if expand-p
                         "expand-into-foreign-memory"
-                        "translate-into-foreign-memory")))
+                        "translate-into-foreign-memory"))
+        (c-members (get-cstruct-members struct vk-spec)))
     (format out "(defmethod cffi:~a (value (type %vk:c-~(~a~)) ptr)~%  ~:[~;`~](cffi:with-foreign-slots"
             macro-name
             fixed-type-name
             expand-p)
-    (loop for m in (members struct)
+    (loop for m in c-members
           for i from 1
           do (format out "~%      ~:[  ~;((~]~(%vk:~a~)~:[~;)~]"
                      (= 1 i)
                      (fix-type-name (name m) (tags vk-spec))
-                     (= i (length (members struct)))))
+                     (= i (length c-members))))
     (format out "~%       ~:[~;,~]ptr~%       (:struct %vk:~(~a~)))"
             expand-p
             fixed-type-name)
-    (loop for m in (members struct)
+    (loop for m in c-members
           for i from 1
           unless (and (array-sizes m)
                       (not (string= "char" (type-name (type-info m))))
@@ -453,9 +492,9 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                        (and (array-sizes m)
                             (not (string= "char" (type-name (type-info m))))
                             (gethash (type-name (type-info m)) *vk-platform*)))
-                     (members struct))
+                     c-members)
         (format out ")"))
-    (loop for m in (members struct)
+    (loop for m in c-members
           for i from 1
           when (and (array-sizes m)
                     (not (string= "char" (type-name (type-info m))))
@@ -469,6 +508,9 @@ Instances of this class are used as parameters of the following functions:~{~%Se
     (format out "))~%~%")))
 
 (defun write-translate-union-to (out struct expand-p vk-spec)
+  (loop for m in (get-cstruct-members struct vk-spec)
+        do (assert (not (typep m 'compound-member))
+                   () "union has compound-member: ~a" struct))
   (let ((fixed-type-name (fix-type-name (name struct) (tags vk-spec)))
         (count-member-names (get-count-member-names struct))
         (only-fixed-primitive-array-members-p (every (lambda (m)
@@ -558,6 +600,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
 
 (defun write-translate-from (out struct expand-p vk-spec)
   (let ((fixed-type-name (fix-type-name (name struct) (tags vk-spec)))
+        (cstruct-members (get-cstruct-members struct vk-spec))
         (count-member-names (get-count-member-names struct))
         (macro-name (if expand-p
                         "expand-from-foreign"
@@ -566,12 +609,12 @@ Instances of this class are used as parameters of the following functions:~{~%Se
             macro-name
             fixed-type-name
             expand-p)
-    (loop for m in (members struct)
+    (loop for m in cstruct-members
           for i from 1
           do (format out "~%      ~:[  ~;((~]~(%vk:~a~)~:[~;)~]"
                      (= 1 i)
                      (fix-type-name (name m) (tags vk-spec))
-                     (= i (length (members struct)))))
+                     (= i (length cstruct-members))))
     (format out "~%       ~:[~;,~]ptr~%       (:struct %vk:~(~a~)))"
             expand-p
             fixed-type-name)
@@ -581,7 +624,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                      (= (length (allowed-values m)) 1)) ;; redundant constant values
           do (format out "~%                   ~(:~a ~a~)"
                      (fix-slot-name (name m) (type-name (type-info m)) vk-spec)
-                     (get-slot-setter m struct count-member-names expand-p vk-spec)))
+                     (get-slot-setter m struct count-member-names cstruct-members expand-p vk-spec)))
     (format out ")))~%~%")))
 
 (defun write-vk-enums (out vk-spec)

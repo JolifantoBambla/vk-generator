@@ -44,6 +44,7 @@
     "CA" ;; CAMetalLayer
     "OS" "IOS" ;; MacOS and iOS
     "NVX" ;; nvidia experimental extensions
+    "SRT" ;; SRT 
     "ETC2" "ASTC" "ASTC_" "LDR" "BC" "RR")
   "A sequence of special words that are used in the specification of the Vulkan API.")
 

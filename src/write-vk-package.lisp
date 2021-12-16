@@ -195,7 +195,7 @@
                                      (sort-alphabetically
                                       (alexandria:flatten
                                        (loop for struct in (alexandria:hash-table-values (structures vk-spec))
-                                             collect (members struct)))))
+                                             collect (get-cstruct-members struct vk-spec)))))
                              :test #'string=)
                    do (format out "~%~(    #:~a~)" m)))
            (format out "))~%~%")
