@@ -192,3 +192,24 @@
   '("ANativeWindow"
     "AHardwareBuffer"))
 
+(defparameter *directly-exposed-extensions*
+  '("VK_KHR_surface"
+    "VK_KHR_display"
+    "VK_KHR_xlib_surface"
+    "VK_KHR_xcb_surface"
+    "VK_KHR_wayland_surface"
+    "VK_EXT_directfb_surface"
+    "VK_KHR_win32_surface"
+    "VK_KHR_android_surface"
+    "VK_GGP_stream_descriptor_surface"
+    "VK_MVK_macos_surface"
+    "VK_MVK_ios_surface"
+    "VK_EXT_headless_surface"
+    "VK_EXT_metal_surface"
+    "VK_FUCHSIA_imagepipe_surface"
+    "VK_KHR_swapchain"
+    "VK_KHR_display_swapchain"
+    "VK_KHR_get_display_properties2"
+    "VK_KHR_get_surface_capabilities2"
+    "VK_QNX_screen_surface")
+  "The names of all extensions that are directly exposed by the Vulkan loader.")

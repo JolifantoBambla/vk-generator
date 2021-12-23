@@ -11,7 +11,8 @@
    :*fix-must-be*
    :*misc-os-types*
    :+ext-base+
-   :+ext-block-size+))
+   :+ext-block-size+
+   :*directly-exposed-extensions*))
 
 (defpackage #:vulkan-spec
   (:documentation "A CLOS-based representation of the Vulkan specifcation parsed from a vk.xml.")

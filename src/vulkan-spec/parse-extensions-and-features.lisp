@@ -95,7 +95,7 @@
                 (get-platform (referenced-in command) vk-spec)
                 (get-platform extension-name vk-spec)))
     (when (and (not (needs-explicit-loading-p command))
-               (not (alexandria:ends-with-subseq "KHR" (name command))))
+               (not (member extension-name *directly-exposed-extensions* :test #'string=)))
       (setf (needs-explicit-loading-p command) t))
     (assert (not (member name (commands require-data) :test #'string=)) ()
             "command <~a> already listed in require-data of extension <~a>" name extension-name)
