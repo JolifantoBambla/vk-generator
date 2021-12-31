@@ -95,23 +95,22 @@ See CFFI:NULL-POINTER-P"
                   (eq :pointer (first (second type))) ;; (first type) is a '
                   (eq :pointer (first (second (second type)))))
              (let ((intermediate-var (gensym "INTERMEDIATE-VAR")))
-               `(progn
-                  (let* ((,contents (if (or (listp ,content)
-                                            (vectorp ,content))
-                                        (coerce ,content 'list)
-                                        (list ,content)))
-                         (,intermediate-var (loop for ,element in ,contents
-                                                  collect (vk-alloc:foreign-allocate-and-fill ',(second (second (second type)))
-                                                                                              ,element
-                                                                                              (cffi:null-pointer)))))
-                    (unwind-protect
-                         (cffi:with-foreign-object (,var ,type (length ,contents))
-                           (loop for ,iterator from 0 below (length ,contents)
-                                 for ,element in ,intermediate-var
-                                 do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
-                           ,@body)
-                      (dolist (,element ,intermediate-var)
-                        (vk-alloc:free-allocated-foreign-chain ,element)))))))
+               `(let* ((,contents (if (or (listp ,content)
+                                          (vectorp ,content))
+                                      (coerce ,content 'list)
+                                      (list ,content)))
+                       (,intermediate-var (loop for ,element in ,contents
+                                                collect (vk-alloc:foreign-allocate-and-fill ',(second (second (second type)))
+                                                                                            ,element
+                                                                                            (cffi:null-pointer)))))
+                  (unwind-protect
+                       (cffi:with-foreign-object (,var ,type (length ,contents))
+                         (loop for ,iterator from 0 below (length ,contents)
+                               for ,element in ,intermediate-var
+                               do (setf (cffi:mem-aref ,var ,type ,iterator) ,element))
+                         ,@body)
+                    (dolist (,element ,intermediate-var)
+                      (vk-alloc:free-allocated-foreign-chain ,element))))))
             ((eq type :string)
              ;; cffi:with-foreign-object seems to do something different with strings than cffi:with-foreign-string does
              ;; (kinda obvious given there are two distinct macros?)
