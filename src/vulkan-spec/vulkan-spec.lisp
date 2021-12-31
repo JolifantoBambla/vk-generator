@@ -193,6 +193,11 @@ See *VK-PLATFORM*
              (not (search "*" (postfix type-info))))
     t))
 
+(defun pointer-to-non-char-pointer-p (type-info)
+  "Checks whether a TYPE-INFO describes an array of pointers which is not an array of strings."
+  (and (search "* const*" (postfix type-info))
+       (not (string= "char" (type-name type-info)))))
+
 (defclass has-type-info ()
   ((type-info
     :initarg :type-info

@@ -108,6 +108,7 @@
    :const-pointer-p
    :non-const-pointer-p
    :value-p
+   :pointer-to-non-char-pointer-p
    :make-aliased-command
    :extension-command-p
    :structure-type-p

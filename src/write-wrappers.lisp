@@ -251,7 +251,13 @@ See ~a~]
 
 (defun format-arg-type (arg vk-spec)
   ""
-  (format-type-name (type-name (type-info arg)) vk-spec))
+  (let ((formatted (format-type-name (type-name (type-info arg)) vk-spec)))
+    (if (pointer-to-non-char-pointer-p (type-info arg))
+        (format nil "'(:pointer (:pointer ~a))"
+                (if (alexandria:starts-with #\' formatted)
+                    (subseq formatted 1)
+                    formatted))
+        formatted)))
 
 (defun make-arg-qualifier-list (arg output-params optional-params vector-params vk-spec &optional unused-params)
   (let ((qualifiers nil))
