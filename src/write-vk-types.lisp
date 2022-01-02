@@ -102,7 +102,7 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
                       for multi-dim-array-p = (> (length (array-sizes m)) 1)
                       unless (or (find (name m) count-member-names :test #'string=)
                                  (= (length (allowed-values m)) 1))
-                      collect (format nil "~% - ~a~:[~; (optional)~]: ~a ~:[~;list of ~]~:[~;multidimensional array of ~]~a~:[~;s~]~@[ of size ~a~]."
+                      collect (format nil "~% - ~a~:[~; (optional)~]: ~a ~:[~;list of ~]~:[~;array of ~]~a~:[~;s~]~@[ of size ~a~]."
                                   (fix-slot-name (name m) (type-name (type-info m)) vk-spec)
                                   (or (optional-p m)
                                       (string= (name m) "pNext"))
@@ -499,12 +499,12 @@ Instances of this class are used as parameters of the following functions:~{~%Se
           when (and (array-sizes m)
                     (not (string= "char" (type-name (type-info m))))
                     (gethash (type-name (type-info m)) *vk-platform*))
-          do (format out "~%    (cffi:lisp-array-to-foreign ~((vk:~a ~a) %vk:~a '(:array ~s~{ ~a~})~))"
+          do (format out "~%    (cffi:lisp-array-to-foreign ~((vk:~a ~a) %vk:~a '(:array ~s ~a)~))"
                      (fix-slot-name (name m) (type-name (type-info m)) vk-spec t)
                      (if expand-p ",value" "value")
                      (fix-type-name (name m) (tags vk-spec))
                      (gethash (type-name (type-info m)) *vk-platform*)
-                     (array-sizes m)))
+                     (prepare-array-sizes (array-sizes m) vk-spec)))
     (format out "))~%~%")))
 
 (defun write-translate-union-to (out struct expand-p vk-spec)
@@ -537,6 +537,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                            value-str
                            ptr-str
                            (gethash (type-name (type-info m)) *vk-platform*)
+                           ;; todo: I think this should be prepare-array-sizes ... check this
                            (first (array-sizes m))))
           (format out ")"))
         (progn
