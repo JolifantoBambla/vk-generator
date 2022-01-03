@@ -454,27 +454,31 @@ Instances of this class are used as parameters of the following functions:~{~%Se
 
       ;; todo: multidimensional arrays should be translated into arrays instead of lists
       ((array-sizes member-data)
-       (let ((array-size (prepare-array-sizes (array-sizes member-data) vk-spec)))
-         (format nil "(loop for i from 0 below ~a collect (cffi:mem-aref ~(~a ~a~) i))"
-                 array-size
-                 ;; todo: file a bug report over at CFFI: :count is not respected if the type of a struct member is also a struct 
-                 (if (or (gethash (type-name (type-info member-data)) (structures vk-spec))
-                         (member (type-name (type-info member-data)) *opaque-struct-types* :test #'string=))
-                     (format nil "~((cffi:foreign-slot-pointer ~:[~;,~]ptr '(:struct %vk:~a) '%vk:~a)~)"
-                             macro-p
-                             (fix-type-name (name struct) (tags vk-spec))
-                             (fix-type-name (name member-data) (tags vk-spec)))
-                     (format nil "~(%vk:~a~)"
-                             (fix-type-name (name member-data) (tags vk-spec))))
-                 (cond
-                   ((gethash (type-name (type-info member-data)) *vk-platform*)
-                    (format nil "~(~s~)"
-                            (gethash (type-name (type-info member-data)) *vk-platform*)))
-                   ((not (gethash (type-name (type-info member-data)) (structures vk-spec)))
-                    (format nil "~('%vk:~a~)"
-                            (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))
-                   (t (format nil "~('(:struct %vk:~a)~)"
-                              (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))))))
+       (let* ((array-size (prepare-array-sizes (array-sizes member-data) vk-spec))
+              (slot-setter (format nil "(loop for i from 0 below ~a collect (cffi:mem-aref ~(~a ~a~) i))"
+                                   array-size
+                                   ;; todo: file a bug report over at CFFI: :count is not respected if the type of a struct member is also a struct 
+                                   (if (or (gethash (type-name (type-info member-data)) (structures vk-spec))
+                                           (member (type-name (type-info member-data)) *opaque-struct-types* :test #'string=))
+                                       (format nil "~((cffi:foreign-slot-pointer ~:[~;,~]ptr '(:struct %vk:~a) '%vk:~a)~)"
+                                               macro-p
+                                               (fix-type-name (name struct) (tags vk-spec))
+                                               (fix-type-name (name member-data) (tags vk-spec)))
+                                       (format nil "~(%vk:~a~)"
+                                               (fix-type-name (name member-data) (tags vk-spec))))
+                                   (cond
+                                     ((gethash (type-name (type-info member-data)) *vk-platform*)
+                                      (format nil "~(~s~)"
+                                              (gethash (type-name (type-info member-data)) *vk-platform*)))
+                                     ((not (gethash (type-name (type-info member-data)) (structures vk-spec)))
+                                      (format nil "~('%vk:~a~)"
+                                              (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))
+                                     (t (format nil "~('(:struct %vk:~a)~)"
+                                                (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))))))
+         (if (and (not (string= "char" (type-name (type-info member-data))))
+                  (gethash (type-name (type-info member-data)) *vk-platform*))
+             (format nil "(cl:coerce ~a 'vector)" slot-setter)
+             slot-setter)))
 
       ;; most types can be automatically translated (primitive types, bitfields, enums, structs)
       (t
@@ -482,52 +486,61 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                (fix-type-name (name member-data) (tags vk-spec)))))))
 
 (defun write-translate-to (out struct expand-p vk-spec)
-  (let ((fixed-type-name (fix-type-name (name struct) (tags vk-spec)))
-        (count-member-names (get-count-member-names struct))
-        (macro-name (if expand-p
-                        "expand-into-foreign-memory"
-                        "translate-into-foreign-memory"))
-        (c-members (get-cstruct-members struct vk-spec)))
-    (format out "(defmethod cffi:~a (value (type %vk:c-~(~a~)) ptr)~%  ~:[~;`~](cffi:with-foreign-slots"
-            macro-name
-            fixed-type-name
-            expand-p)
-    (loop for m in c-members
-          for i from 1
-          do (format out "~%      ~:[  ~;((~]~(%vk:~a~)~:[~;)~]"
-                     (= 1 i)
-                     (fix-type-name (name m) (tags vk-spec))
-                     (= i (length c-members))))
-    (format out "~%       ~:[~;,~]ptr~%       (:struct %vk:~(~a~)))"
-            expand-p
-            fixed-type-name)
-    (loop for m in c-members
-          for i from 1
-          unless (and (array-sizes m)
-                      (not (string= "char" (type-name (type-info m))))
-                      (gethash (type-name (type-info m)) *vk-platform*))
-          do (format out "~%~:[          ~;    (setf ~]~(%vk:~a~) ~a"
-                     (= 1 i)
-                     (fix-type-name (name m) (tags vk-spec))
-                     (get-value-setter m struct count-member-names expand-p vk-spec)))
-    (when (remove-if (lambda (m)
-                       (and (array-sizes m)
-                            (not (string= "char" (type-name (type-info m))))
-                            (gethash (type-name (type-info m)) *vk-platform*)))
-                     c-members)
-        (format out ")"))
-    (loop for m in c-members
-          for i from 1
-          when (and (array-sizes m)
-                    (not (string= "char" (type-name (type-info m))))
-                    (gethash (type-name (type-info m)) *vk-platform*))
-          do (format out "~%    (cffi:lisp-array-to-foreign ~((vk:~a ~a) %vk:~a '(:array ~s ~a)~))"
-                     (fix-slot-name (name m) (type-name (type-info m)) vk-spec t)
-                     (if expand-p ",value" "value")
-                     (fix-type-name (name m) (tags vk-spec))
-                     (gethash (type-name (type-info m)) *vk-platform*)
-                     (prepare-array-sizes (array-sizes m) vk-spec)))
-    (format out "))~%~%")))
+  (labels ((is-char-p (m)
+             (and (string= "char" (type-name (type-info m)))
+                  (and (not (string= (postfix (type-info m)) "*"))
+                       (not (string= (postfix (type-info m)) "**"))
+                       (not (string= (postfix (type-info m)) "* const*")))))
+           (is-primitive-array-p (m)
+             (and (array-sizes m)
+                  (not (string= "char" (type-name (type-info m))))
+                  (gethash (type-name (type-info m)) *vk-platform*)))
+           (is-char-or-primitive-array-p (m)
+             (or (is-char-p m)
+                 (is-primitive-array-p m))))
+    (let ((fixed-type-name (fix-type-name (name struct) (tags vk-spec)))
+          (count-member-names (get-count-member-names struct))
+          (macro-name (if expand-p
+                          "expand-into-foreign-memory"
+                          "translate-into-foreign-memory"))
+          (c-members (get-cstruct-members struct vk-spec)))
+      (format out "(defmethod cffi:~a (value (type %vk:c-~(~a~)) ptr)~%  ~:[~;`~](cffi:with-foreign-slots"
+              macro-name
+              fixed-type-name
+              expand-p)
+      (loop for m in c-members
+            for i from 1
+            do (format out "~%      ~:[  ~;((~]~(%vk:~a~)~:[~;)~]"
+                       (= 1 i)
+                       (fix-type-name (name m) (tags vk-spec))
+                       (= i (length c-members))))
+      (format out "~%       ~:[~;,~]ptr~%       (:struct %vk:~(~a~)))"
+              expand-p
+              fixed-type-name)
+      (loop for m in c-members
+            unless (is-char-or-primitive-array-p m)
+            ;; replace with ~((when (vk:~a) (setf %vk:~a ~a))~)
+            ;; might lead to errors though
+            do (format out "~%    (setf ~(%vk:~a~) ~a)"
+                       (fix-type-name (name m) (tags vk-spec))
+                       (get-value-setter m struct count-member-names expand-p vk-spec)))
+      (loop for m in c-members
+            when (is-char-p m)
+            do (format out "~%    ~((cffi:lisp-string-to-foreign (vk:~a ~a) %vk:~a (cl:1+ (cl:length (vk:~a ~a))))~)"
+                       (fix-slot-name (name m) (type-name (type-info m)) vk-spec t)
+                       (if expand-p ",value" "value")
+                       (fix-type-name (name m) (tags vk-spec))
+                       (fix-slot-name (name m) (type-name (type-info m)) vk-spec t)
+                       (if expand-p ",value" "value")))
+      (loop for m in c-members
+            when (is-primitive-array-p m)
+            do (format out "~%    (cffi:lisp-array-to-foreign ~((vk:~a ~a) %vk:~a '(:array ~s ~a)~))"
+                       (fix-slot-name (name m) (type-name (type-info m)) vk-spec t)
+                       (if expand-p ",value" "value")
+                       (fix-type-name (name m) (tags vk-spec))
+                       (gethash (type-name (type-info m)) *vk-platform*)
+                       (prepare-array-sizes (array-sizes m) vk-spec)))
+      (format out "))~%~%"))))
 
 (defun write-translate-union-to (out struct expand-p vk-spec)
   (loop for m in (get-cstruct-members struct vk-spec)
