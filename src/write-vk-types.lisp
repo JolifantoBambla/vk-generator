@@ -214,13 +214,14 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                               fixed-accessor-name
                               value-str)))))
          (format nil "~((logior ~{~a~^ ~})~)"
-                 (loop for m in (members member-data)
+                 (loop with type-size = (if (string= (type-name (type-info member-data)) "uint32_t") 32 64)
+                       for m in (reverse (members member-data))
                        for bit-count = (parse-integer (bit-count m))
-                       for bit-offset = (- (if (string= (type-name (type-info m)) "uint32_t") 32 64) bit-count) then (- bit-offset bit-count)
+                       for bit-offset = (- type-size bit-count) then (- bit-offset bit-count)
                        if (= bit-offset 0) collect (slot-to-int m)
                        else collect (format nil "~((ash ~a ~a)~)"
                                             (slot-to-int m)
-                                            bit-count)))))
+                                            bit-offset)))))
       ;; type of "pNext" must be determined at runtime
       ((string= "pNext" (name member-data))
        ;; first translate to VkBaseOutStructure to get the structure type and then translate to actual class
@@ -367,9 +368,10 @@ Instances of this class are used as parameters of the following functions:~{~%Se
        (let* ((member-part (find member-data (members c-member)))
               (source (format nil "~((ldb (byte ~a ~a) %vk:~a)~)"
                               (bit-count member-part)
-                              (loop for m in (members c-member)
+                              (loop with type-size = (if (string= (type-name (type-info c-member)) "uint32_t") 32 64)
+                                    for m in (reverse (members c-member))
                                     for bit-count = (parse-integer (bit-count m))
-                                    for bit-offset = (- (if (string= (type-name (type-info m)) "uint32_t") 32 64) bit-count) then (- bit-offset bit-count)
+                                    for bit-offset = (- type-size bit-count) then (- bit-offset bit-count)
                                     when (eq m member-part) return bit-offset)
                               (name c-member))))
          (if (alexandria:starts-with-subseq "uint" (type-name (type-info member-data)))
@@ -452,7 +454,6 @@ Instances of this class are used as parameters of the following functions:~{~%Se
        (format nil "(cffi:foreign-string-to-lisp ~(%vk:~a~))"
                (fix-type-name (name member-data) (tags vk-spec))))
 
-      ;; todo: multidimensional arrays should be translated into arrays instead of lists
       ((array-sizes member-data)
        (let* ((array-size (prepare-array-sizes (array-sizes member-data) vk-spec))
               (slot-setter (format nil "(loop for i from 0 below ~a collect (cffi:mem-aref ~(~a ~a~) i))"
