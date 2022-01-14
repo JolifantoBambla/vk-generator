@@ -53,7 +53,7 @@ contents is the source of the data which should be translated to the args memory
                                (member :in var)
                                (not (member :list var)))
                           (and (member :raw var)
-                               (member :in var) ;; added this without really thinking
+                               (member :in var)
                                (eq (first var) (third var))))
                       (first var)
                       var-sym)
@@ -78,12 +78,29 @@ contents is the source of the data which should be translated to the args memory
                                  (second var))) ;; type
                      output-args))
                  ;; single raw  values which depend on another variable (e.g. (length <other-var>) should be in a let-form
-                 (if (and (member :raw var)
-                          (member :in var)
-                          (not (eq (first var) (third var))))
+                 (when (and (member :raw var)
+                                (member :in var)
+                                (not (eq (first var) (third var))))
                      (push
                       (list var-sym (third var))
-                      let-args))))
+                      let-args))
+                 ;; wrapped handles should also be in a let-form
+                 (when (and (member :handle var)
+                            (member :in var)
+                            (or (member :dispatchable var)
+                                (member :non-dispatchable var)))
+                   (let ((init-form (if (member :list var)
+                                        (list 'cl:map
+                                              ''list
+                                              (if (member :dispatchable var)
+                                                  ''%dispatchable-handle
+                                                  ''%non-dispatchable-handle)
+                                              (first var))
+                                        (list (if (member :dispatchable var)
+                                                  '%dispatchable-handle
+                                                  '%non-dispatchable-handle)
+                                              (first var)))))
+                     (push (list (first var) init-form) let-args)))))
       (when extension-p (push 'extension-loader vk-input-args))
       (cl:values (reverse translated-args) (reverse let-args) (reverse vk-input-args) (reverse output-args)))))
 
@@ -101,6 +118,7 @@ contents is the source of the data which should be translated to the args memory
                        (second-array-arg-name nil)
                        (count-arg-name nil)
                        (vk-constructor nil)
+                       (handle-constructor nil)
                        (returns-struct-chain-p nil))
                     &body body)
   "Defines a function wrapping a function in the VULKAN package.
@@ -226,7 +244,9 @@ VARIABLES - the rest of the body is the definition of arguments for the %VK func
                                                                 (cffi:with-foreign-object (,@(second first-array-arg) ,translated-count)
                                                                   (setf ,result (,vulkan-fun ,@vk-input-args))
                                                                   (loop for ,i from 0 below ,translated-count
-                                                                        collect (cffi:mem-aref ,@(second first-array-arg) ,i))))
+                                                                        collect ,(if handle-constructor
+                                                                                     `(,handle-constructor (cffi:mem-aref ,@(second first-array-arg) ,i))
+                                                                                     `(cffi:mem-aref ,@(second first-array-arg) ,i)))))
                                                               ,result)))))))
                               (return-list (use-translated-count-p)
                                 (if no-vk-result-p
@@ -321,7 +341,9 @@ VARIABLES - the rest of the body is the definition of arguments for the %VK func
                                           () "LEN-PROVIDER must be 1 for get-structs function which don't return a VkResult.")
                                   `(progn
                                      (,vulkan-fun ,@vk-input-args)
-                                     (cffi:mem-aref ,@handle-or-struct-def)))))
+                                     ,(if handle-constructor
+                                          `(,handle-constructor (cffi:mem-aref ,@handle-or-struct-def))
+                                          `(cffi:mem-aref ,@handle-or-struct-def))))))
                          (if returns-struct-chain-p
                              ;; get-struct-chain
                              (progn
@@ -337,7 +359,11 @@ VARIABLES - the rest of the body is the definition of arguments for the %VK func
                                          ,(cond
                                             ((not (eq len-provider 1))
                                              `(loop for ,i from 0 below ,len-provider
-                                                    collect (cffi:mem-aref ,@handle-or-struct-def ,i)))
+                                                    collect ,(if handle-constructor
+                                                                 `(,handle-constructor (cffi:mem-aref ,@handle-or-struct-def ,i))
+                                                                 `(cffi:mem-aref ,@handle-or-struct-def ,i))))
                                             (t
-                                             `(cffi:mem-aref ,@handle-or-struct-def)))
+                                             (if handle-constructor
+                                                 `(,handle-constructor (cffi:mem-aref ,@handle-or-struct-def))
+                                                 `(cffi:mem-aref ,@handle-or-struct-def))))
                                          ,result)))))))))))))))))

@@ -163,8 +163,9 @@ See ~a~]
           (find param vector-params))
      "(or list vector)")
     ;; handles must come after "list" because a list of handles should be declared as type list
-    ((gethash type-name (handles vk-spec))
-     "cffi:foreign-pointer")
+    ((handlep type-name vk-spec)
+     (format nil "~(~a~)"
+             (fix-type-name type-name (tags vk-spec))))
     ((string= "VkBool32" type-name)
      "boolean")
     ((or (alexandria:starts-with-subseq "float" type-name)
@@ -282,6 +283,11 @@ See ~a~]
                    (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec))))
                    (not (gethash (type-name (type-info arg)) *vk-platform*))))
       (push :handle qualifiers))
+    (when (handlep (type-name (type-info arg)) vk-spec)
+      (push (if (non-dispatch-handle-p (get-handle (type-name (type-info arg)) vk-spec))
+                :non-dispatchable
+                :dispatchable)
+            qualifiers))
     (push (if (find arg output-params)
               :out
               :in)
@@ -559,6 +565,24 @@ See ~a~]
          (format nil ":count-arg-name ~(~a~)"
                  (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec))
          kw-args)))
+    (when (and (member command-type '(:get-or-create-handle
+                                      :create-handles
+                                      :allocate-handles
+                                      :enumerate-handles))
+               ;; note: I only added this check for safety
+               (some (lambda (p)
+                       (handlep (type-name (type-info p)) vk-spec))
+                     output-params))
+      (pushnew
+       (format nil ":handle-constructor make-~(~a~)-wrapper"
+               (fix-type-name
+                (find-if (lambda (p)
+                           (handlep p vk-spec))
+                         (map 'list (lambda (p)
+                                      (type-name (type-info p)))
+                              output-params))
+                (tags vk-spec)))
+       kw-args))
     ;; write def
     (write-defvkfun out
                     (fix-function-name (name command) (tags vk-spec))
