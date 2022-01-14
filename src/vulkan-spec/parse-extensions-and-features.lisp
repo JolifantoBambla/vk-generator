@@ -14,16 +14,18 @@
         (name (xps (xpath:evaluate "@name" node)))
         (extends (xps (xpath:evaluate "@extends" node))))
     (if alias
-        (let ((enum (gethash extends (enums vk-spec))))
-          (assert enum
-                  () "feature extends unknown enum <~a>" extends)
-          (multiple-value-bind (prefix postfix) (get-enum-pre-and-postfix extends (is-bitmask-p enum) (tags vk-spec))
-            (let ((vk-hpp-name (create-enum-vk-hpp-name name prefix postfix (is-bitmask-p enum) tag)))
-              (when (alias enum)
-                (multiple-value-bind (alias-prefix alias-postfix) (get-enum-pre-and-postfix (alias enum) (is-bitmask-p enum) (tags vk-spec))
-                  (when (alexandria:ends-with-subseq postfix name)
-                    (setf vk-hpp-name (create-enum-vk-hpp-name name alias-prefix alias-postfix (is-bitmask-p enum) tag)))))
-              (add-enum-alias enum name alias vk-hpp-name))))
+        ;; readRequireEnumAlias
+        (when extends
+          (let ((enum (gethash extends (enums vk-spec))))
+            (assert enum
+                    () "feature extends unknown enum <~a>" extends)
+            (multiple-value-bind (prefix postfix) (get-enum-pre-and-postfix extends (is-bitmask-p enum) (tags vk-spec))
+              (let ((vk-hpp-name (create-enum-vk-hpp-name name prefix postfix (is-bitmask-p enum) tag)))
+                (when (alias enum)
+                  (multiple-value-bind (alias-prefix alias-postfix) (get-enum-pre-and-postfix (alias enum) (is-bitmask-p enum) (tags vk-spec))
+                    (when (alexandria:ends-with-subseq postfix name)
+                      (setf vk-hpp-name (create-enum-vk-hpp-name name alias-prefix alias-postfix (is-bitmask-p enum) tag)))))
+                (add-enum-alias enum name alias vk-hpp-name)))))
         (let ((value-string (xps (xpath:evaluate "@value" node))))
           (if extends
               (let* ((enum (gethash extends (enums vk-spec)))
@@ -93,7 +95,7 @@
                 (get-platform (referenced-in command) vk-spec)
                 (get-platform extension-name vk-spec)))
     (when (and (not (needs-explicit-loading-p command))
-               (not (alexandria:ends-with-subseq "KHR" (name command))))
+               (not (member extension-name *directly-exposed-extensions* :test #'string=)))
       (setf (needs-explicit-loading-p command) t))
     (assert (not (member name (commands require-data) :test #'string=)) ()
             "command <~a> already listed in require-data of extension <~a>" name extension-name)

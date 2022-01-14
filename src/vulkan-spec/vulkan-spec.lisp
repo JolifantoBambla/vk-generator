@@ -193,6 +193,11 @@ See *VK-PLATFORM*
              (not (search "*" (postfix type-info))))
     t))
 
+(defun pointer-to-non-char-pointer-p (type-info)
+  "Checks whether a TYPE-INFO describes an array of pointers which is not an array of strings."
+  (and (search "* const*" (postfix type-info))
+       (not (string= "char" (type-name type-info)))))
+
 (defclass has-type-info ()
   ((type-info
     :initarg :type-info
@@ -563,12 +568,32 @@ See ALLOWED-VALUES    a list of allowed values for this MEMBER-DATA instance."))
 Slots:
 See MEMBERS    an ordered list of MEMBER-DATA instances describing members of this STRUCT instance."))
 
-(defun structure-type-p (type-name vk-spec)
+(defun structure-type-p (type-name vk-spec &optional (include-opaque-struct-types t))
   (or (gethash type-name (structures vk-spec))
-      (member type-name *opaque-struct-types* :test #'string=)
+      (and include-opaque-struct-types
+           (member type-name *opaque-struct-types* :test #'string=))
       (member-if (lambda (m)
                    (member type-name (aliases m) :test #'string=))
                  (alexandria:hash-table-values (structures vk-spec)))))
+
+(defun get-structure-type (type-name vk-spec)
+  (or (gethash type-name (structures vk-spec))
+      (find-if (lambda (m)
+                 (member type-name (aliases m) :test #'string=))
+               (alexandria:hash-table-values (structures vk-spec)))))
+
+(defun has-type-and-next-p (type-name vk-spec)
+  (let ((struct (or (gethash type-name (structures vk-spec))
+                    (find-if (lambda (s)
+                               (member type-name (aliases s) :test #'string=))
+                             (alexandria:hash-table-values (structures vk-spec))))))
+    (and struct
+         (and (member-if (lambda (m)
+                           (string= "sType" (name m)))
+                         (members struct))
+              (member-if (lambda (m)
+                           (string= "pNext" (name m)))
+                         (members struct))))))
 
 (deftype type-category ()
   "TODO: documentation"

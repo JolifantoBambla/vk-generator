@@ -25,13 +25,12 @@ jobs:
       fail-fast: false
       matrix:
         vulkan-sdk:
+          - "1.2.198"
           - "1.2.189"
           - "1.2.182"
           - "1.2.176"
           - "1.2.170"
           - "1.2.162"
-          - "1.2.154"
-          - "1.2.148"
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:

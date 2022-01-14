@@ -7,7 +7,9 @@
           "vk:*default-allocator*"
           (cond
             ((handlep type-name vk-spec)
-             "(cffi:null-pointer)")
+             (let ((h (get-handle type-name vk-spec)))
+               (format nil "(vk:make-~a-wrapper (cffi:null-pointer))"
+                       (fix-type-name type-name (tags vk-spec)))))
             ((and (string= type-name "char")
                   (not (string= postfix "**")))
              "\"\"")

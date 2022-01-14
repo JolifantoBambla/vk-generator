@@ -104,7 +104,8 @@
         ;; fixme: these used to be :void, but :void is only valid as a return type
         do (format out "~((defctype ~a :pointer)~)~%~%"
                    (fix-type-name name (tags vk-spec))))
-  (loop for (name type) on *misc-os-types* by #'cddr
+  (loop for name being each hash-key of *misc-os-types*
+        using (hash-value type)
         do (format out "~((defctype ~a ~s)~)~%~%"
                    (fix-type-name name (tags vk-spec)) type))
   (loop for name in *opaque-struct-types*
@@ -145,7 +146,9 @@
     (let ((p (search "-FLAG" fixed-name)))
       (when p
         (setf prefix (format nil "VK_~a"
-                             (substitute #\_ #\- (subseq fixed-name 0 (1+ p)))))))
+                             (substitute #\_ #\- (subseq fixed-name 0 (1+ p)))))
+        (when (alexandria:ends-with-subseq "Flags2KHR" bitmask-name)
+          (setf prefix (format nil "~a2_" prefix)))))
     (loop for enum-value in bits
           for comment = (comment enum-value)
           do (format out "~%  (:~(~a~) #x~x)"
@@ -182,10 +185,19 @@
         (format out "(defcenum (~(~a~))" fixed-name))
     (when values
       (setf prefix (find-enum-prefix fixed-name values (tags vk-spec))))
+    ;; needs special handling since there are some bits with a different prefix...
+    (when (string= enum-name "VkPipelineCreateFlagBits")
+      (setf prefix "VK_PIPELINE_CREATE_"))
     (loop for enum-value in values
           for comment = (comment enum-value)
+          for fixed-enum-value-name = (fix-bit-name (name enum-value)
+                                                    (tags vk-spec)
+                                                    :prefix (if (and (string= enum-name "VkPipelineCreateFlagBits")
+                                                                     (not (alexandria:starts-with-subseq prefix (name enum-value))))
+                                                                "VK_PIPELINE_"
+                                                                prefix))
           do (format out "~%  (:~(~a~) ~:[#x~x~;~d~])"
-                     (fix-bit-name (name enum-value) (tags vk-spec) :prefix prefix)
+                     fixed-enum-value-name
                      (minusp (number-value enum-value)) (number-value enum-value))
           when (string= (name last-value) (name enum-value))
           do (format out ")")
@@ -229,7 +241,7 @@
                       (if (is-union-p struct)
                           (format out "(defcunion ~(~a~)" fixed-type-name)
                           (format out "(defcstruct (~(~a :class c-~a~))" fixed-type-name fixed-type-name)))
-                    (loop for member-value in (members struct)
+                    (loop for member-value in (get-cstruct-members struct vk-spec)
                           for name = (fix-type-name (name member-value) (tags vk-spec))
                           for member-type = (make-arg-type name (type-info member-value) vk-spec)
                           for array-count = (prepare-array-sizes (array-sizes member-value) vk-spec)

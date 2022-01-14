@@ -11,7 +11,8 @@
    :*fix-must-be*
    :*misc-os-types*
    :+ext-base+
-   :+ext-block-size+))
+   :+ext-block-size+
+   :*directly-exposed-extensions*))
 
 (defpackage #:vulkan-spec
   (:documentation "A CLOS-based representation of the Vulkan specifcation parsed from a vk.xml.")
@@ -107,6 +108,7 @@
    :const-pointer-p
    :non-const-pointer-p
    :value-p
+   :pointer-to-non-char-pointer-p
    :make-aliased-command
    :extension-command-p
    :structure-type-p
@@ -127,9 +129,11 @@
    :get-optional-params
    :get-skipped-input-params
    :determine-command-type
+   :determine-command-type-2
    :reverse-hash-table
    :handlep
    :get-handle
+   :get-structure-type
    
    ;; vulkan-spec
    :vulkan-spec

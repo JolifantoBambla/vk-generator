@@ -6,21 +6,30 @@
                                      count-member-names
                                      :test #'string=)))
         (type-name (type-name (type-info member-data))))
-    (format nil "~(~s~)"
-            (cond
-              (array-member-p
-               nil)
-              ((string= "char" type-name)
-               "")
-              ((and (gethash type-name *vk-platform*)
-                    (or (search "int" type-name)
-                        (string= "size_t" type-name)))
-               0)
-              ((and (gethash type-name *vk-platform*)
-                    (or (string= "float" type-name)
-                        (string= "double" type-name)))
-               0.0)
-              (t nil)))))
+    (if (and (value-p (type-info member-data))
+             (structure-type-p type-name vk-spec)
+             (not (is-union-p (get-structure-type type-name vk-spec)))
+             (not (returned-only-p (get-structure-type type-name vk-spec))))
+        ;; structs which aren't pointers need to be initialized during translation
+        (format nil "(vk:make-~(~a~))"
+                (fix-type-name type-name (tags vk-spec)))
+        (format nil "~(~s~)"
+                (cond
+                  (array-member-p
+                   nil)
+                  ((string= "char" type-name)
+                   "")
+                  ((or (and (gethash type-name *vk-platform*)
+                            (or (search "int" type-name)
+                                (string= "size_t" type-name)
+                                ))
+                       (member type-name '("VkDeviceSize" "VkDeviceAddress") :test #'string=))
+                   0)
+                  ((and (gethash type-name *vk-platform*)
+                        (or (string= "float" type-name)
+                            (string= "double" type-name)))
+                   0.0)
+                  (t nil))))))
 
 (defun make-slot-data (struct vk-spec)
   (let ((count-member-names (get-count-member-names struct)))
