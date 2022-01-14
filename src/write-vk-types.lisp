@@ -532,7 +532,12 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                   (gethash (type-name (type-info m)) *vk-platform*)))
            (is-char-or-primitive-array-p (m)
              (or (is-char-p m)
-                 (is-primitive-array-p m))))
+                 (is-primitive-array-p m)))
+           ;; note: check usages if this changes
+           (ignore-if-nil-p (m)
+             (let ((type-name (type-name (type-info m))))
+               (and (structure-type-p type-name vk-spec nil)
+                    (returned-only-p (get-structure-type type-name vk-spec))))))
     (let ((fixed-type-name (fix-type-name (name struct) (tags vk-spec)))
           (count-member-names (get-count-member-names struct))
           (macro-name (if expand-p
@@ -553,12 +558,18 @@ Instances of this class are used as parameters of the following functions:~{~%Se
               expand-p
               fixed-type-name)
       (loop for m in c-members
+            for type-name = (type-name (type-info m))
             unless (is-char-or-primitive-array-p m)
-            ;; replace with ~((when (vk:~a) (setf %vk:~a ~a))~)
-            ;; might lead to errors though
-            do (format out "~%    (setf ~(%vk:~a~) ~a)"
-                       (fix-type-name (name m) (tags vk-spec))
-                       (get-value-setter m struct count-member-names expand-p vk-spec)))
+            do (let ((setter-str (format nil "(setf ~(%vk:~a~) ~a)"
+                                         (fix-type-name (name m) (tags vk-spec))
+                                         (get-value-setter m struct count-member-names expand-p vk-spec))))
+                 (if (ignore-if-nil-p m)
+                     (format out "~%    ~((when (vk:~a ~a) ~a)~)"
+                             ;; if ignore-if-nil-p changes this might no longer be valid
+                             (fix-slot-name (name m) type-name vk-spec t)
+                             (if expand-p ",value" "value")
+                             setter-str)
+                     (format out "~%    ~a" setter-str))))
       (loop for m in c-members
             when (is-char-p m)
             do (format out "~%    ~((cffi:lisp-string-to-foreign (vk:~a ~a) %vk:~a (cl:1+ (cl:length (vk:~a ~a))))~)"

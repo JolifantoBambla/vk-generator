@@ -8,7 +8,8 @@
         (type-name (type-name (type-info member-data))))
     (if (and (value-p (type-info member-data))
              (structure-type-p type-name vk-spec)
-             (not (is-union-p (get-structure-type type-name vk-spec))))
+             (not (is-union-p (get-structure-type type-name vk-spec)))
+             (not (returned-only-p (get-structure-type type-name vk-spec))))
         ;; structs which aren't pointers need to be initialized during translation
         (format nil "(vk:make-~(~a~))"
                 (fix-type-name type-name (tags vk-spec)))
