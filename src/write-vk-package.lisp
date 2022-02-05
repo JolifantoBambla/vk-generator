@@ -163,7 +163,6 @@ See MAKE-API-VERSION\")
   (:use #:cl)
   (:export")
            (loop for sym in '("*allocated-foreign-objects*"
-                              "*allocated-foreign-strings*"
                               "*allocate-foreign-object-func*"
                               "*free-foreign-object-func*"
                               "*allocate-foreign-string-func*"
@@ -423,6 +422,7 @@ See MAKE-API-VERSION\")
          (vk-functions-file (merge-pathnames "vk-commands.lisp" vk-dir))
          (vk-utils-with-resource-file (merge-pathnames "vk-utils-with-resource.lisp" vk-dir))
          (ctor-file (merge-pathnames "vk-constructors.lisp" vk-dir))
+         (printers-file (merge-pathnames "vk-pretty-printers.lisp" vk-dir))
          (copy-files ;; todo: clean this up
            (list
             (list (merge-pathnames "vk-utils-common.lisp" additional-files-dir)
@@ -463,6 +463,7 @@ See MAKE-API-VERSION\")
 
     (write-with-resource-macros vk-utils-with-resource-file vk-spec dry-run)
     (write-constructors ctor-file vk-spec dry-run)
+    (write-printers printers-file vk-spec dry-run)
     
     ;; copy additional files
     (unless dry-run

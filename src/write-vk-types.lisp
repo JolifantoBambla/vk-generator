@@ -521,29 +521,40 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                (fix-type-name (name member-data) (tags vk-spec)))))))
 
 (defun write-translate-to (out struct expand-p vk-spec)
-  (labels ((is-char-p (m)
-             (and (string= "char" (type-name (type-info m)))
-                  (and (not (string= (postfix (type-info m)) "*"))
-                       (not (string= (postfix (type-info m)) "**"))
-                       (not (string= (postfix (type-info m)) "* const*")))))
-           (is-primitive-array-p (m)
-             (and (array-sizes m)
-                  (not (string= "char" (type-name (type-info m))))
-                  (gethash (type-name (type-info m)) *vk-platform*)))
-           (is-char-or-primitive-array-p (m)
-             (or (is-char-p m)
-                 (is-primitive-array-p m)))
-           ;; note: check usages if this changes
-           (ignore-if-nil-p (m)
-             (let ((type-name (type-name (type-info m))))
+  (let ((fixed-type-name (fix-type-name (name struct) (tags vk-spec)))
+        (count-member-names (get-count-member-names struct))
+        (macro-name (if expand-p
+                        "expand-into-foreign-memory"
+                        "translate-into-foreign-memory"))
+        (c-members (get-cstruct-members struct vk-spec)))
+    (labels ((is-char-p (m)
+               (and (string= "char" (type-name (type-info m)))
+                    (and (not (string= (postfix (type-info m)) "*"))
+                         (not (string= (postfix (type-info m)) "**"))
+                         (not (string= (postfix (type-info m)) "* const*")))))
+             (is-primitive-array-p (m)
+               (and (array-sizes m)
+                    (not (string= "char" (type-name (type-info m))))
+                    (gethash (type-name (type-info m)) *vk-platform*)))
+             (is-char-or-primitive-array-p (m)
+               (or (is-char-p m)
+                   (is-primitive-array-p m)))
+             (returned-only-structure-p (type-name)
                (and (structure-type-p type-name vk-spec nil)
-                    (returned-only-p (get-structure-type type-name vk-spec))))))
-    (let ((fixed-type-name (fix-type-name (name struct) (tags vk-spec)))
-          (count-member-names (get-count-member-names struct))
-          (macro-name (if expand-p
-                          "expand-into-foreign-memory"
-                          "translate-into-foreign-memory"))
-          (c-members (get-cstruct-members struct vk-spec)))
+                    (returned-only-p (get-structure-type type-name vk-spec))))
+             (no-autovalidity-non-count-member-p (m)
+               (and (no-autovalidity-p m)
+                    ;; bitmask members have to be translated if they are nil
+                    (not (eq :bitmask (category (gethash (type-name (type-info m)) (types vk-spec)))))
+                    (not (member (name m) count-member-names))))
+             ;; note: check usages if this changes
+             (ignore-if-nil-p (m)
+               (let ((type-name (type-name (type-info m))))
+                 (or (returned-only-structure-p type-name)
+                     ;; todo: this doesn't really work. e.g. a pointer member has to be set to a null pointer, otherwise things go boom
+                     ;; maybe in the future #58
+                     ;;(no-autovalidity-non-count-member-p m)
+                     ))))
       (format out "(defmethod cffi:~a (value (type %vk:c-~(~a~)) ptr)~%  ~:[~;`~](cffi:with-foreign-slots"
               macro-name
               fixed-type-name

@@ -14,3 +14,18 @@
                   (not (string= postfix "**")))
              "\"\"")
             (t nil))))))
+
+(defun get-vk-class-slots (struct vk-spec)
+  (let ((count-member-names (get-count-member-names struct)))
+    (loop for m in (members struct)
+          unless (or (member (name m) count-member-names :test #'string=)
+                     (= (length (allowed-values m)) 1))
+          collect m)))
+
+(defun get-fixed-vk-class-slot-names (struct vk-spec)
+  (map
+   'list
+   (lambda (m)
+     (fix-slot-name (name m) (type-name (type-info m)) vk-spec))
+   (get-vk-class-slots struct vk-spec)))
+

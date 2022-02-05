@@ -30,6 +30,7 @@
                  (:file "vk-base")
                  (:file "vk-bindings")
                  (:file "vk-commands")
+                 (:file "vk-pretty-printers")
                  (:file "vk-utils-common")
                  (:file "vk-utils-with-resource"))))
   :in-order-to ((test-op (test-op vk/tests))))
