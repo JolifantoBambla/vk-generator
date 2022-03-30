@@ -335,13 +335,13 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                                         (fix-slot-name (name s) (type-name (type-info s)) vk-spec t)
                                                         value-str))
                                               slots)
-                                      ;; the value for VkWriteDescriptorSet.descriptorCount might come from the pNext chain 
+                                      ;; the value for VkWriteDescriptorSet.descriptorCount might come from the pNext chain
                                       (when (string= (name struct) "VkWriteDescriptorSet")
                                         (let ((setter (format nil "
                                  (loop with ~a = (vk:next ~a)
                                        while ~a
                                        maximize (typecase ~a
-                                                  (vk:write-descriptor-set-inline-uniform-block-ext (vk:data-size ~a))
+                                                  (vk:write-descriptor-set-inline-uniform-block~a (vk:data-size ~a))
                                                   (vk:write-descriptor-set-acceleration-structure-khr (cl:length (vk:acceleration-structures ~a)))
                                                   (t 0))
                                        do (setf ~a (vk:next ~a)))"
@@ -349,6 +349,8 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                                               value-str
                                                               next-str
                                                               next-str
+                                                              (if (version-compare (version vk-spec) "v1.3.204" #'<)
+                                                                  "-ext" "")
                                                               next-str
                                                               next-str
                                                               next-str

@@ -221,11 +221,23 @@
     "v1.2.195"
     "v1.2.196"
     "v1.2.197"
-    "v1.2.198")
+    "v1.2.198"
+    "v1.2.199"
+    "v1.2.200"
+    "v1.2.201"
+    "v1.2.202"
+    "v1.2.203"
+    "v1.3.204")
   "A list of valid version tags in the Vulkan-Docs GitHub repository.
 
 See https://github.com/KhronosGroup/Vulkan-Docs/releases
 ") ;; all versions supported
+
+(defun get-version-index (version)
+  (position version *versions* :test #'string=))
+
+(defun version-compare (a b comparison)
+  (funcall comparison (get-version-index a) (get-version-index b)))
 
 (defun get-xml-path (version)
   (declare (type string version))

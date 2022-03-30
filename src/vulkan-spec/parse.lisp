@@ -120,7 +120,9 @@ See VULKAN-SPEC
   (let* ((vk.xml (cxml:parse-file vk-xml-pathname
                                   (cxml:make-whitespace-normalizer
                                    (stp:make-builder))))
-         (vk-spec (make-instance 'vulkan-spec)))
+         (vk-spec (make-instance 'vulkan-spec
+                                 :version version)))
+
     ;; insert default handle for create-instance and such
     (setf (gethash "" (handles vk-spec))
           (make-instance 'handle
