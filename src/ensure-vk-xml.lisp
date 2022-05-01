@@ -41,6 +41,29 @@ See https://github.com/KhronosGroup/Vulkan-Docs
            (namestring (get-xml-path version)))
    (make-xml-pathname version out-dir)))
 
+(defun maybe-get-video-xml (version &key (vk-xml-dir (uiop:temporary-directory)) (force-download nil))
+  (declare (type string version))
+  (declare (type pathname vk-xml-dir))
+  "Checks if for a given version string a video.xml should exist and if so, checks if it exists in the given VK-XML-DIR.
+
+If it should exist but does not, tries to download it from the Vulkan-Docs GitHub repository.
+
+If FORCE-DOWNLOAD is truthy a video.xml file is downloaded whether it already exists in the given directory or not but not if none should exist for the given version."
+  (when (version>= version "v1.3.204")
+    (let ((xml-pathname (merge-pathnames (make-pathname :name (format nil "video-~a" version)
+                                                        :type "xml")
+                                         vk-xml-dir)))
+      (when (or force-download
+                (not (probe-file xml-pathname)))
+        (format t "Download video.xml~%")
+        (trivial-download:download
+         (format nil "https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/~a/~avideo.xml"
+                 version
+                 (namestring (get-xml-path version)))
+         xml-pathname))
+      (format t "video.xml is located at: ~s~%" xml-pathname)
+      xml-pathname)))
+
 (defun ensure-vk-xml (version &key (vk-xml-dir (uiop:temporary-directory)) (force-download nil))
   (declare (type string version))
   (declare (type pathname vk-xml-dir))

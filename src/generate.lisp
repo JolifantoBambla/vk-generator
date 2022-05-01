@@ -42,7 +42,8 @@ See WRITE-VK-PACKAGE
     (write-vk-package
      (parse-vk-xml
       version
-      (ensure-vk-xml version :vk-xml-dir vk-xml-dir :force-download force-download))
+      (ensure-vk-xml version :vk-xml-dir vk-xml-dir :force-download force-download)
+      (maybe-get-video-xml version :vk-xml-dir vk-xml-dir :force-download force-download))
      vk-dir
      dry-run)))
 

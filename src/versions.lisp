@@ -239,6 +239,12 @@ See https://github.com/KhronosGroup/Vulkan-Docs/releases
 (defun version-compare (a b comparison)
   (funcall comparison (get-version-index a) (get-version-index b)))
 
+(defun version< (a b)
+  (version-compare a b #'<))
+
+(defun version>= (a b)
+  (not (version< a b)))
+
 (defun get-xml-path (version)
   (declare (type string version))
   "Returns the path to the vk.xml file in the Vulkan-Docs Github repository for a given version tag.
