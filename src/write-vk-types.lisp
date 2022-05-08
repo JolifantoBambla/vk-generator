@@ -532,10 +532,15 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                     (and (not (string= (postfix (type-info m)) "*"))
                          (not (string= (postfix (type-info m)) "**"))
                          (not (string= (postfix (type-info m)) "* const*")))))
-             (is-primitive-array-p (m)
+             (is-fixed-size-non-char-array-p (m)
                (and (array-sizes m)
-                    (not (string= "char" (get-type-name m)))
+                    (not (string= "char" (get-type-name m)))))
+             (is-primitive-array-p (m)
+               (and (is-fixed-size-non-char-array-p m)
                     (gethash (get-type-name m) *vk-platform*)))
+             (use-slot-pointer-directly-p (m)
+               (or (is-char-p m)
+                   (is-fixed-size-non-char-array-p m)))
              (is-char-or-primitive-array-p (m)
                (or (is-char-p m)
                    (is-primitive-array-p m)))
@@ -561,16 +566,20 @@ Instances of this class are used as parameters of the following functions:~{~%Se
               expand-p)
       (loop for m in c-members
             for i from 1
-            do (format out "~%      ~:[  ~;((~]~(%vk:~a~)~:[~;)~]"
+            ;; for fixed sized arrays the slot pointer is needed for cffi:lisp-array-to-foreign
+            for needs-raw-pointer-p = (is-fixed-size-non-char-array-p m)
+            do (format out "~%      ~:[  ~;((~]~:[~;(:pointer ~]~(%vk:~a~:[~;)~]~)~:[~;)~]"
                        (= 1 i)
+                       needs-raw-pointer-p
                        (fix-type-name (name m) (tags vk-spec))
+                       needs-raw-pointer-p
                        (= i (length c-members))))
       (format out "~%       ~:[~;,~]ptr~%       (:struct %vk:~(~a~)))"
               expand-p
               fixed-type-name)
       (loop for m in c-members
             for type-name = (get-type-name m)
-            unless (is-char-or-primitive-array-p m)
+            unless (use-slot-pointer-directly-p m)
             do (let ((setter-str (format nil "(setf ~(%vk:~a~) ~a)"
                                          (fix-type-name (name m) (tags vk-spec))
                                          (get-value-setter m struct count-member-names expand-p vk-spec))))
@@ -590,13 +599,48 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                        (fix-slot-name (name m) (get-type-name m) vk-spec t)
                        (if expand-p ",value" "value")))
       (loop for m in c-members
-            when (is-primitive-array-p m)
-            do (format out "~%    (cffi:lisp-array-to-foreign ~((vk:~a ~a) %vk:~a '(:array ~s ~a)~))"
-                       (fix-slot-name (name m) (get-type-name m) vk-spec t)
-                       (if expand-p ",value" "value")
-                       (fix-type-name (name m) (tags vk-spec))
-                       (gethash (get-type-name m) *vk-platform*)
-                       (prepare-array-sizes (array-sizes m) vk-spec)))
+            for value-str = (if expand-p ",value" "value")
+            for fixed-slot-name = (fix-slot-name (name m) (get-type-name m) vk-spec t)
+            for fixed-member-name = (fix-type-name (name m) (tags vk-spec))
+            for member-type-name = (get-type-name m)
+            for fixed-member-type-name = (fix-type-name member-type-name (tags vk-spec))
+            for prepared-array-sizes = (prepare-array-sizes (array-sizes m) vk-spec)
+            when (is-fixed-size-non-char-array-p m)
+            do (cond
+                 ((is-primitive-array-p m)
+                  (format out "~%    (cffi:lisp-array-to-foreign ~((vk:~a ~a) %vk:~a '(:array ~s ~a)~))"
+                          fixed-slot-name
+                          value-str
+                          fixed-member-name
+                          (gethash member-type-name *vk-platform*)
+                          prepared-array-sizes))
+                 ((structure-type-p member-type-name vk-spec)
+                  (format out "~%    (cffi:lisp-array-to-foreign ~((coerce (vk:~a ~a) 'vector) %vk:~a '(:array ~a ~a)~))"
+                          fixed-slot-name
+                          value-str
+                          fixed-member-name
+                          (format nil "(:struct %vk:~(~a~))"
+                                  fixed-member-type-name)
+                          prepared-array-sizes))
+                 ((handlep member-type-name vk-spec)
+                  (format out "~%    (cffi:lisp-array-to-foreign ~((map 'vector #'~a (vk:~a ~a)) %vk:~a '(:array ~a ~a)~))"
+                          (if (non-dispatch-handle-p (get-handle member-type-name vk-spec))
+                              "%non-dispatchable-handle"
+                              "%dispatchable-handle")
+                          fixed-slot-name
+                          value-str
+                          fixed-member-name
+                          (format nil "%vk:~(~a~)"
+                                  fixed-member-type-name)
+                          prepared-array-sizes))
+                 (t
+                  (format out "~%    (cffi:lisp-array-to-foreign ~((coerce (vk:~a ~a) 'vector) %vk:~a '(:array ~a ~a)~))"
+                          fixed-slot-name
+                          value-str
+                          fixed-member-name
+                          (format nil "%vk:~(~a~)"
+                                  fixed-member-type-name)
+                          prepared-array-sizes))))
       (format out "))~%~%"))))
 
 (defun write-translate-union-to (out struct expand-p vk-spec)
