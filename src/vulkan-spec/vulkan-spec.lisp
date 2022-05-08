@@ -193,6 +193,10 @@ See *VK-PLATFORM*
              (not (search "*" (postfix type-info))))
     t))
 
+(defun pointer-p (type-info)
+  "Checks whether a TYPE-INFO describes a pointer."
+  (not (value-p type-info)))
+
 (defun pointer-to-non-char-pointer-p (type-info)
   "Checks whether a TYPE-INFO describes an array of pointers which is not an array of strings."
   (and (search "* const*" (postfix type-info))
@@ -203,7 +207,11 @@ See *VK-PLATFORM*
     :initarg :type-info
     :type type-info
     :accessor type-info))
-  (:documentation "TODO"))
+  (:documentation "The superclass for all VK-ELEMENTs that have a TYPE-INFO slot."))
+
+(defun get-type-name (h)
+  "Returns a HAS-TYPE-INFO's type name."
+  (type-name (type-info h)))
 
 (defclass param (vk-element has-type-info has-array-sizes)
   ((len

@@ -64,6 +64,10 @@
            (string= (postfix type-info) "* const *"))
        (list :pointer (list :pointer pointer-type))))))
 
+(defun fixed-size-array-sizes-p (array-sizes)
+  (or (> (length array-sizes) 1)
+      (not (alexandria:starts-with-subseq "VK_" (first array-sizes)))))
+
 (defun prepare-array-sizes (array-sizes vk-spec)
   (cond
     ((= (length array-sizes) 1)
@@ -233,9 +237,9 @@
                   (unless (gethash struct-name dumped)
                     (setf (gethash struct-name dumped) t)
                     (loop for member-value in (members struct)
-                          for member-type = (type-name (type-info member-value))
+                          for member-type = (get-type-name member-value)
                           when (and (gethash member-type (structures vk-spec))
-                                    (not (gethash (type-name (type-info member-value)) dumped)))
+                                    (not (gethash (get-type-name member-value) dumped)))
                           do (dump (gethash member-type (structures vk-spec)) member-type))
                     (let ((fixed-type-name (fix-type-name struct-name (tags vk-spec))))
                       (if (is-union-p struct)

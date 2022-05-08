@@ -13,26 +13,26 @@
   (flet ((format-arg-doc (param &optional (optional-p nil) (default-arg nil))
            (let ((sequence-p (member param vector-params)))
              (format nil "~% - ~a~@[~a~]: a ~@[~a~]~a~@[, defaults to: ~a~]"
-                     (fix-slot-name (name param) (type-name (type-info param)) vk-spec)
+                     (fix-slot-name (name param) (get-type-name param) vk-spec)
                      (when optional-p
                        " (optional)")
                      (when sequence-p
                        "(OR LIST VECTOR) of ")
                      (cond
-                       ((gethash (type-name (type-info param)) (structures vk-spec))
+                       ((gethash (get-type-name param) (structures vk-spec))
                         (format nil "(OR ~a CFFI:FOREIGN-POINTER)~@[~a~]"
-                                (fix-type-name (type-name (type-info param)) (tags vk-spec))
+                                (fix-type-name (get-type-name param) (tags vk-spec))
                                 (when sequence-p " instances")))
-                       ((gethash (type-name (type-info param)) (handles vk-spec))
+                       ((gethash (get-type-name param) (handles vk-spec))
                         (format nil "~a~@[~a~]"
-                                (fix-type-name (type-name (type-info param)) (tags vk-spec))
+                                (fix-type-name (get-type-name param) (tags vk-spec))
                                 (when sequence-p " handles")))
-                       ((not (gethash (type-name (type-info param)) *vk-platform*))
+                       ((not (gethash (get-type-name param) *vk-platform*))
                         (format nil "~a~@[~a~]"
-                                (fix-type-name (type-name (type-info param)) (tags vk-spec))
+                                (fix-type-name (get-type-name param) (tags vk-spec))
                                 (when sequence-p "s")))
                        (t (format nil "~:@(~a~)"
-                                  (get-type-to-declare (type-name (type-info param)) vk-spec param vector-params))))
+                                  (get-type-to-declare (get-type-name param) vk-spec param vector-params))))
                      default-arg))))
     (let ((referenced-types (sort
                              (remove-duplicates
@@ -40,7 +40,7 @@
                                                               required-params
                                                               optional-params
                                                               output-params)
-                                    for type-name = (type-name (type-info param))
+                                    for type-name = (get-type-name param)
                                     unless (gethash type-name *vk-platform*)
                                     collect (fix-type-name type-name (tags vk-spec))))
                              #'string<))
@@ -61,15 +61,15 @@
                                                                output-params)
                                        collect (let ((array-arg-p (member param vector-params)))
                                                  (format nil "~a~a"
-                                                         (if (gethash (type-name (type-info param)) *vk-platform*)
+                                                         (if (gethash (get-type-name param) *vk-platform*)
                                                              (cond
-                                                               ((or (string= "size_t" (type-name (type-info param)))
-                                                                    (alexandria:starts-with-subseq "uint" (type-name (type-info param))))
+                                                               ((or (string= "size_t" (get-type-name param))
+                                                                    (alexandria:starts-with-subseq "uint" (get-type-name param)))
                                                                 "UNSIGNED-BYTE")
-                                                               ((alexandria:starts-with-subseq "int" (type-name (type-info param)))
+                                                               ((alexandria:starts-with-subseq "int" (get-type-name param))
                                                                 "INTEGER")
-                                                               (t (error "unhandled output arg in doc generation: ~a" (type-name (type-info param)))))
-                                                             (fix-type-name (type-name (type-info param)) (tags vk-spec)))
+                                                               (t (error "unhandled output arg in doc generation: ~a" (get-type-name param))))
+                                                             (fix-type-name (get-type-name param) (tags vk-spec)))
                                                          (if array-arg-p "s" ""))))))
       (when (needs-explicit-loading-p command)
         (setf formatted-optional-args
@@ -193,7 +193,7 @@ See ~a~]
 
 (defun format-type-to-declare (param vector-params vk-spec)
   (format nil "~(~a~)"
-          (let ((type-name (type-name (type-info param))))
+          (let ((type-name (get-type-name param)))
             (get-type-to-declare type-name vk-spec param vector-params))))
 
 
@@ -202,7 +202,7 @@ See ~a~]
   (loop for arg in required-args
         for i from 1
         collect (format nil "~((~a ~a)~)~@[ ~]"
-                        (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
+                        (fix-slot-name (name arg) (get-type-name arg) vk-spec)
                         (format-type-to-declare arg vector-params vk-spec)
                         (< i (length required-args)))))
 
@@ -211,7 +211,7 @@ See ~a~]
   (loop for arg in optional-args
         for i from 1
         collect (format nil "((~(~a ~a) ~a~@[ t~]~))~@[ ~]"
-                        (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
+                        (fix-slot-name (name arg) (get-type-name arg) vk-spec)
                         (determine-param-default-value-string arg vk-spec)
                         (format-type-to-declare arg vector-params vk-spec)
                         (member arg unused-args)
@@ -252,7 +252,7 @@ See ~a~]
 
 (defun format-arg-type (arg vk-spec)
   ""
-  (let ((formatted (format-type-name (type-name (type-info arg)) vk-spec)))
+  (let ((formatted (format-type-name (get-type-name arg) vk-spec)))
     (if (pointer-to-non-char-pointer-p (type-info arg))
         (format nil "'(:pointer (:pointer ~a))"
                 (if (alexandria:starts-with #\' formatted)
@@ -268,23 +268,23 @@ See ~a~]
       (push :list qualifiers))
     ;; todo: maybe just split all of these up into :raw and :translate - this would be way less confusing...
     ;; todo: void pointers should also be treaded as :raw instead of :handle to get rid of the ambiguity
-    (when (or (and (gethash (type-name (type-info arg)) *vk-platform*)
+    (when (or (and (gethash (get-type-name arg) *vk-platform*)
                    (value-p (type-info arg)))
-              (and (string= "char" (type-name (type-info arg)))
+              (and (string= "char" (get-type-name arg))
                    (not (string= "**" (postfix (type-info arg)))))
-              (gethash (type-name (type-info arg)) (enums vk-spec))
-              (gethash (type-name (type-info arg)) (bitmasks vk-spec))
-              (and (gethash (type-name (type-info arg)) (base-types vk-spec))
+              (gethash (get-type-name arg) (enums vk-spec))
+              (gethash (get-type-name arg) (bitmasks vk-spec))
+              (and (gethash (get-type-name arg) (base-types vk-spec))
                    (value-p (type-info arg))))
       (push :raw qualifiers))
-    (when (or (gethash (type-name (type-info arg)) (handles vk-spec)) ;; it's a handle
-              (string= "void" (type-name (type-info arg))) ;; it's a void pointer
-              (and (gethash (type-name (type-info arg)) (types vk-spec)) ;; it's a vk-defined type
-                   (eq :requires (category (gethash (type-name (type-info arg)) (types vk-spec))))
-                   (not (gethash (type-name (type-info arg)) *vk-platform*))))
+    (when (or (gethash (get-type-name arg) (handles vk-spec)) ;; it's a handle
+              (string= "void" (get-type-name arg)) ;; it's a void pointer
+              (and (gethash (get-type-name arg) (types vk-spec)) ;; it's a vk-defined type
+                   (eq :requires (category (gethash (get-type-name arg) (types vk-spec))))
+                   (not (gethash (get-type-name arg) *vk-platform*))))
       (push :handle qualifiers))
-    (when (handlep (type-name (type-info arg)) vk-spec)
-      (push (if (non-dispatch-handle-p (get-handle (type-name (type-info arg)) vk-spec))
+    (when (handlep (get-type-name arg) vk-spec)
+      (push (if (non-dispatch-handle-p (get-handle (get-type-name arg) vk-spec))
                 :non-dispatchable
                 :dispatchable)
             qualifiers))
@@ -304,7 +304,7 @@ See ~a~]
   ""
   (loop for arg in vk-args
         for i from 0
-        for arg-name = (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)
+        for arg-name = (fix-slot-name (name arg) (get-type-name arg) vk-spec)
         collect (format nil "(~(~a ~a ~a~{ ~s~}~))~@[~%~]"
                         arg-name
                         (format-arg-type arg vk-spec)
@@ -312,10 +312,10 @@ See ~a~]
                           ((member arg singular-in-out-params)
                            (format nil "~((or ~a (vk:make-~a))~)"
                                    arg-name
-                                   (fix-type-name (name (get-structure-type (type-name (type-info arg)) vk-spec))
+                                   (fix-type-name (name (get-structure-type (get-type-name arg) vk-spec))
                                                   (tags vk-spec))))
                           ((and (gethash i count-to-vector-param-indices)
-                                (not (gethash (type-name (type-info arg))
+                                (not (gethash (get-type-name arg)
                                               (structures vk-spec)))
                                 (not (find arg output-params)))
                            (let* ((array-args (loop for j in (gethash i count-to-vector-param-indices)
@@ -324,8 +324,8 @@ See ~a~]
                                                     collect array-arg))
                                   (array-arg (first array-args)))
                              (format nil "(length ~(~a~))"
-                                     (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))))
-                          (t (fix-slot-name (name arg) (type-name (type-info arg)) vk-spec)))
+                                     (fix-slot-name (name array-arg) (get-type-name array-arg) vk-spec))))
+                          (t (fix-slot-name (name arg) (get-type-name arg) vk-spec)))
                         (make-arg-qualifier-list arg output-params optional-params vector-params vk-spec unused-params)
                         (< (+ i 1) (length vk-args)))))
 
@@ -368,18 +368,18 @@ See ~a~]
                               collect (nth i (params command))))
          (handle-params (remove-if-not (lambda (p)
                                          (and (not (find p output-params))
-                                              (gethash (type-name (type-info p)) (handles vk-spec))))
+                                              (gethash (get-type-name p) (handles vk-spec))))
                                        (params command)))
          (non-struct-params (sorted-elements
                              (remove-if (lambda (p)
-                                          (or (gethash (type-name (type-info p)) (structures vk-spec))
-                                              (gethash (type-name (type-info p)) (handles vk-spec))
+                                          (or (gethash (get-type-name p) (structures vk-spec))
+                                              (gethash (get-type-name p) (handles vk-spec))
                                               (find p vector-count-params)
                                               (find p output-params)))
                                         (params command))))
          (struct-params (sorted-elements
                          (remove-if-not (lambda (p)
-                                          (and (gethash (type-name (type-info p)) (structures vk-spec))
+                                          (and (gethash (get-type-name p) (structures vk-spec))
                                                (not (find p output-params))))
                                         (params command))))
          (required-handle-params (remove-if (lambda (p)
@@ -482,7 +482,7 @@ See ~a~]
                            (let ((array-arg (find-if-not (lambda (arg)
                                                            (find arg output-params))
                                                          vector-params)))
-                             (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
+                             (fix-slot-name (name array-arg) (get-type-name array-arg) vk-spec)))
                    ;; the length of the output array depends on the slot of an input parameter
                    ;; now we need to find out which slot this is and - more importantly - if it is one
                    ;; of the omitted slots because it redundantly describes the length of yet another
@@ -491,7 +491,7 @@ See ~a~]
                           (count-arg (find-if (lambda (p)
                                                 (string= (first split-len-data) (name p)))
                                               (params command)))
-                          (count-struct (gethash (type-name (type-info count-arg)) (structures vk-spec)))
+                          (count-struct (gethash (get-type-name count-arg) (structures vk-spec)))
                           (struct-count-member-names (get-count-member-names count-struct))
                           (count-slot-name (second split-len-data)))
                      (if (member count-slot-name struct-count-member-names :test #'string=)
@@ -499,14 +499,14 @@ See ~a~]
                                                       (string= count-slot-name (car (len m))))
                                                     (members count-struct))))
                            (format nil "(length (vk:~(~a ~a~)))"
-                                   (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
-                                   (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))
+                                   (fix-slot-name (name count-slot) (get-type-name count-slot) vk-spec t)
+                                   (fix-slot-name (name count-arg) (get-type-name count-arg) vk-spec)))
                          (let ((count-slot (find-if (lambda (m)
                                                       (string= count-slot-name (name m)))
                                                     (members count-struct))))
                            (format nil "(vk:~(~a ~a~))"
-                                   (fix-slot-name (name count-slot) (type-name (type-info count-slot)) vk-spec t)
-                                   (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec)))))))
+                                   (fix-slot-name (name count-slot) (get-type-name count-slot) vk-spec t)
+                                   (fix-slot-name (name count-arg) (get-type-name count-arg) vk-spec)))))))
        kw-args))
     (when (eq command-type :get-struct-chain)
       (setf optional-params (sorted-elements (concatenate 'list optional-params (list (first output-params)))))
@@ -523,7 +523,7 @@ See ~a~]
             (count-arg (find-if-not #'len output-params)))
         (pushnew
          (format nil ":first-array-arg-name ~(~a~)"
-                 (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec))
+                 (fix-slot-name (name array-arg) (get-type-name array-arg) vk-spec))
          kw-args)
         (if (eq command-type :get-value-array-and-value)
             (pushnew
@@ -531,11 +531,11 @@ See ~a~]
                      (let ((array-arg (find-if-not (lambda (arg) ;; len-provider is the length of the input array
                                                      (find arg output-params))
                                                    vector-params)))
-                       (fix-slot-name (name array-arg) (type-name (type-info array-arg)) vk-spec)))
+                       (fix-slot-name (name array-arg) (get-type-name array-arg) vk-spec)))
              kw-args)
             (pushnew
              (format nil ":count-arg-name ~(~a~)"
-                     (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec))
+                     (fix-slot-name (name count-arg) (get-type-name count-arg) vk-spec))
              kw-args))
         (when (member command-type
                       '(:get-struct-chains
@@ -544,7 +544,7 @@ See ~a~]
         (when (eq command-type :get-struct-chains)
           (pushnew
            (format nil ":vk-constructor vk:make-~(~a~)"
-                   (fix-type-name (type-name (type-info array-arg)) (tags vk-spec)))
+                   (fix-type-name (get-type-name array-arg) (tags vk-spec)))
            kw-args))))
     (when (eq command-type :enumerate-two-struct-chains)
       (let* ((array-args (remove-if-not #'len output-params))
@@ -555,15 +555,15 @@ See ~a~]
         (setf unused-params array-args)
         (pushnew
          (format nil ":first-array-arg-name ~(~a~)"
-                 (fix-slot-name (name first-arg) (type-name (type-info first-arg)) vk-spec))
+                 (fix-slot-name (name first-arg) (get-type-name first-arg) vk-spec))
          kw-args)
         (pushnew
          (format nil ":second-array-arg-name ~(~a~)"
-                 (fix-slot-name (name second-arg) (type-name (type-info second-arg)) vk-spec))
+                 (fix-slot-name (name second-arg) (get-type-name second-arg) vk-spec))
          kw-args)
         (pushnew
          (format nil ":count-arg-name ~(~a~)"
-                 (fix-slot-name (name count-arg) (type-name (type-info count-arg)) vk-spec))
+                 (fix-slot-name (name count-arg) (get-type-name count-arg) vk-spec))
          kw-args)))
     (when (and (member command-type '(:get-or-create-handle
                                       :create-handles
@@ -571,7 +571,7 @@ See ~a~]
                                       :enumerate-handles))
                ;; note: I only added this check for safety
                (some (lambda (p)
-                       (handlep (type-name (type-info p)) vk-spec))
+                       (handlep (get-type-name p) vk-spec))
                      output-params))
       (pushnew
        (format nil ":handle-constructor make-~(~a~)-wrapper"
@@ -579,7 +579,7 @@ See ~a~]
                 (find-if (lambda (p)
                            (handlep p vk-spec))
                          (map 'list (lambda (p)
-                                      (type-name (type-info p)))
+                                      (get-type-name p))
                               output-params))
                 (tags vk-spec)))
        kw-args))

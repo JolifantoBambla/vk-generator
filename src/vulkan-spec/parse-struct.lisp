@@ -95,8 +95,8 @@
                                       (members structure))))
         (assert member-selector
                 () "member attribute <selector> holds unknown value <~a>" selector)
-        (assert (gethash (type-name (type-info member-selector)) (enums vk-spec))
-                () "member attribute references unknown enum type <~a>" (type-name (type-info member-selector)))))
+        (assert (gethash (get-type-name member-selector) (enums vk-spec))
+                () "member attribute references unknown enum type <~a>" (get-type-name member-selector))))
     member-data))
 
 (defun parse-struct (node vk-spec)

@@ -108,6 +108,7 @@
    :const-pointer-p
    :non-const-pointer-p
    :value-p
+   :pointer-p
    :pointer-to-non-char-pointer-p
    :make-aliased-command
    :extension-command-p
@@ -134,6 +135,7 @@
    :handlep
    :get-handle
    :get-structure-type
+   :get-type-name
    
    ;; vulkan-spec
    :vulkan-spec
