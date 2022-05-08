@@ -5,7 +5,7 @@
                              (member (first (len member-data))
                                      count-member-names
                                      :test #'string=)))
-        (type-name (type-name (type-info member-data))))
+        (type-name (get-type-name member-data)))
     (if (and (value-p (type-info member-data))
              (structure-type-p type-name vk-spec)
              (not (is-union-p (get-structure-type type-name vk-spec)))
@@ -36,7 +36,7 @@
     (loop for m in (members struct)
           unless (or (member (name m) count-member-names :test #'string=)
                      (= (length (allowed-values m)) 1))
-          collect (list (fix-slot-name (name m) (type-name (type-info m)) vk-spec)
+          collect (list (fix-slot-name (name m) (get-type-name m) vk-spec)
                         (get-default-slot-value-string m count-member-names vk-spec)))))
 
 (defun write-constructors (ctor-file vk-spec &optional dry-run)

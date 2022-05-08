@@ -34,7 +34,7 @@
                                     (loop for p in (concatenate 'list required-delete-params optional-delete-params)
                                           collect (cond
                                                     ((string= (name handle)
-                                                              (type-name (type-info p)))
+                                                              (get-type-name p))
                                                      (if (or (string= delete-command-name "vkFreeCommandBuffers")
                                                              (string= delete-command-name "vkFreeDescriptorSets"))
                                                          (format nil ",~(~a~)" resource-arg-string)
@@ -48,7 +48,7 @@
                                                     ((string= (name p) "pAllocator")
                                                      "(or ,allocator vk:*default-allocator*)")
                                                     (t (format nil ",~(~a~)"
-                                                               (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))))
+                                                               (fix-slot-name (name p) (get-type-name p) vk-spec)))))
                                     extensionp))
          (let-string (format nil "(,~a (~a))"
                              resource-arg-string
@@ -57,10 +57,10 @@
                                      (concatenate 'list
                                                   (loop for p in required-create-params
                                                         collect (format nil ",~(~a~)"
-                                                                        (fix-slot-name (name p) (type-name (type-info p)) vk-spec)))
+                                                                        (fix-slot-name (name p) (get-type-name p) vk-spec)))
                                                   (loop for p in optional-create-params
                                                         collect (format nil "(or ,~(~a~) ~a)"
-                                                                        (fix-slot-name (name p) (type-name (type-info p)) vk-spec)
+                                                                        (fix-slot-name (name p) (get-type-name p) vk-spec)
                                                                         (determine-param-default-value-string p vk-spec))))
                                      extensionp)))
          (body-string (format nil (if multiplep
@@ -86,9 +86,9 @@
        (format out "(defmacro ~a ((~a~(~{ ~a~}~) &key~(~{ ~a~}~)~:[~; extension-loader~]) &body body)~a~a)~%~%"
                (make-def-with-name create-command-name vk-spec)
                resource-arg-string
-               (loop for p in required-create-params collect (fix-slot-name (name p) (type-name (type-info p)) vk-spec))
+               (loop for p in required-create-params collect (fix-slot-name (name p) (get-type-name p) vk-spec))
                (loop for p in optional-create-params
-                     collect (fix-slot-name (name p) (type-name (type-info p)) vk-spec))
+                     collect (fix-slot-name (name p) (get-type-name p) vk-spec))
                extensionp
                doc-string
                body-string)))

@@ -19,8 +19,8 @@
          (make-compound (compound)
            (when compound
              (let ((first-member (first compound)))
-               (assert (member (type-name (type-info first-member)) '("uint32_t" "uint64_t") :test #'string=)
-                       () "Unexpected type name for compound member: ~a" (type-name (type-info first-member)))
+               (assert (member (get-type-name first-member) '("uint32_t" "uint64_t") :test #'string=)
+                       () "Unexpected type name for compound member: ~a" (get-type-namefirst-member))
                (make-instance 'compound-member
                               :name (format nil "~(~{~a~^-and-~}~)"
                                             (map 'list

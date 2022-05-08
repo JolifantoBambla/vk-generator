@@ -26,6 +26,6 @@
   (map
    'list
    (lambda (m)
-     (fix-slot-name (name m) (type-name (type-info m)) vk-spec))
+     (fix-slot-name (name m) (get-type-name m) vk-spec))
    (get-vk-class-slots struct vk-spec)))
 
