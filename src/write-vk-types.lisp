@@ -39,13 +39,13 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
                                            (string= "swapchainCount" (name m))))
                                  (not (and (string= "VkPresentTimesInfoGOOGLE" (name struct))
                                            (string= "swapchainCount" (name m))))
-                                 (not (string= (type-name (type-info other)) "void")))) ;; we can't do anything for void pointer arrays, must be supplied by the user
+                                 (not (string= (get-type-name other) "void")))) ;; we can't do anything for void pointer arrays, must be supplied by the user
                           (members struct)))
         collect (name m)))
 
 (defun fix-slot-type-for-documentation (member-data vk-spec)
   (let ((slot-name (name member-data))
-        (type-name (type-name (type-info member-data))))
+        (type-name (get-type-name member-data)))
     (cond
       ((string= "pNext" slot-name)
        "instance of a class extending this class (valid classes are listed below)")
@@ -88,10 +88,10 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
 (defun make-documentation (struct count-member-names vk-spec)
   (let* ((referenced-types (remove-duplicates
                             (loop for m in (members struct)
-                                  for type-name = (type-name (type-info m))
+                                  for type-name = (get-type-name m)
                                   unless (or (gethash type-name *vk-platform*)
                                              (= (length (allowed-values m)) 1)
-                                             (string= "VkBool32" (type-name (type-info m))))
+                                             (string= "VkBool32" (get-type-name m)))
                                   collect (fix-type-name type-name (tags vk-spec)))))
          (slots (loop for m in (members struct)
                       for fixed-type-name = (fix-slot-type-for-documentation
@@ -103,7 +103,7 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
                       unless (or (find (name m) count-member-names :test #'string=)
                                  (= (length (allowed-values m)) 1))
                       collect (format nil "~% - ~a~:[~; (optional)~]: ~a ~:[~;list of ~]~:[~;array of ~]~a~:[~;s~]~@[ of size ~a~]."
-                                  (fix-slot-name (name m) (type-name (type-info m)) vk-spec)
+                                  (fix-slot-name (name m) (get-type-name m) vk-spec)
                                   (or (optional-p m)
                                       (string= (name m) "pNext"))
                                   (if (and (not list-p)
@@ -125,7 +125,7 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
                                    when (member-if
                                          (lambda (p)
                                            (string= (name struct)
-                                                    (type-name (type-info p))))
+                                                    (get-type-name p)))
                                          (params c))
                                    collect (fix-function-name (name c) (tags vk-spec)))
                              #'string<)))
@@ -158,7 +158,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
         do
         (format out "~%(defclass ~(~a~) ()" (fix-type-name (name struct) (tags vk-spec)))
         (loop for m in (members struct)
-              for fixed-slot-name = (fix-slot-name (name m) (type-name (type-info m)) vk-spec)
+              for fixed-slot-name = (fix-slot-name (name m) (get-type-name m) vk-spec)
               for array-member-p = (and (len m)
                                         (member (first (len m)) count-member-names :test #'string=))
               unless (or (member (name m) count-member-names :test #'string=) ;; we'll determine the count during translation
@@ -173,18 +173,18 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                 (cond
                                   (array-member-p
                                    nil)
-                                  ((string= "char" (type-name (type-info m)))
+                                  ((string= "char" (get-type-name m))
                                     "")
-                                  ((and (gethash (type-name (type-info m)) *vk-platform*)
-                                        (or (search "int" (type-name (type-info m)))
-                                            (string= "size_t" (type-name (type-info m)))))
+                                  ((and (gethash (get-type-name m) *vk-platform*)
+                                        (or (search "int" (get-type-name m))
+                                            (string= "size_t" (get-type-name m))))
                                    0)
-                                  ((and (gethash (type-name (type-info m)) *vk-platform*)
-                                        (or (string= "float" (type-name (type-info m)))
-                                            (string= "double" (type-name (type-info m)))))
+                                  ((and (gethash (get-type-name m) *vk-platform*)
+                                        (or (string= "float" (get-type-name m))
+                                            (string= "double" (get-type-name m))))
                                    0.0)
                                   (t nil))))
-                      (fix-slot-name (name m) (type-name (type-info m)) vk-spec t))
+                      (fix-slot-name (name m) (get-type-name m) vk-spec t))
               (setf wrote-first-member t))
         (format out ")~%  (:documentation ~s))~%" (make-documentation struct count-member-names vk-spec)))
   ;; todo: pretty-printing of classes
@@ -196,25 +196,25 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                  (alexandria:hash-table-values (structures vk-spec))))
 
 (defun get-value-setter (member-data struct count-member-names macro-p vk-spec &optional (slot-provider "value"))
-  (let ((fixed-slot-name (fix-slot-name (name member-data) (type-name (type-info member-data)) vk-spec))
-        (fixed-accessor-name (fix-slot-name (name member-data) (type-name (type-info member-data)) vk-spec t))
+  (let ((fixed-slot-name (fix-slot-name (name member-data) (get-type-name member-data) vk-spec))
+        (fixed-accessor-name (fix-slot-name (name member-data) (get-type-name member-data) vk-spec t))
         (value-str (format nil "~:[~;,~]~a" macro-p slot-provider))
         (ptr-str (format nil "~:[~;,~]ptr" macro-p))
         (next-str (format nil "~:[~;,~]nxt" macro-p)))
     (cond
       ((typep member-data 'compound-member)
        (flet ((slot-to-int (m)
-                (let ((fixed-accessor-name (fix-slot-name (name m) (type-name (type-info m)) vk-spec t)))
-                  (if (not (alexandria:starts-with-subseq "uint" (type-name (type-info m))))
+                (let ((fixed-accessor-name (fix-slot-name (name m) (get-type-name m) vk-spec t)))
+                  (if (not (alexandria:starts-with-subseq "uint" (get-type-name m)))
                       (format nil "~((cffi:foreign-bitfield-value '%vk:~a (vk:~a ~a))~)"
-                              (fix-type-name (type-name (type-info m)) (tags vk-spec))
+                              (fix-type-name (get-type-name m) (tags vk-spec))
                               fixed-accessor-name
                               value-str)
                       (format nil "~((vk:~a ~a)~)"
                               fixed-accessor-name
                               value-str)))))
          (format nil "~((logior ~{~a~^ ~})~)"
-                 (loop with type-size = (if (string= (type-name (type-info member-data)) "uint32_t") 32 64)
+                 (loop with type-size = (if (string= (get-type-name member-data) "uint32_t") 32 64)
                        for m in (reverse (members member-data))
                        for bit-count = (parse-integer (bit-count m))
                        for bit-offset = (- type-size bit-count) then (- bit-offset bit-count)
@@ -235,7 +235,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
            "(cffi:null-pointer)"))
       
       ;; void pointer - must be handled by user
-      ((string= "void" (type-name (type-info member-data)))
+      ((string= "void" (get-type-name member-data))
        (format nil "(if (vk:~(~a~) ~a) (vk:~(~a~) ~a) (cffi:null-pointer))"
                fixed-accessor-name
                value-str
@@ -248,17 +248,17 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                (fix-bit-name (first (allowed-values member-data))
                              (tags vk-spec)
                              :prefix (find-enum-prefix
-                                      (string (fix-type-name (type-name (type-info member-data)) (tags vk-spec)))
-                                      (enum-values (gethash (type-name (type-info member-data)) (enums vk-spec)))
+                                      (string (fix-type-name (get-type-name member-data) (tags vk-spec)))
+                                      (enum-values (gethash (get-type-name member-data) (enums vk-spec)))
                                       (tags vk-spec)))))
 
       ;; members of some VK-defined type (lists or single instances)
-      ((or (gethash (type-name (type-info member-data)) (structures vk-spec))
-           (member (type-name (type-info member-data)) *opaque-struct-types* :test #'string=))
+      ((or (gethash (get-type-name member-data) (structures vk-spec))
+           (member (get-type-name member-data) *opaque-struct-types* :test #'string=))
        (format nil "(vk-alloc:foreign-allocate-and-fill '(~:[:struct~;:union~] %vk:~(~a~)) (~(vk:~a~) ~a) ~a)"
-               (and (gethash (type-name (type-info member-data)) (structures vk-spec))
-                    (is-union-p (gethash (type-name (type-info member-data)) (structures vk-spec))))
-               (fix-type-name (type-name (type-info member-data)) (tags vk-spec))
+               (and (gethash (get-type-name member-data) (structures vk-spec))
+                    (is-union-p (gethash (get-type-name member-data) (structures vk-spec))))
+               (fix-type-name (get-type-name member-data) (tags vk-spec))
                fixed-accessor-name
                value-str
                ptr-str))
@@ -269,10 +269,10 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                 (find-if (lambda (count-member)
                            (string= (car (len member-data)) count-member))
                          count-member-names))
-            (gethash (type-name (type-info member-data)) *vk-platform*))
-       (let ((foreign-type-name (if (string= (type-name (type-info member-data)) "char")
+            (gethash (get-type-name member-data) *vk-platform*))
+       (let ((foreign-type-name (if (string= (get-type-name member-data) "char")
                                     :string
-                                    (gethash (type-name (type-info member-data)) *vk-platform*))))
+                                    (gethash (get-type-name member-data) *vk-platform*))))
          (format nil "(vk-alloc:foreign-allocate-and-fill ~(~s~) (~(vk:~a~) ~a) ~a)"
                  foreign-type-name
                  fixed-accessor-name
@@ -281,13 +281,13 @@ Instances of this class are used as parameters of the following functions:~{~%Se
 
       ;; lists of handles
       ((and (len member-data)
-            (handlep (type-name (type-info member-data)) vk-spec)
+            (handlep (get-type-name member-data) vk-spec)
             (find-if (lambda (count-member)
                            (string= (car (len member-data)) count-member))
                          count-member-names))
        (format nil "(vk-alloc:foreign-allocate-and-fill '%vk:~(~a~) (cl:map 'list #'%~@[~a-~]dispatchable-handle (~(vk:~a~) ~a)) ~a)"
-               (fix-type-name (type-name (type-info member-data)) (tags vk-spec))
-               (when (non-dispatch-handle-p (get-handle (type-name (type-info member-data)) vk-spec))
+               (fix-type-name (get-type-name member-data) (tags vk-spec))
+               (when (non-dispatch-handle-p (get-handle (get-type-name member-data) vk-spec))
                  "non")
                fixed-accessor-name
                value-str
@@ -299,23 +299,23 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                            (string= (car (len member-data)) count-member))
                          count-member-names)))
        (format nil "(vk-alloc:foreign-allocate-and-fill '%vk:~(~a~) (~(vk:~a~) ~a) ~a)"
-               (fix-type-name (type-name (type-info member-data)) (tags vk-spec))
+               (fix-type-name (get-type-name member-data) (tags vk-spec))
                fixed-accessor-name
                value-str
                ptr-str))
 
       ;; single handles - take as is or null pointer
-      ((handlep (type-name (type-info member-data)) vk-spec)
+      ((handlep (get-type-name member-data) vk-spec)
        (format nil "(if (vk:~(~a~) ~a) (%~@[~a-~]dispatchable-handle (vk:~(~a~) ~a)) (cffi:null-pointer))"
                fixed-accessor-name
                value-str
-               (when (non-dispatch-handle-p (get-handle (type-name (type-info member-data)) vk-spec))
+               (when (non-dispatch-handle-p (get-handle (get-type-name member-data) vk-spec))
                  "non")
                fixed-accessor-name
                value-str))
 
       ;; base type pointers like VkPipelineMultisampleStateCreateInfo.pSampleMask
-      ((and (gethash (type-name (type-info member-data)) (base-types vk-spec))
+      ((and (gethash (get-type-name member-data) (base-types vk-spec))
             (not (value-p (type-info member-data))))
        (format nil "(or (vk:~(~a~) ~a) (cffi:null-pointer))"
                fixed-accessor-name
@@ -332,7 +332,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                               (format nil "(cl:max~{ ~a~}~@[ ~a~])"
                                       (mapcar (lambda (s)
                                                 (format nil "~((length (vk:~a ~a))~)"
-                                                        (fix-slot-name (name s) (type-name (type-info s)) vk-spec t)
+                                                        (fix-slot-name (name s) (get-type-name s) vk-spec t)
                                                         value-str))
                                               slots)
                                       ;; the value for VkWriteDescriptorSet.descriptorCount might come from the pNext chain 
@@ -358,7 +358,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                               setter)))))
                              ((= (length slots) 1)
                               (format nil "~((length (vk:~a ~a))~)"
-                                      (fix-slot-name (name (first slots)) (type-name (type-info (first slots))) vk-spec t)
+                                      (fix-slot-name (name (first slots)) (get-type-name (first slots)) vk-spec t)
                                       value-str))
                              (t (error "slot has no size-getter! struct: ~a slot:~a slots:~a" struct member-data slots)))))
          (cond
@@ -370,8 +370,8 @@ Instances of this class are used as parameters of the following functions:~{~%Se
       (t (format nil "(~(vk:~a~) ~a)" fixed-slot-name value-str)))))
 
 (defun get-slot-setter (member-data struct count-member-names cstruct-members macro-p vk-spec)
-  (let ((fixed-slot-name (fix-slot-name (name member-data) (type-name (type-info member-data)) vk-spec))
-        (fixed-accessor-name (fix-slot-name (name member-data) (type-name (type-info member-data)) vk-spec t))
+  (let ((fixed-slot-name (fix-slot-name (name member-data) (get-type-name member-data) vk-spec))
+        (fixed-accessor-name (fix-slot-name (name member-data) (get-type-name member-data) vk-spec t))
         (c-member (find-if (lambda (m)
                              (and (typep m 'compound-member)
                                   (member member-data (members m))))
@@ -381,20 +381,20 @@ Instances of this class are used as parameters of the following functions:~{~%Se
        (let* ((member-part (find member-data (members c-member)))
               (source (format nil "~((ldb (byte ~a ~a) %vk:~a)~)"
                               (bit-count member-part)
-                              (loop with type-size = (if (string= (type-name (type-info c-member)) "uint32_t") 32 64)
+                              (loop with type-size = (if (string= (get-type-name c-member) "uint32_t") 32 64)
                                     for m in (reverse (members c-member))
                                     for bit-count = (parse-integer (bit-count m))
                                     for bit-offset = (- type-size bit-count) then (- bit-offset bit-count)
                                     when (eq m member-part) return bit-offset)
                               (name c-member))))
-         (if (alexandria:starts-with-subseq "uint" (type-name (type-info member-data)))
+         (if (alexandria:starts-with-subseq "uint" (get-type-name member-data))
              source
              (format nil "~((cffi:foreign-bitfield-symbols '%vk:~a ~a)~)"
-                     (fix-type-name (type-name (type-info member-data)) (tags vk-spec))
+                     (fix-type-name (get-type-name member-data) (tags vk-spec))
                      source))))
       ;; union slots: determine at runtime which slot is bound and then translate this slot
-      ((and (gethash (type-name (type-info member-data)) (structures vk-spec))
-            (is-union-p  (gethash (type-name (type-info member-data)) (structures vk-spec))))
+      ((and (gethash (get-type-name member-data) (structures vk-spec))
+            (is-union-p  (gethash (get-type-name member-data) (structures vk-spec))))
        ;; todo: handle union slots
        nil)
       
@@ -409,13 +409,13 @@ Instances of this class are used as parameters of the following functions:~{~%Se
        (format nil "~((when (not (cffi:null-pointer-p %vk:p-next)) (let ((base-out (cffi:mem-aref %vk:p-next '(:struct %vk:base-out-structure)))) (cffi:mem-aref %vk:p-next (list :struct (find-symbol (string (vk:s-type base-out)) :%vk)))))~)"))
       
       ;; void pointer - keep as is, must be handled by user
-      ((string= "void" (type-name (type-info member-data)))
+      ((string= "void" (get-type-name member-data))
        (format nil "~(%vk:~a~)"
                (fix-type-name (name member-data) (tags vk-spec))))
       
       ;; members of some VK-defined type (lists or single instances)
-      ((and (or (gethash (type-name (type-info member-data)) (structures vk-spec))
-                (member (type-name (type-info member-data)) *opaque-struct-types* :test #'string=))
+      ((and (or (gethash (get-type-name member-data) (structures vk-spec))
+                (member (get-type-name member-data) *opaque-struct-types* :test #'string=))
             (find-if (lambda (count-member)
                        (string= (car (len member-data)) count-member))
                      count-member-names))
@@ -425,7 +425,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                             (members struct))))
                  (fix-type-name (name count-member) (tags vk-spec)))
                (fix-type-name (name member-data) (tags vk-spec))
-               (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))
+               (fix-type-name (get-type-name member-data) (tags vk-spec))))
 
       ;; lists of strings and primitive values
       ((and (len member-data)
@@ -433,7 +433,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                 (find-if (lambda (count-member)
                            (string= (car (len member-data)) count-member))
                          count-member-names))
-            (gethash (type-name (type-info member-data)) *vk-platform*))
+            (gethash (get-type-name member-data) *vk-platform*))
        (format nil "~((loop for i from 0 below %vk:~a collect (cffi:mem-aref %vk:~a ~s i))~)"
                (let ((count-member (find-if (lambda (m)
                                               (or (string= (car (len member-data)) (name m))
@@ -442,24 +442,24 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                             (members struct))))
                  (fix-type-name (name count-member) (tags vk-spec)))
                (fix-type-name (name member-data) (tags vk-spec))
-               (if (string= (type-name (type-info member-data)) "char")
+               (if (string= (get-type-name member-data) "char")
                    :string
-                   (gethash (type-name (type-info member-data)) *vk-platform*))))
+                   (gethash (get-type-name member-data) *vk-platform*))))
 
       ;; lists of handles
       ((and (len member-data)
             (find-if (lambda (count-member)
                        (string= (car (len member-data)) count-member))
                      count-member-names)
-            (handlep (type-name (type-info member-data)) vk-spec))
+            (handlep (get-type-name member-data) vk-spec))
        (format nil "~((loop for i from 0 below %vk:~a collect (vk:make-~a-wrapper (cffi:mem-aref %vk:~a '%vk:~a i)))~)"
                (let ((count-member (find-if (lambda (m)
                                               (string= (car (len member-data)) (name m)))
                                             (members struct))))
                  (fix-type-name (name count-member) (tags vk-spec)))
-               (fix-type-name (type-name (type-info member-data)) (tags vk-spec))
+               (fix-type-name (get-type-name member-data) (tags vk-spec))
                (fix-type-name (name member-data) (tags vk-spec))
-               (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))
+               (fix-type-name (get-type-name member-data) (tags vk-spec))))
 
       ;; lists of other translatable vk types
       ((and (len member-data)
@@ -472,16 +472,16 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                             (members struct))))
                  (fix-type-name (name count-member) (tags vk-spec)))
                (fix-type-name (name member-data) (tags vk-spec))
-               (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))
+               (fix-type-name (get-type-name member-data) (tags vk-spec))))
 
       ;; single handles
-      ((handlep (type-name (type-info member-data)) vk-spec)
+      ((handlep (get-type-name member-data) vk-spec)
        (format nil "~((vk:make-~a-wrapper %vk:~a)~)"
-               (fix-type-name (type-name (type-info member-data)) (tags vk-spec))
+               (fix-type-name (get-type-name member-data) (tags vk-spec))
                (fix-type-name (name member-data) (tags vk-spec))))
 
       ;; strings that are defined as: ":char :count <len>" instead of ":string"
-      ((and (string= "char" (type-name (type-info member-data)))
+      ((and (string= "char" (get-type-name member-data))
             (and (not (string= (postfix (type-info member-data)) "*"))
                  (not (string= (postfix (type-info member-data)) "**"))
                  (not (string= (postfix (type-info member-data)) "* const*"))))
@@ -493,8 +493,8 @@ Instances of this class are used as parameters of the following functions:~{~%Se
               (slot-setter (format nil "(loop for i from 0 below ~a collect (cffi:mem-aref ~(~a ~a~) i))"
                                    array-size
                                    ;; todo: file a bug report over at CFFI: :count is not respected if the type of a struct member is also a struct 
-                                   (if (or (gethash (type-name (type-info member-data)) (structures vk-spec))
-                                           (member (type-name (type-info member-data)) *opaque-struct-types* :test #'string=))
+                                   (if (or (gethash (get-type-name member-data) (structures vk-spec))
+                                           (member (get-type-name member-data) *opaque-struct-types* :test #'string=))
                                        (format nil "~((cffi:foreign-slot-pointer ~:[~;,~]ptr '(:struct %vk:~a) '%vk:~a)~)"
                                                macro-p
                                                (fix-type-name (name struct) (tags vk-spec))
@@ -502,16 +502,16 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                        (format nil "~(%vk:~a~)"
                                                (fix-type-name (name member-data) (tags vk-spec))))
                                    (cond
-                                     ((gethash (type-name (type-info member-data)) *vk-platform*)
+                                     ((gethash (get-type-name member-data) *vk-platform*)
                                       (format nil "~(~s~)"
-                                              (gethash (type-name (type-info member-data)) *vk-platform*)))
-                                     ((not (gethash (type-name (type-info member-data)) (structures vk-spec)))
+                                              (gethash (get-type-name member-data) *vk-platform*)))
+                                     ((not (gethash (get-type-name member-data) (structures vk-spec)))
                                       (format nil "~('%vk:~a~)"
-                                              (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))
+                                              (fix-type-name (get-type-name member-data) (tags vk-spec))))
                                      (t (format nil "~('(:struct %vk:~a)~)"
-                                                (fix-type-name (type-name (type-info member-data)) (tags vk-spec))))))))
-         (if (and (not (string= "char" (type-name (type-info member-data))))
-                  (gethash (type-name (type-info member-data)) *vk-platform*))
+                                                (fix-type-name (get-type-name member-data) (tags vk-spec))))))))
+         (if (and (not (string= "char" (get-type-name member-data)))
+                  (gethash (get-type-name member-data) *vk-platform*))
              (format nil "(cl:coerce ~a 'vector)" slot-setter)
              slot-setter)))
 
@@ -528,16 +528,16 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                         "translate-into-foreign-memory"))
         (c-members (get-cstruct-members struct vk-spec)))
     (labels ((is-char-p (m)
-               (and (string= "char" (type-name (type-info m)))
+               (and (string= "char" (get-type-name m))
                     (and (not (string= (postfix (type-info m)) "*"))
                          (not (string= (postfix (type-info m)) "**"))
                          (not (string= (postfix (type-info m)) "* const*")))))
              (is-fixed-size-non-char-array-p (m)
                (and (array-sizes m)
-                    (not (string= "char" (type-name (type-info m))))))
+                    (not (string= "char" (get-type-name m)))))
              (is-primitive-array-p (m)
                (and (is-fixed-size-non-char-array-p m)
-                    (gethash (type-name (type-info m)) *vk-platform*)))
+                    (gethash (get-type-name m) *vk-platform*)))
              (use-slot-pointer-directly-p (m)
                (or (is-char-p m)
                    (is-fixed-size-non-char-array-p m)))
@@ -550,11 +550,11 @@ Instances of this class are used as parameters of the following functions:~{~%Se
              (no-autovalidity-non-count-member-p (m)
                (and (no-autovalidity-p m)
                     ;; bitmask members have to be translated if they are nil
-                    (not (eq :bitmask (category (gethash (type-name (type-info m)) (types vk-spec)))))
+                    (not (eq :bitmask (category (gethash (get-type-name m) (types vk-spec)))))
                     (not (member (name m) count-member-names))))
              ;; note: check usages if this changes
              (ignore-if-nil-p (m)
-               (let ((type-name (type-name (type-info m))))
+               (let ((type-name (get-type-name m)))
                  (or (returned-only-structure-p type-name)
                      ;; todo: this doesn't really work. e.g. a pointer member has to be set to a null pointer, otherwise things go boom
                      ;; maybe in the future #58
@@ -578,7 +578,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
               expand-p
               fixed-type-name)
       (loop for m in c-members
-            for type-name = (type-name (type-info m))
+            for type-name = (get-type-name m)
             unless (use-slot-pointer-directly-p m)
             do (let ((setter-str (format nil "(setf ~(%vk:~a~) ~a)"
                                          (fix-type-name (name m) (tags vk-spec))
@@ -593,16 +593,16 @@ Instances of this class are used as parameters of the following functions:~{~%Se
       (loop for m in c-members
             when (is-char-p m)
             do (format out "~%    ~((cffi:lisp-string-to-foreign (vk:~a ~a) %vk:~a (cl:1+ (cl:length (vk:~a ~a))))~)"
-                       (fix-slot-name (name m) (type-name (type-info m)) vk-spec t)
+                       (fix-slot-name (name m) (get-type-name m) vk-spec t)
                        (if expand-p ",value" "value")
                        (fix-type-name (name m) (tags vk-spec))
-                       (fix-slot-name (name m) (type-name (type-info m)) vk-spec t)
+                       (fix-slot-name (name m) (get-type-name m) vk-spec t)
                        (if expand-p ",value" "value")))
       (loop for m in c-members
             for value-str = (if expand-p ",value" "value")
-            for fixed-slot-name = (fix-slot-name (name m) (type-name (type-info m)) vk-spec t)
+            for fixed-slot-name = (fix-slot-name (name m) (get-type-name m) vk-spec t)
             for fixed-member-name = (fix-type-name (name m) (tags vk-spec))
-            for member-type-name = (type-name (type-info m))
+            for member-type-name = (get-type-name m)
             for fixed-member-type-name = (fix-type-name member-type-name (tags vk-spec))
             for prepared-array-sizes = (prepare-array-sizes (array-sizes m) vk-spec)
             when (is-fixed-size-non-char-array-p m)
@@ -651,7 +651,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
         (count-member-names (get-count-member-names struct))
         (only-fixed-primitive-array-members-p (every (lambda (m)
                                                        (and (array-sizes m)
-                                                            (gethash (type-name (type-info m)) *vk-platform*)))
+                                                            (gethash (get-type-name m) *vk-platform*)))
                                                      (members struct)))
         (macro-name (if expand-p
                         "expand-into-foreign-memory"
@@ -672,7 +672,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                            (fix-type-name (name m) (tags vk-spec))
                            value-str
                            ptr-str
-                           (gethash (type-name (type-info m)) *vk-platform*)
+                           (gethash (get-type-name m) *vk-platform*)
                            ;; todo: I think this should be prepare-array-sizes ... check this
                            (first (array-sizes m))))
           (format out ")"))
@@ -694,34 +694,34 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                 with ptr-str = (format nil "~:[~;,~]ptr" expand-p)
                 for m in (members struct)
                 for primitive-p = (and (not (array-sizes m))
-                                       (or (gethash (type-name (type-info m)) *vk-platform*)
-                                           (member (type-name (type-info m)) '("VkBool32" "VkResult") :test #'string=)
-                                           (gethash (type-name (type-info m)) (enums vk-spec))
-                                           (gethash (type-name (type-info m)) (bitmasks vk-spec))
-                                           (gethash (type-name (type-info m)) (base-types vk-spec))))
+                                       (or (gethash (get-type-name m) *vk-platform*)
+                                           (member (get-type-name m) '("VkBool32" "VkResult") :test #'string=)
+                                           (gethash (get-type-name m) (enums vk-spec))
+                                           (gethash (get-type-name m) (bitmasks vk-spec))
+                                           (gethash (get-type-name m) (base-types vk-spec))))
                 for member-type-specifier = (cond
-                                              ((string= "char" (type-name (type-info m)))
+                                              ((string= "char" (get-type-name m))
                                                "string")
-                                              ((gethash (type-name (type-info m)) *vk-platform*)
-                                               (format nil "~(~s~)" (gethash (type-name (type-info m)) *vk-platform*)))
-                                              ((gethash (type-name (type-info m)) (structures vk-spec))
+                                              ((gethash (get-type-name m) *vk-platform*)
+                                               (format nil "~(~s~)" (gethash (get-type-name m) *vk-platform*)))
+                                              ((gethash (get-type-name m) (structures vk-spec))
                                                (format nil "'(~:[:struct~;:union~] %vk:~(~a~))"
-                                                       (is-union-p (gethash (type-name (type-info m)) (structures vk-spec)))
-                                                       (fix-type-name (type-name (type-info m)) (tags vk-spec))))
+                                                       (is-union-p (gethash (get-type-name m) (structures vk-spec)))
+                                                       (fix-type-name (get-type-name m) (tags vk-spec))))
                                               ((not primitive-p)
                                                (error "Non-primitive member type <~a> not handled for union <~a>"
-                                                      (type-name (type-info m))
+                                                      (get-type-name m)
                                                       struct)))
                 for i from 1 do
                 (format out "~%      ((slot-boundp ~a 'vk:~(~a~))" value-str (fix-type-name (name m) (tags vk-spec)))
                 (cond
                   ((and (array-sizes m)
-                        (gethash (type-name (type-info m)) *vk-platform*))
+                        (gethash (get-type-name m) *vk-platform*))
                    (format out "~%       (cffi:lisp-array-to-foreign (vk:~(~a~) ~a) ~a '(:array ~(~s~) ~a)))"
                            (fix-type-name (name m) (tags vk-spec))
                            value-str
                            ptr-str
-                           (gethash (type-name (type-info m)) *vk-platform*)
+                           (gethash (get-type-name m) *vk-platform*)
                            (first (array-sizes m))))
                   (primitive-p
                    (format out "~%       (setf %vk:~(~a~)" (fix-type-name (name m) (tags vk-spec)))
@@ -760,7 +760,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
           unless (or (find (name m) count-member-names :test #'string=) ;; redundant count values
                      (= (length (allowed-values m)) 1)) ;; redundant constant values
           do (format out "~%                   ~(:~a ~a~)"
-                     (fix-slot-name (name m) (type-name (type-info m)) vk-spec)
+                     (fix-slot-name (name m) (get-type-name m) vk-spec)
                      (get-slot-setter m struct count-member-names cstruct-members expand-p vk-spec)))
     (format out ")))~%~%")))
 
@@ -814,7 +814,7 @@ Related functions:~{~%See ~a~}\")~%~%"
                                 (sort
                                  (loop for c in (alexandria:hash-table-values (commands vk-spec))
                                        when (member-if (lambda (p)
-                                                         (string= (type-name (type-info p)) (name handle)))
+                                                         (string= (get-type-name p) (name handle)))
                                                        (params c))
                                        collect (fix-function-name (name c) (tags vk-spec)))
                                  #'string<)))))

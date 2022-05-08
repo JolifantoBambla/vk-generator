@@ -135,6 +135,7 @@
    :handlep
    :get-handle
    :get-structure-type
+   :get-type-name
    
    ;; vulkan-spec
    :vulkan-spec
