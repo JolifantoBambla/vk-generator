@@ -64,6 +64,10 @@
            (string= (postfix type-info) "* const *"))
        (list :pointer (list :pointer pointer-type))))))
 
+(defun fixed-size-array-sizes-p (array-sizes)
+  (or (> (length array-sizes) 1)
+      (not (alexandria:starts-with-subseq "VK_" (first array-sizes)))))
+
 (defun prepare-array-sizes (array-sizes vk-spec)
   (cond
     ((= (length array-sizes) 1)
