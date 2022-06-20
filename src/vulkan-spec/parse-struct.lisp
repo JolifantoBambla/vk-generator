@@ -99,17 +99,23 @@
                 () "member attribute references unknown enum type <~a>" (get-type-name member-selector))))
     member-data))
 
+(defun add-struct-alias (struct alias)
+  "Adds a new alias to a struct instance"
+  (assert (not (find alias (aliases struct)))
+          () "struct <~a> already uses alias <~a>" (name struct) alias)
+  (push alias (aliases struct)))
+
 (defun parse-struct (node vk-spec)
   "TODO"
   (let ((alias (xps (xpath:evaluate "@alias" node)))
         (name (xps (xpath:evaluate "@name" node))))
     (if alias
-        (let ((struct (gethash alias (structures vk-spec))))
-          (assert struct
-                  () "missing alias <~a>" alias)
-          (assert (not (find name (aliases struct)))
-                  () "struct <~a> already uses alias <~a>" alias name)
-          (push name (aliases struct))
+        (progn
+          ;; note: since v1.3.212 struct aliases may appear before the actual struct
+          (let ((struct (gethash alias (structures vk-spec))))
+            (if (not struct)
+                (warn "struct alias <~a> not yet encountered" alias)
+                (add-struct-alias struct name)))
           (assert (not (gethash name (structure-aliases vk-spec)))
                   () "structure alias <~a> already used" name)
           (setf (gethash name (structure-aliases vk-spec))
@@ -149,6 +155,10 @@
           (setf (sub-struct (gethash name (structures vk-spec)))
                 (determine-sub-struct (gethash name (structures vk-spec))
                                       vk-spec))
+          ;; add aliases that were already encountered earlier in the spec
+          (loop for maybe-same-name being each hash-values of (structure-aliases vk-spec) using (hash-key alias)
+                when (string= maybe-same-name name)
+                do (add-struct-alias (gethash name (structures vk-spec)) alias))
           (setf (extended-structs vk-spec)
                 (remove-duplicates
                  (append struct-extends (extended-structs vk-spec))
