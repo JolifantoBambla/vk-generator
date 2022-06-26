@@ -413,7 +413,6 @@ See ~a~]
     (assert (member command-type
                     '(:no-output-param
                       :fill-void-pointer
-                      :fill-void-pointer-void
                       :get-or-create-handle
                       :create-handles
                       :allocate-handles
@@ -453,8 +452,7 @@ See ~a~]
                           :get-struct-chains))
                    (string= "void" (return-type command)))
               (member command-type
-                      '(:fill-void-pointer-void
-                        :get-struct
+                      '(:get-struct
                         :get-struct-chain)))
       (pushnew ":no-vk-result-p t"
                kw-args))

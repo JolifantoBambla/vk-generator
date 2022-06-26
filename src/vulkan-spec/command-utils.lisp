@@ -866,7 +866,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
         ;; We don't no anything about the actual type - treat this as a special case of fill-void-pointer
         ;; e.g. vkGetDescriptorSetHostMappingVALVE
         ((string= "void" return-param-type-name)
-         '(:fill-void-pointer-void (:void :no-output :may-have-vector-params)))
+         '(:fill-void-pointer (:void :no-output :may-have-vector-params)))
         (t
          (check-cmd nil "Expected return param to be either a handle type or a structure chain anchor or to be of type void"))))))
 
@@ -957,8 +957,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
     (:enumerate-values "A function returning multiple values and a VkResult which might be VK_INCOMPLETE")
     (:enumerate-two-struct-chains "A function returning two lists of structs which each might be extended by a pNext member an a VkResult which might be VK_INCOMPLETE")
     (:get-value-array-and-non-array-value "A function returning a list of values and a value which is no meta parameter of the list parameter.")
-    (:fill-void-pointer "A function taking a void pointer - must be handled by user (equivalent for wrapper: :NO-OUTPUT-PARAM")
-    (:fill-void-pointer-void "A function taking a void pointer and not returning anything - must be handled by the user."))
+    (:fill-void-pointer "A function taking a void pointer - must be handled by user (equivalent for wrapper: :NO-OUTPUT-PARAM"))
   "A list of command types.")
 
 ;; todo: map new cases to old ones

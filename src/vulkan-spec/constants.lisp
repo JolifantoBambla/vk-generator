@@ -83,6 +83,7 @@
     "SECURITY_ATTRIBUTES"
     "_screen_context"  ;; added in v1.2.171
     "_screen_window" ;; added in v1.2.171
+    ;; todo: video stuff is now in an extra xml see: https://github.com/JolifantoBambla/vk-generator/issues/57
     ;; all StdVideo-structs have been added in v1.2.175
     "StdVideoDecodeH264PictureInfo"
     "StdVideoDecodeH264ReferenceInfo"
@@ -133,7 +134,10 @@
     "StdVideoH265SpsFlags"
     "StdVideoH265VpsFlags"
     "StdVideoH265HrdParameters"
-    "StdVideoH265DecPicBufMgr"))
+    "StdVideoH265DecPicBufMgr"
+    ;; new std video structs in v1.3
+    "StdVideoEncodeH264ReferenceInfo"
+    ))
 
 (defparameter *fix-must-be*
   (alexandria:alist-hash-table
