@@ -674,8 +674,6 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
       (check-cmd (or (string= "size_t" first-return-param)
                      (string= "uint32_t" first-return-param))
                  "Expected first return param to be either size_t or uint32_t")
-      (check-cmd (not (structure-chain-anchor-p second-return-param vk-spec))
-                 "Expected second return param not to be a structure chain anchor")
       (check-cmd (= 1 (hash-table-count vector-param-indices))
                  "Expected exactly one vector param")
       (let ((vector-param-index (first (alexandria:hash-table-keys vector-param-indices))))
