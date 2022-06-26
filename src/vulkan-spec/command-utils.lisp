@@ -945,7 +945,7 @@ To disable this behaviour pass NIL as the IGNORE-VOID parameter.
     (:get-struct "A function returning a single struct without an sType or a pNext member.")
     (:get-struct-chain "A function returning a single struct which might be extended by a pNext member.")
     (:get-structs "A function returning multiple structs and no VkResult")
-    (:get.struct-chains "A function returning multiple structs which might be extended by a pNext member and no VkResult.")
+    (:get-struct-chains "A function returning multiple structs which might be extended by a pNext member and no VkResult.")
     (:get-value "A function returning a single primitive type or a flag")
     (:enumerate-structs "A function returning multiple structs and a VkResult which might be VK_INCOMPLETE")
     (:enumerate-struct-chains "A function returning multiple structs which might be extended by a pNext member and a VkResult which might be VK_INCOMPLETE")
