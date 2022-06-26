@@ -112,7 +112,7 @@
                                referenced-types
                                (list (fix-type-name (return-type command) (tags vk-spec)))))
                  #'string<))))
-      (format nil "Represents [~a](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/~a.html).
+      (format nil "Represents [~a](~a~a.html).
 
 Args:~{~a~}~{~a~}~@[
 
@@ -127,6 +127,7 @@ See ~a~]~@[
 See ~a~]
 "
               (name command)
+              (get-base-doc-url-for-version (version vk-spec))
               (name command)
               formatted-required-args
               formatted-optional-args

@@ -257,6 +257,14 @@ See https://github.com/KhronosGroup/Vulkan-Docs/releases
 (defun version>= (a b)
   (not (version< a b)))
 
+(defun is-v1.2 (version)
+  (and (version< version "v1.3.204")
+       (version>= version "v1.2.131")))
+
+(defun get-base-doc-url-for-version (version)
+  (format nil "https://www.khronos.org/registry/vulkan/specs/1.~:[3~;2~]-extensions/man/html/"
+          (is-v1.2 version)))
+
 (defun get-xml-path (version)
   (declare (type string version))
   "Returns the path to the vk.xml file in the Vulkan-Docs Github repository for a given version tag.

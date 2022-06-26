@@ -129,7 +129,7 @@ Changes the \"PP-\"-prefix to \"P-\" for pointers to pointer arrays (e.g. ppGeom
                                          (params c))
                                    collect (fix-function-name (name c) (tags vk-spec)))
                              #'string<)))
-    (format nil "Represents the ~:[struct~;union~] [~a](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/~a.html).
+    (format nil "Represents the ~:[struct~;union~] [~a](~a~a.html).
 
 Slots:~{~a~}~@[
 
@@ -143,6 +143,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
 "
             (is-union-p struct)
             (name struct)
+            (get-base-doc-url-for-version (version vk-spec))
             (name struct)
             slots
             referenced-types
@@ -773,12 +774,13 @@ Instances of this class are used as parameters of the following functions:~{~%Se
         for fixed-value-names = (loop for v in (enum-values e)
                                       collect (fix-bit-name (name v) (tags vk-spec) :prefix prefix))
         do (format out "~%(deftype ~(~a~) ()
-  \"Represents the enum [~a](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/~a.html).~@[
+  \"Represents the enum [~a](~a~a.html).~@[
 
 Has the values:~{~% - :~a~}~]\"
   '(member nil ~{~%    :~(~a~)~}))~%"
                    fixed-name
                    (name e)
+                   (get-base-doc-url-for-version (version vk-spec))
                    (name e)
                    fixed-value-names
                    fixed-value-names))
@@ -793,7 +795,7 @@ Has the values:~{~% - :~a~}~]\"
              (:include ~a)
              (:constructor make-~a-wrapper (handle))
              (:copier %copy-~a))~)
-  \"Represents the ~@[~a ~]handle type [~a](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/~a.html).~@[
+  \"Represents the ~@[~a ~]handle type [~a](~a~a.html).~@[
 
 Parents:~{~%See ~a~}~]~@[
 
@@ -808,6 +810,7 @@ Related functions:~{~%See ~a~}\")~%~%"
                                 fixed-type-name
                                 (when (non-dispatch-handle-p handle) "(non-dispatchable)")
                                 handle-name
+                                (get-base-doc-url-for-version (version vk-spec))
                                 handle-name
                                 (loop for p in (sort (parents handle) #'string<)
                                       collect (fix-type-name p (tags vk-spec)))
@@ -884,12 +887,14 @@ Related functions:~{~%See ~a~}\")~%~%"
 
            (when (gethash "VkDeviceSize" (base-types vk-spec))
              (format out "(deftype device-size ()
-  \"Represents the type [VkDeviceSize](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkDeviceSize.html) as a (UNSIGNED-BYTE 64).\"
-  '(unsigned-byte 64))~%~%"))
+  \"Represents the type [VkDeviceSize](~aVkDeviceSize.html) as a (UNSIGNED-BYTE 64).\"
+  '(unsigned-byte 64))~%~%"
+                     (get-base-doc-url-for-version (version vk-spec))))
            (when (gethash "VkDeviceAddress" (base-types vk-spec))
              (format out "(deftype device-address ()
-  \"Represents the type [VkDeviceAddress](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkDeviceAddress.html) as a (UNSIGNED-BYTE 64).\"
-  '(unsigned-byte 64))~%"))
+  \"Represents the type [VkDeviceAddress](~aVkDeviceAddress.html) as a (UNSIGNED-BYTE 64).\"
+  '(unsigned-byte 64))~%"
+                     (get-base-doc-url-for-version (version vk-spec))))
            (write-vk-enums out vk-spec)
            (write-vk-handles out vk-spec)
            (write-classes out vk-spec)))

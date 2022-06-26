@@ -88,8 +88,9 @@
                    (ppcre:regex-replace-all
                     "^VK-" (substitute #\- #\_ name) "")
                    (gethash name (extension-names vk-spec))
-                   (format nil "The name of the extension [~a](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/~a.html)."
+                   (format nil "The name of the extension [~a](~a~a.html)."
                            (string (gethash name (extension-names vk-spec)))
+                           (get-base-doc-url-for-version (version vk-spec))
                            (gethash name (extension-names vk-spec)))))
   (format out "~%"))
 
