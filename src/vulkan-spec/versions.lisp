@@ -1,6 +1,6 @@
 ;;;; Contains all supported versions and some related functions
 
-(in-package :vk-generator)
+(in-package :vulkan-spec)
 
 ;; NOTE: this is ordered - do not change
 (defparameter *versions*

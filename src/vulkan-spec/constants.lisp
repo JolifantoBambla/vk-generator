@@ -77,67 +77,82 @@
     "CAMetalLayer"
     "Display"))
 
+;; todo: use vk-video for >= 1.3.204, remove this param & use get-opaque-struct-types instead
 (defparameter *opaque-struct-types*
-  '("wl_display"
-    "wl_surface"
-    "SECURITY_ATTRIBUTES"
-    "_screen_context"  ;; added in v1.2.171
-    "_screen_window" ;; added in v1.2.171
-    ;; todo: video stuff is now in an extra xml see: https://github.com/JolifantoBambla/vk-generator/issues/57
-    ;; all StdVideo-structs have been added in v1.2.175
-    "StdVideoDecodeH264PictureInfo"
-    "StdVideoDecodeH264ReferenceInfo"
-    "StdVideoDecodeH264Mvc"
-    "StdVideoH264SequenceParameterSet"
-    "StdVideoH264PictureParameterSet"
-    "StdVideoEncodeH264SliceHeader"
-    "StdVideoEncodeH264PictureInfo"
-    "StdVideoEncodeH264RefPicMarkingEntry"
-    "StdVideoEncodeH264RefListModEntry"
-    "StdVideoEncodeH264RefMgmtFlags"
-    "StdVideoEncodeH264PictureInfoFlags"
-    "StdVideoEncodeH264RefMemMgmtCtrlOperations"
-    "StdVideoEncodeH264SliceHeaderFlags"
-    "StdVideoEncodeH265ReferenceModificationFlags"
-    "StdVideoEncodeH265ReferenceInfoFlags"
-    "StdVideoEncodeH265SliceHeaderFlags"
-    "StdVideoEncodeH265ReferenceModifications"
-    "StdVideoEncodeH265ReferenceInfo"
-    "StdVideoEncodeH265SliceHeader"
-    "StdVideoEncodeH265SliceSegmentHeader"
-    "StdVideoEncodeH265PictureInfo"
-    "StdVideoEncodeH265PictureInfoFlags"
-    "StdVideoDecodeH264MvcElementFlags"
-    "StdVideoDecodeH264MvcElement"
-    "StdVideoDecodeH264ReferenceInfoFlags"
-    "StdVideoDecodeH264PictureInfoFlags"
-    "StdVideoDecodeH265PictureInfo"
-    "StdVideoDecodeH265ReferenceInfo"
-    "StdVideoDecodeH265ReferenceInfoFlags"
-    "StdVideoDecodeH265PictureInfoFlags"
-    "StdVideoH264PpsFlags"
-    "StdVideoH264SpsVuiFlags"
-    "StdVideoH264HrdParameters"
-    "StdVideoH264SequenceParameterSetVui"
-    "StdVideoH264ScalingLists"
-    "StdVideoH264SpsFlags"
-    "StdVideoH265VideoParameterSet"
-    "StdVideoH265SequenceParameterSet"
-    "StdVideoH265PictureParameterSet"
-    "StdVideoH265SpsVuiFlags"
-    "StdVideoH265HrdFlags"
-    "StdVideoH265SubLayerHrdParameters"
-    "StdVideoH265PpsFlags"
-    "StdVideoH265PredictorPaletteEntries"
-    "StdVideoH265SequenceParameterSetVui"
-    "StdVideoH265ScalingLists"
-    "StdVideoH265SpsFlags"
-    "StdVideoH265VpsFlags"
-    "StdVideoH265HrdParameters"
-    "StdVideoH265DecPicBufMgr"
+  '(
+     ;; added in v1.2.171
+    
     ;; new std video structs in v1.3
     "StdVideoEncodeH264ReferenceInfo"
     ))
+
+(defun get-opaque-struct-types (vk-spec)
+  "Returns all opaque struct types used in the Vulkan API specification represented by the given VULKAN-SPEC."
+  (declare (type vulkan-spec vk-spec))
+  (with-slots (version) vk-spec
+    (let (opaque-struct-types '("wl_display"
+                                "wl_surface"
+                                "SECURITY_ATTRIBUTES"))
+      (when (version>= version "v1.2.171")
+        (setf opaque-struct-types
+              (append opaque-struct-types
+                      '("_screen_context"
+                        "_screen_window"))))
+      (when (and (version< version "v1.3.204")
+                 (version>= version "v1.2.175"))
+        (setf opaque-struct-types
+              (append opaque-struct-types
+                      '("StdVideoDecodeH264PictureInfo"
+                        "StdVideoDecodeH264ReferenceInfo"
+                        "StdVideoDecodeH264Mvc"
+                        "StdVideoH264SequenceParameterSet"
+                        "StdVideoH264PictureParameterSet"
+                        "StdVideoEncodeH264SliceHeader"
+                        "StdVideoEncodeH264PictureInfo"
+                        "StdVideoEncodeH264RefPicMarkingEntry"
+                        "StdVideoEncodeH264RefListModEntry"
+                        "StdVideoEncodeH264RefMgmtFlags"
+                        "StdVideoEncodeH264PictureInfoFlags"
+                        "StdVideoEncodeH264RefMemMgmtCtrlOperations"
+                        "StdVideoEncodeH264SliceHeaderFlags"
+                        "StdVideoEncodeH265ReferenceModificationFlags"
+                        "StdVideoEncodeH265ReferenceInfoFlags"
+                        "StdVideoEncodeH265SliceHeaderFlags"
+                        "StdVideoEncodeH265ReferenceModifications"
+                        "StdVideoEncodeH265ReferenceInfo"
+                        "StdVideoEncodeH265SliceHeader"
+                        "StdVideoEncodeH265SliceSegmentHeader"
+                        "StdVideoEncodeH265PictureInfo"
+                        "StdVideoEncodeH265PictureInfoFlags"
+                        "StdVideoDecodeH264MvcElementFlags"
+                        "StdVideoDecodeH264MvcElement"
+                        "StdVideoDecodeH264ReferenceInfoFlags"
+                        "StdVideoDecodeH264PictureInfoFlags"
+                        "StdVideoDecodeH265PictureInfo"
+                        "StdVideoDecodeH265ReferenceInfo"
+                        "StdVideoDecodeH265ReferenceInfoFlags"
+                        "StdVideoDecodeH265PictureInfoFlags"
+                        "StdVideoH264PpsFlags"
+                        "StdVideoH264SpsVuiFlags"
+                        "StdVideoH264HrdParameters"
+                        "StdVideoH264SequenceParameterSetVui"
+                        "StdVideoH264ScalingLists"
+                        "StdVideoH264SpsFlags"
+                        "StdVideoH265VideoParameterSet"
+                        "StdVideoH265SequenceParameterSet"
+                        "StdVideoH265PictureParameterSet"
+                        "StdVideoH265SpsVuiFlags"
+                        "StdVideoH265HrdFlags"
+                        "StdVideoH265SubLayerHrdParameters"
+                        "StdVideoH265PpsFlags"
+                        "StdVideoH265PredictorPaletteEntries"
+                        "StdVideoH265SequenceParameterSetVui"
+                        "StdVideoH265ScalingLists"
+                        "StdVideoH265SpsFlags"
+                        "StdVideoH265VpsFlags"
+                        "StdVideoH265HrdParameters"
+                        "StdVideoH265DecPicBufMgr"))))
+      opaque-struct-types)))
 
 (defparameter *fix-must-be*
   (alexandria:alist-hash-table

@@ -24,12 +24,11 @@
     :serial t
     :components
     ((:file "package")
-     (:file "versions")
-     (:file "ensure-vk-xml")
      (:module "vulkan-spec"
       :serial t
       :components
-      ((:file "constants")
+      ((:file "versions")
+       (:file "constants")
        (:file "vulkan-spec")
        (:file "parse-utils-3b")
        (:file "parse-utils")
@@ -41,6 +40,7 @@
        (:file "parse-extensions-and-features")
        (:file "parse")
        (:file "command-utils")))
+     (:file "ensure-vk-xml")     
      (:file "structure-utils")
      (:file "write-utils-3b")
      (:file "write-utils")

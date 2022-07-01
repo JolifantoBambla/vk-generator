@@ -161,6 +161,16 @@
    :version
    :vulkan-license-header
 
+   ;; version related
+   :*versions*
+   :get-version-index
+   :version-compare
+   :version<
+   :version>=
+   :is-v1.2
+   :get-base-doc-url-for-version
+   :get-xml-path
+
    ;; parse spec
    :parse-vk-xml))
 
