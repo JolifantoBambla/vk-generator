@@ -37,7 +37,9 @@
                             (cond
                               ((member (category vk-type) '(:struct :union))
                                (list (category vk-type) fixed-type))
-                              ((member type-name *opaque-struct-types* :test #'string=)
+                              ((member type-name
+                                       (get-opaque-struct-types vk-spec)
+                                       :test #'string=)
                                (list :struct fixed-type))
                               (t fixed-type))))
          (pointer-type  (if primitive-type
@@ -113,7 +115,7 @@
         using (hash-value type)
         do (format out "~((defctype ~a ~s)~)~%~%"
                    (fix-type-name name (tags vk-spec)) type))
-  (loop for name in *opaque-struct-types*
+  (loop for name in (get-opaque-struct-types vk-spec)
         do (format out "~((defcstruct ~a)~)~%~%"
                    (fix-type-name name (tags vk-spec)))))
 

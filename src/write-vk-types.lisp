@@ -254,8 +254,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                                       (tags vk-spec)))))
 
       ;; members of some VK-defined type (lists or single instances)
-      ((or (gethash (get-type-name member-data) (structures vk-spec))
-           (member (get-type-name member-data) *opaque-struct-types* :test #'string=))
+      ((structure-type-p (get-type-name member-data) vk-spec)
        (format nil "(vk-alloc:foreign-allocate-and-fill '(~:[:struct~;:union~] %vk:~(~a~)) (~(vk:~a~) ~a) ~a)"
                (and (gethash (get-type-name member-data) (structures vk-spec))
                     (is-union-p (gethash (get-type-name member-data) (structures vk-spec))))
@@ -417,8 +416,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                (fix-type-name (name member-data) (tags vk-spec))))
       
       ;; members of some VK-defined type (lists or single instances)
-      ((and (or (gethash (get-type-name member-data) (structures vk-spec))
-                (member (get-type-name member-data) *opaque-struct-types* :test #'string=))
+      ((and (structure-type-p (get-type-name member-data) vk-spec)
             (find-if (lambda (count-member)
                        (string= (car (len member-data)) count-member))
                      count-member-names))
@@ -496,8 +494,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
               (slot-setter (format nil "(loop for i from 0 below ~a collect (cffi:mem-aref ~(~a ~a~) i))"
                                    array-size
                                    ;; todo: file a bug report over at CFFI: :count is not respected if the type of a struct member is also a struct 
-                                   (if (or (gethash (get-type-name member-data) (structures vk-spec))
-                                           (member (get-type-name member-data) *opaque-struct-types* :test #'string=))
+                                   (if (structure-type-p (get-type-name member-data) vk-spec)
                                        (format nil "~((cffi:foreign-slot-pointer ~:[~;,~]ptr '(:struct %vk:~a) '%vk:~a)~)"
                                                macro-p
                                                (fix-type-name (name struct) (tags vk-spec))

@@ -222,7 +222,7 @@ See MAKE-API-VERSION\")
            (loop for name in *opaque-types*
                  do (format out "~%    #:~(~a~)"
                             (fix-type-name name (tags vk-spec))))
-           (loop for name in *opaque-struct-types*
+           (loop for name in (get-opaque-struct-types vk-spec)
                  do (format out "~%    #:~(~a~)"
                             (fix-type-name name (tags vk-spec))))
            (loop for name being each hash-key of *misc-os-types*

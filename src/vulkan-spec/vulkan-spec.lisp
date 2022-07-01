@@ -576,10 +576,18 @@ See ALLOWED-VALUES    a list of allowed values for this MEMBER-DATA instance."))
 Slots:
 See MEMBERS    an ordered list of MEMBER-DATA instances describing members of this STRUCT instance."))
 
+(defun opaque-structure-type-p (type-name vk-spec)
+  "Checks whether or not a given TYPE-NAME names an opaque struct type in the given VULKAN-SPEC.
+
+See GET-OPAQUE-STRUCT-TYPES"
+  (member type-name
+          (get-opaque-struct-types vk-spec)
+          :test #'string=))
+
 (defun structure-type-p (type-name vk-spec &optional (include-opaque-struct-types t))
   (or (gethash type-name (structures vk-spec))
       (and include-opaque-struct-types
-           (member type-name *opaque-struct-types* :test #'string=))
+           (opaque-structure-type-p type-name vk-spec))
       (member-if (lambda (m)
                    (member type-name (aliases m) :test #'string=))
                  (alexandria:hash-table-values (structures vk-spec)))))

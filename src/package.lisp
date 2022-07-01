@@ -7,7 +7,6 @@
    :*special-base-types*
    :*vk-platform*
    :*opaque-types*
-   :*opaque-struct-types*
    :*fix-must-be*
    :*misc-os-types*
    :+ext-base+
@@ -170,6 +169,8 @@
    :is-v1.2
    :get-base-doc-url-for-version
    :get-xml-path
+   :get-opaque-struct-types
+   :opaque-structure-type-p
 
    ;; parse spec
    :parse-vk-xml))
