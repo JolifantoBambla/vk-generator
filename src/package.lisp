@@ -8,7 +8,6 @@
    :*vk-platform*
    :*opaque-types*
    :*fix-must-be*
-   :*misc-os-types*
    :+ext-base+
    :+ext-block-size+
    :*directly-exposed-extensions*))
@@ -171,6 +170,8 @@
    :get-xml-path
    :get-opaque-struct-types
    :opaque-structure-type-p
+   :get-misc-external-types
+   :maybe-get-misc-external-type
 
    ;; parse spec
    :parse-vk-xml))

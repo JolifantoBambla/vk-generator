@@ -147,10 +147,11 @@ See ~a~]
 (defun get-type-to-declare (type-name vk-spec &optional param vector-params)
   (cond
     ;; the types that can't be translated and must not come in a list
-    ((and (gethash type-name *misc-os-types*)
-          (not (consp (gethash type-name *misc-os-types*))))
+    ((let ((misc-external-type (maybe-get-misc-external-type type-name vk-spec)))
+       (and misc-external-type
+            (not (consp misc-external-type))))
      (cond
-       ((member (gethash type-name *misc-os-types*) '(:uint32 :ulong))
+       ((member (maybe-get-misc-external-type type-name vk-spec) '(:uint32 :ulong))
         "unsigned-byte")
        (t (error ":Unknown MISC-OS-TYPE: ~a" type-name))))
     ((or (string= "void" type-name)
@@ -241,10 +242,11 @@ See ~a~]
      ":size")
     ((gethash type-name *vk-platform*)
      (format nil "~(~s~)" (gethash type-name *vk-platform*)))
-    ((gethash type-name *misc-os-types*)
-     (format nil "~:[~;'~]~(~s~)"
-             (consp (gethash type-name *misc-os-types*))
-             (gethash type-name *misc-os-types*)))
+    ((maybe-get-misc-external-type type-name vk-spec)
+     (let ((misc-external-type (maybe-get-external-type type-name vk-spec)))
+       (format nil "~:[~;'~]~(~s~)"
+               (consp misc-external-type)
+               misc-external-type)))
     ((and (gethash type-name (types vk-spec))
           (eq :requires (category (gethash type-name (types vk-spec)))))
      "'(:pointer :void)")

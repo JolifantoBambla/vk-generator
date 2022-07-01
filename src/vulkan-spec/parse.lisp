@@ -138,18 +138,16 @@ See VULKAN-SPEC
     (parse-tags vk.xml vk-spec)
     (parse-types vk.xml vk-spec)
 
-    #|
     (when video.xml
       (parse-types video.xml vk-spec :exclude '(:include :requires)))
-    |#
+
     (parse-enums vk.xml vk-spec)
     (parse-commands vk.xml vk-spec)
     (parse-features vk.xml vk-spec)
     (parse-extensions vk.xml vk-spec)
-    #|
+    
     (when video.xml
       (parse-extensions video.xml vk-spec))
-    |#
 
     (loop for feature being the hash-values of (features vk-spec)
           using (hash-key feature-name)

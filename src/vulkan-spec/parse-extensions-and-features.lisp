@@ -218,7 +218,7 @@
             ;; check if extension tag is known: VK_<tag>_<other>
             (let ((tag (second (split-sequence:split-sequence #\_ name))))
               (assert (find tag (tags vk-spec) :test 'string=)
-                        () "name <~a> is using an unknown tag <~a>" name tag)
+                      () "name <~a> is using an unknown tag <~a>" name tag)
               ;; see VulkanHppGenerator::readExtensionRequire
               (xpath:do-node-set (require-node (xpath:evaluate "require" node))
                 (let* ((@extension (xps (xpath:evaluate "@extension" require-node)))

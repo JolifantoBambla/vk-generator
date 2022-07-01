@@ -77,22 +77,13 @@
     "CAMetalLayer"
     "Display"))
 
-;; todo: use vk-video for >= 1.3.204, remove this param & use get-opaque-struct-types instead
-(defparameter *opaque-struct-types*
-  '(
-     ;; added in v1.2.171
-    
-    ;; new std video structs in v1.3
-    "StdVideoEncodeH264ReferenceInfo"
-    ))
-
 (defun get-opaque-struct-types (vk-spec)
   "Returns all opaque struct types used in the Vulkan API specification represented by the given VULKAN-SPEC."
   (declare (type vulkan-spec vk-spec))
   (with-slots (version) vk-spec
-    (let (opaque-struct-types '("wl_display"
-                                "wl_surface"
-                                "SECURITY_ATTRIBUTES"))
+    (let ((opaque-struct-types '("wl_display"
+                                 "wl_surface"
+                                 "SECURITY_ATTRIBUTES")))
       (when (version>= version "v1.2.171")
         (setf opaque-struct-types
               (append opaque-struct-types
@@ -161,39 +152,54 @@
      (:debug-report-callback-create-info
       . :debug-report-create-info-ext))))
 
-(defparameter *misc-os-types*
-  (alexandria:plist-hash-table
-   '("GgpStreamDescriptor" (:pointer :void) ;; 
-     "GgpFrameToken" (:pointer :void)
-     "HINSTANCE" (:pointer :void)
-     "HWND" (:pointer :void)
-     "HANDLE" (:pointer :void)
-     "HMONITOR" (:pointer :void)
-     "DWORD" :uint32
-     "LPCWSTR" (:pointer :void)
-     "RROutput" :ulong
-     "xcb_window_t" :uint32
-     "xcb_visualid_t" :uint32
-     "zx_handle_t" (:pointer :void)
-     "Window" :ulong
-     "VisualID" :ulong
-     "StdVideoH264ProfileIdc" :uint32 ;; an enum, added in v1.2.175
-     "StdVideoH264MemMgmtControlOp" :uint32
-     "StdVideoH264ModificationOfPicNumsIdc" :uint32
-     "StdVideoH264PictureType" :uint32
-     "StdVideoH264DisableDeblockingFilterIdc" :uint32
-     "StdVideoH264CabacInitIdc" :uint32
-     "StdVideoH264SliceType" :uint32
-     "StdVideoH264WeightedBipredIdc" :uint32
-     "StdVideoH264AspectRatioIdc" :uint32
-     "StdVideoH264PocType" :uint32
-     "StdVideoH264ChromaFormatIdc" :uint32
-     "StdVideoH264Level" :uint32
-     "StdVideoH265ProfileIdc" :uint32 ;; an enum, added in v1.2.175
-     "StdVideoH265PictureType" :uint32
-     "StdVideoH265SliceType" :uint32
-     "StdVideoH265Level" :uint32)
-   :test 'equal))
+(defun get-misc-external-types (vk-spec)
+  "Returns miscellaneous external types used in the Vulkan API represented by a given VULKAN-SPEC instance."
+  (declare (type vulkan-spec vk-spec))
+  (with-slots (version) vk-spec
+    (let ((misc-external-types '("GgpStreamDescriptor" (:pointer :void) ;; 
+                                 "GgpFrameToken" (:pointer :void)
+                                 "HINSTANCE" (:pointer :void)
+                                 "HWND" (:pointer :void)
+                                 "HANDLE" (:pointer :void)
+                                 "HMONITOR" (:pointer :void)
+                                 "DWORD" :uint32
+                                 "LPCWSTR" (:pointer :void)
+                                 "RROutput" :ulong
+                                 "xcb_window_t" :uint32
+                                 "xcb_visualid_t" :uint32
+                                 "zx_handle_t" (:pointer :void)
+                                 "Window" :ulong
+                                 "VisualID" :ulong)))
+      (when (and (version>= version "v1.2.175")
+                 (version< version "v1.3.204"))
+        (setf misc-external-types
+              (append misc-external-types
+                      '("StdVideoH264ProfileIdc" :uint32 ;; an enum, added in v1.2.175
+                        "StdVideoH264MemMgmtControlOp" :uint32
+                        "StdVideoH264ModificationOfPicNumsIdc" :uint32
+                        "StdVideoH264PictureType" :uint32
+                        "StdVideoH264DisableDeblockingFilterIdc" :uint32
+                        "StdVideoH264CabacInitIdc" :uint32
+                        "StdVideoH264SliceType" :uint32
+                        "StdVideoH264WeightedBipredIdc" :uint32
+                        "StdVideoH264AspectRatioIdc" :uint32
+                        "StdVideoH264PocType" :uint32
+                        "StdVideoH264ChromaFormatIdc" :uint32
+                        "StdVideoH264Level" :uint32
+                        "StdVideoH265ProfileIdc" :uint32 ;; an enum, added in v1.2.175
+                        "StdVideoH265PictureType" :uint32
+                        "StdVideoH265SliceType" :uint32
+                        "StdVideoH265Level" :uint32))))
+      (alexandria:plist-hash-table misc-external-types
+                                   :test #'equal))))
+
+(defun maybe-get-misc-external-type (type-name vk-spec)
+  "Gets the specification for a miscellaneous external type referenced by a given TYPE-NAME or NIL if it does not name a miscellaneous external type in the given VULKAN-SPEC instance.
+
+See GET-MISC-EXTERNAL-TYPES"
+  (declare (type string type-name))
+  (declare (type vulkan-spec vk-spec))
+  (gethash type-name (get-misc-external-types vk-spec)))
 
 ;; from generator.py
 (defconstant +ext-base+ 1000000000)

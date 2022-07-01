@@ -225,7 +225,7 @@ See MAKE-API-VERSION\")
            (loop for name in (get-opaque-struct-types vk-spec)
                  do (format out "~%    #:~(~a~)"
                             (fix-type-name name (tags vk-spec))))
-           (loop for name being each hash-key of *misc-os-types*
+           (loop for name being each hash-key of (get-misc-external-types vk-spec)
                  do (format out "~%    #:~(~a~)"
                             (fix-type-name name (tags vk-spec))))
            (format out "~%")

@@ -270,10 +270,13 @@ See VULKAN-SPEC
         (progn
           (assert (find requires (includes vk-spec) :test #'string=)
                   () "type requires unknown include <~a>" requires)
-          (setf (gethash name (types vk-spec))
-                (make-instance 'vk-type
-                               :name name
-                               :category :requires)))
+          ;; beginning in 1.3 the Vulkan API XML specification comes with an extra XML for vk_video types
+          (unless (and (version>= (version vk-spec) "v1.3.204")
+                       (search "vk_video/" requires))
+            (setf (gethash name (types vk-spec))
+                           (make-instance 'vk-type
+                                          :name name
+                                          :category :requires))))
         (progn
           (assert (string= name "int")
                   () "unknown type")
