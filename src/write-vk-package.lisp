@@ -310,6 +310,7 @@ See MAKE-API-VERSION\")
     #:extension-loader-device
     #:*default-allocator*
     #:*default-extension-loader*
+    #:non-dispatchable-handle
     #:raw-handle
     #:make-version
     #:version-major
