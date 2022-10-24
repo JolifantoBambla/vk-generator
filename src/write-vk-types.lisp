@@ -281,10 +281,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
 
       ;; lists of handles
       ((and (len member-data)
-            (handlep (get-type-name member-data) vk-spec)
-            (find-if (lambda (count-member)
-                           (string= (car (len member-data)) count-member))
-                         count-member-names))
+            (handlep (get-type-name member-data) vk-spec))
        (format nil "(vk-alloc:foreign-allocate-and-fill '%vk:~(~a~) (cl:map 'list #'%~@[~a-~]dispatchable-handle (~(vk:~a~) ~a)) ~a)"
                (fix-type-name (get-type-name member-data) (tags vk-spec))
                (when (non-dispatch-handle-p (get-handle (get-type-name member-data) vk-spec))
@@ -292,6 +289,7 @@ Instances of this class are used as parameters of the following functions:~{~%Se
                fixed-accessor-name
                value-str
                ptr-str))
+      
       ;; todo: check for regressions
       ((and (len member-data)
             (or (search "rasterizationSamples" (car (len member-data))) ;; VkPipelineMultisampleStateCreateInfo.pSampleMask (not technically a handle)
