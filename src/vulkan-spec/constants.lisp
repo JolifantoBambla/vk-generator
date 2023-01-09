@@ -75,12 +75,12 @@
     "IDirectFB"
     "IDirectFBSurface"
     "CAMetalLayer"
-    "Display"))
+    "Display"
+    "wl_display"
+    "wl_surface"))
 
 (defparameter *opaque-struct-types*
-  '("wl_display"
-    "wl_surface"
-    "SECURITY_ATTRIBUTES"
+  '("SECURITY_ATTRIBUTES"
     "_screen_context"  ;; added in v1.2.171
     "_screen_window" ;; added in v1.2.171
     ;; all StdVideo-structs have been added in v1.2.175
